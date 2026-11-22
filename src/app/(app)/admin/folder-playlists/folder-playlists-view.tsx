@@ -54,7 +54,8 @@ export function FolderPlaylistsView() {
       }
     >
       <p className="text-muted-foreground mb-4 max-w-prose text-sm">
-        A rule follows one folder in a library. After every scan, the playlists and folders it makes are brought back in line with the files.
+        A rule follows one folder in a library. After every scan, the playlists and folders it makes are brought back in line with the files. A playlist file (.m3u or .m3u8) in a
+        folder sets the order of its tracks.
       </p>
       {rules.isError ? (
         <LoadError message={rules.error.message} />

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { ModePicker, RulePreview } from "~/components/admin/folder-rule-parts";
+import { ModePicker, playlistFileNote, RulePreview } from "~/components/admin/folder-rule-parts";
 import { useConfirm } from "~/components/confirm-provider";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
@@ -95,7 +95,10 @@ export function RuleView({ id }: { id: number }) {
         </SettingRow>
       </FormSection>
 
-      <FormSection title="Result" description="These follow the files, so nobody edits them by hand. Anyone can make their own copy of a playlist to change.">
+      <FormSection
+        title="Result"
+        description={<>These follow the files, so nobody edits them by hand. Anyone can make their own copy of a playlist to change. {playlistFileNote[data.mode]}</>}
+      >
         <RulePreview libraryId={data.libraryId} path={data.path} mode={data.mode} />
       </FormSection>
 

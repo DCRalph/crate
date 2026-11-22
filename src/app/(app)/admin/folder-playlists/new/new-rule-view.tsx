@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { LibraryFolderPicker, ModePicker, RulePreview } from "~/components/admin/folder-rule-parts";
+import { LibraryFolderPicker, ModePicker, playlistFileNote, RulePreview } from "~/components/admin/folder-rule-parts";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
@@ -86,7 +86,10 @@ export function NewRuleView({ libraryId: startLibrary }: { libraryId: number | n
         </FormSection>
 
         {libraryId !== null ? (
-          <FormSection title="Preview" description="What this rule would make from what is scanned now. It follows the files from then on, and nobody edits the result by hand.">
+          <FormSection
+            title="Preview"
+            description={<>What this rule would make from what is scanned now. It follows the files from then on, and nobody edits the result by hand. {playlistFileNote[mode]}</>}
+          >
             <RulePreview libraryId={libraryId} path={path} mode={mode} />
           </FormSection>
         ) : null}
