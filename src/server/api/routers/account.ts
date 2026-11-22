@@ -7,11 +7,15 @@ import { recordActivity } from "~/server/activity";
 import { createAppPassword } from "~/server/app-passwords";
 import { db } from "~/server/db";
 import { appPassword } from "~/server/db/app-schema";
+import { requestOrigin } from "~/server/request-origin";
 import { protectedProcedure, router } from "../trpc";
 
 export const accountRouter = router({
-  /** What to type into a Subsonic client. */
-  connection: protectedProcedure.query(({ ctx }) => ({ serverUrl: env.BETTER_AUTH_URL, username: ctx.scope.user.username })),
+  /** What to type into a Subsonic client: the address this person is using right now, so it works from where they are. */
+  connection: protectedProcedure.query(({ ctx }) => ({
+    serverUrl: requestOrigin(ctx.headers, env.BETTER_AUTH_URL),
+    username: ctx.scope.user.username,
+  })),
 
   appPasswords: protectedProcedure.query(({ ctx }) =>
     db

@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin, username } from "better-auth/plugins";
 
 import { env } from "~/env";
+import { localHostPatterns } from "~/lib/local-hosts";
 import { site } from "~/lib/site";
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
@@ -17,7 +18,27 @@ import { db } from "~/server/db";
  */
 export const auth = betterAuth({
   appName: site.name,
-  baseURL: env.BETTER_AUTH_URL,
+  // The address is taken from each request, so one server can be signed in to
+  // at its public address and over the local network at once. Origins on any
+  // allowed host pass better-auth's origin check; what stops one site acting
+  // for another is the session cookie, which is SameSite and tied to its host.
+  baseURL: {
+    allowedHosts: [new URL(env.BETTER_AUTH_URL).host, ...localHostPatterns, ...env.ALLOWED_HOSTS],
+    fallback: env.BETTER_AUTH_URL,
+    // Both schemes: https at the public address, plain http on the LAN. Without
+    // this only https origins are trusted, and anything after the first sign-in
+    // (signing out, changing a password) is refused over http.
+    protocol: "auto",
+  },
+  advanced: {
+    // Next fills in x-forwarded-proto and -host itself when no proxy has, so these
+    // are the request's real scheme and host either way.
+    trustedProxyHeaders: true,
+    // better-auth decides once, at start-up, whether cookies are Secure. A Secure
+    // cookie is dropped by a browser that came in over plain http on the LAN, so it
+    // is left off here and added per request in app/api/auth/[...all]/route.ts.
+    useSecureCookies: false,
+  },
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg" }),
   // No email sender, so admins reset passwords. Impersonation would let an
