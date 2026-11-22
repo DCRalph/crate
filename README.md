@@ -40,6 +40,16 @@ Two APIs sit on one core, so access rules and logging apply to both without bein
 
 Keyboard: `/` jumps to search, `Space` plays and pauses.
 
+## Reaching it on your network
+
+Sign-in works at the public address (`BETTER_AUTH_URL`) and, with nothing to configure, over the local network: by IP address (`http://192.168.1.20:3000`), by `.local` name, and over Tailscale. For any other name, list it in `ALLOWED_HOSTS`.
+
+- The address is worked out per request (`src/lib/auth.ts`). Requests from any other origin are refused.
+- Session cookies are marked Secure when a request came over https and not otherwise (`src/app/api/auth/[...all]/route.ts`). A Secure cookie would never be stored by a browser on plain http, and sign-in would silently do nothing.
+- Account shows the server address you are using at that moment, so the address you copy into a music app works from where you are.
+- A reverse proxy should pass on `Host` and `X-Forwarded-Proto`. Caddy and Traefik do. nginx needs `proxy_set_header Host $host;` and `proxy_set_header X-Forwarded-Proto $scheme;`.
+- `bun dev` can be opened from another device on the network: this machine's addresses are allowed automatically (`allowedDevOrigins` in `next.config.ts`).
+
 ## Security notes
 
 - Run it behind a reverse proxy that terminates TLS and sets `X-Forwarded-For`. Logged addresses come from the last entry of that header.

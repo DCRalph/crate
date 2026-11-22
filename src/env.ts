@@ -9,6 +9,12 @@ export const env = z
     BETTER_AUTH_SECRET: z.string().min(32),
     // Public origin of the server, e.g. https://music.example.com.
     BETTER_AUTH_URL: z.url(),
+    // Other hosts people may sign in through, comma separated, e.g. "music.lan,nas.tailnet.ts.net".
+    // Private network addresses and .local names are always allowed (src/lib/local-hosts.ts).
+    ALLOWED_HOSTS: z
+      .string()
+      .default("")
+      .transform((list) => list.split(",").map((host) => host.trim()).filter(Boolean)),
     // Cover art cache. Safe to delete.
     DATA_DIR: z.string().min(1).default("./data"),
     // Rescan every library on this interval. Unset means scans are started by hand.
