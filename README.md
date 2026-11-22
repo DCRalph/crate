@@ -18,7 +18,9 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Access control.** A library is a root folder. Users reach a library only when an admin grants it, with downloads as a separate permission, and can be given a streaming bitrate cap. Admins reach everything. Accounts are made by admins; there is no sign-up.
 - **App passwords.** Subsonic apps never see the account password. Each app gets its own generated password from Account, shown once, revocable on its own, with when and where it was last used.
 - **Logs.** Admin > Activity has three: sign-ins and every change (who, what, from where), every Subsonic and media request, and every play.
-- **Folder playlists.** A rule turns a folder into playlists: one per subfolder, one per folder that holds tracks, or the folder as a whole. Mirror rules follow the disk on every scan and are read-only; import-once rules make ordinary playlists.
+- **Playlist folders.** Playlists sit in a tree. Folders hold folders and playlists; a playlist is always a leaf. Subsonic apps, which have no folders, see a playlist's folders in its name ("Mixes / 2025 / Summer").
+- **Folder playlists.** A rule follows a folder in a library and makes the playlists and folders that match it: a folder that holds folders becomes a folder, a folder that holds tracks becomes a playlist. Or the whole folder can be one playlist. What a rule makes is rebuilt after every scan and is read-only; anyone can make their own copy of a playlist to edit.
+- **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
 
 ## How it is put together
@@ -28,11 +30,12 @@ Two APIs sit on one core, so access rules and logging apply to both without bein
 - `src/server/access.ts`: `scopeFor(user)` works out which libraries a user reaches. Every library query takes that scope.
 - `src/server/library/queries.ts`: every read of the library. `scanner.ts` keeps the database in line with the folders (new and changed files only, unless asked for a full rescan). `cover.ts` resizes and caches cover art under `DATA_DIR`.
 - `src/server/subsonic/`: the Subsonic API. `handle.ts` signs the caller in and writes the access log, `handlers.ts` has one function per method, `shapes.ts` is how rows look to clients, `respond.ts` renders JSON or XML.
-- `src/server/api/`: the tRPC API the website uses. `routers/admin.ts` is admin-only, enforced in `trpc.ts`, not by hiding the menu.
-- `src/server/playlists/`: playlist writes shared by both APIs, and the folder rules (`group-tracks.ts` is the pure part).
+- `src/server/api/`: the tRPC API the website uses. `routers/admin/` is admin-only, enforced in `trpc.ts`, not by hiding the menu.
+- `src/server/list/` and `src/components/data-table/`: the two halves of every admin table. The table sends its search, sort, filters and page; `buildListQuery` turns them into a query using a column map that is also the allowlist.
+- `src/server/playlists/`: playlist writes shared by both APIs, the folders playlists sit in (`folders.ts`), and the folder rules (`plan-tree.ts` is the pure part, `folder-rules.ts` applies it).
 - `src/server/media/`: file streaming with range requests, and transcoding through ffmpeg.
 - `src/server/db/app-schema.ts`: the app's tables. `schema.ts` is better-auth's, written by hand to match the plugins in `src/lib/auth.ts`; change them together, then `bun db:generate`.
-- `src/app/(app)`: the signed-in pages. Each `page.tsx` is a server wrapper around a client view that fetches through tRPC. `src/components/player` is the play queue (a Zustand store) and the bar that holds the one audio element.
+- `src/app/(app)`: the signed-in pages. Each `page.tsx` is a server wrapper around a client view that fetches through tRPC. Anything that can be edited has a page of its own, built from the parts in `src/components/shell/form.tsx`. `src/components/player` is the play queue (a Zustand store) and the bar that holds the one audio element.
 
 ## Design
 
@@ -65,7 +68,7 @@ Groups, share links, two-factor and passkeys, importing users and playlists from
 ## Checks
 
 ```sh
-bun test         # pure logic: XML, ranges, transcode decisions, folder grouping
+bun test         # pure logic: XML, ranges, transcode decisions, folder trees
 bun typecheck
 bun lint
 ```
