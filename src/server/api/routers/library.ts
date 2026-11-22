@@ -1,10 +1,22 @@
 import { TRPCError } from "@trpc/server";
-import { asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import type { Scope } from "~/server/access";
+import { inScope, type Scope } from "~/server/access";
+import { db } from "~/server/db";
 import { album, annotation, annotationTypes, artist, track } from "~/server/db/app-schema";
-import { annotate, listAlbums, listAlbumsByPlays, listArtists, listTracks, search, type TrackRow } from "~/server/library/queries";
+import {
+  albumsWith,
+  annotate,
+  listAlbums,
+  listAlbumsByPlays,
+  listArtists,
+  listTracks,
+  search,
+  type TrackRow,
+} from "~/server/library/queries";
+import { buildListQuery, listResult, type ListColumnMap } from "~/server/list/build-list-query";
+import { createListInputSchema } from "~/server/list/list-input";
 import { recordPlay } from "~/server/logs";
 import { clientIp } from "~/server/request-origin";
 import { protectedProcedure, router } from "../trpc";
@@ -15,6 +27,7 @@ export const toWebTrack = (scope: Scope, row: TrackRow) => ({
   title: row.title,
   albumId: row.albumId,
   albumName: row.albumName,
+  // The full artist credit to show, and the first artist on it to link to.
   artistId: row.artistId,
   artistName: row.artistName,
   trackNumber: row.trackNumber,
@@ -34,11 +47,43 @@ const byAlbumName = asc(sql`lower(${album.name})`);
 const albumSorts = {
   added: [desc(album.createdAt), desc(album.id)],
   name: [byAlbumName, asc(album.id)],
-  artist: [asc(sql`lower(${artist.name})`), byAlbumName, asc(album.id)],
+  artist: [asc(sql`lower(${album.artistCredit})`), byAlbumName, asc(album.id)],
   year: [desc(sql`coalesce(${album.year}, 0)`), byAlbumName, asc(album.id)],
 };
 
+/** What the Tracks page can search, sort and filter on. */
+const trackListColumns = {
+  title: { column: track.title, type: "text", searchable: true, sortable: true },
+  artistName: { column: track.artistCredit, type: "text", searchable: true, sortable: true, filterable: true },
+  albumName: { column: album.name, type: "text", searchable: true, sortable: true, filterable: true },
+  genre: { column: track.genre, type: "text", sortable: true, filterable: true },
+  year: { column: track.year, type: "number", sortable: true, filterable: true },
+  suffix: { column: track.suffix, type: "enum", sortable: true, filterable: true },
+  bitRate: { column: track.bitRate, type: "number", sortable: true, filterable: true },
+  duration: { column: track.duration, type: "number", sortable: true },
+  createdAt: { column: track.createdAt, type: "date", sortable: true, filterable: true },
+} satisfies ListColumnMap;
+
 export const libraryRouter = router({
+  /** Every track the user can reach, a page at a time, for the Tracks page's table. */
+  tracks: protectedProcedure.input(createListInputSchema({ defaultPageSize: 50 })).query(async ({ ctx, input }) => {
+    const query = buildListQuery(trackListColumns, input, { defaultSort: [asc(sql`lower(${track.title})`), asc(track.id)] });
+    const [rows, [total]] = await Promise.all([
+      listTracks(ctx.scope, { where: query.where, orderBy: query.orderBy, limit: query.limit, offset: query.offset }),
+      db
+        .select({ total: count() })
+        .from(track)
+        .innerJoin(album, eq(album.id, track.albumId))
+        .where(and(inScope(track.libraryId, ctx.scope), query.where)),
+    ]);
+    return listResult(
+      rows.map((row) => ({ ...toWebTrack(ctx.scope, row), genre: row.genre, year: row.year, createdAt: row.createdAt })),
+      total?.total ?? 0,
+      input,
+    );
+  }),
+
+
   /** A page of albums. `recent` and `frequent` follow the user's own plays. */
   albums: protectedProcedure
     .input(
@@ -64,13 +109,15 @@ export const libraryRouter = router({
     return { ...found, tracks: tracks.map((row) => toWebTrack(ctx.scope, row)) };
   }),
 
+  /** Everyone credited on a track or album, joint credits split into their artists. */
   artists: protectedProcedure.query(({ ctx }) => listArtists(ctx.scope)),
 
+  /** One artist with every album they are on, including other people's. */
   artist: protectedProcedure.input(z.object({ id: z.number().int() })).query(async ({ ctx, input }) => {
     const [found] = await listArtists(ctx.scope, { where: eq(artist.id, input.id) });
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Artist not found." });
     const albums = await listAlbums(ctx.scope, {
-      where: eq(album.artistId, input.id),
+      where: albumsWith(input.id),
       orderBy: [desc(sql`coalesce(${album.year}, 0)`), byAlbumName],
       limit: 2000,
     });

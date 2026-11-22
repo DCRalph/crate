@@ -35,7 +35,7 @@ export function LikedView() {
       ) : tracks.length === 0 ? (
         <Empty>Nothing liked yet. Give a heart to anything you would play twice.</Empty>
       ) : (
-        <TrackTable tracks={tracks} showAlbum />
+        <TrackTable tracks={tracks} showAlbum showCover />
       )}
     </Page>
   );
