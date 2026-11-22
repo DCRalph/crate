@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crate Style Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Cabin:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --background: #000;
+    --surface: #171717;
+    --raised: #262626;
+    --foreground: #fafafa;
+    --muted-foreground: #a1a1a1;
+    --faint: rgb(255 255 255 / 0.3);
+    --border: rgb(255 255 255 / 0.10);
+    --input: rgb(255 255 255 / 0.15);
+    --ring: #737373;
+    --brand: #e7000b;
+    --brand-hover: #c90009;
+    --brand-text: #ff4d4d;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --radius: 10px;
+    --body: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+    --title: "Cabin", ui-sans-serif, system-ui, sans-serif;
+    --display: "Anybody", ui-sans-serif, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font: 14px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 16px 96px; }
+  h1 { font: 800 28px/0.92 var(--display); font-stretch: 135%; text-transform: uppercase; letter-spacing: -0.01em; margin: 0 0 10px; }
+  h2 { font: 600 24px/1.2 var(--title); margin: 56px 0 14px; padding-top: 20px; border-top: 1px solid var(--border); }
+  h3 { font: 600 14px/1.3 var(--body); margin: 28px 0 10px; }
+  p { margin: 6px 0; max-width: 72ch; }
+  ul { margin: 6px 0; padding-left: 18px; max-width: 76ch; }
+  li { margin: 3px 0; }
+  code { font: 12px var(--mono); color: #d4d4d4; background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+  .dim { color: var(--muted-foreground); }
+  .t-label { font: 700 10px/1 var(--display); font-stretch: 135%; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font: 12px var(--mono); }
+  .grid { display: grid; gap: 12px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .g4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .scroll { overflow-x: auto; }
+
+  /* swatches */
+  .sw { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .sw i { display: block; height: 56px; border-bottom: 1px solid var(--border); }
+  .sw div { padding: 8px 10px; }
+  .sw b { display: block; font-weight: 600; font-size: 13px; }
+  .sw span { display: block; font: 11px var(--mono); color: var(--muted-foreground); }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; height: 36px; padding: 0 8px; border-bottom: 1px solid var(--border); font: 700 10px/1 var(--display); font-stretch: 135%; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); white-space: nowrap; }
+  td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: rgb(38 38 38 / 0.5); }
+  .r { text-align: right; }
+  .c { text-align: center; }
+
+  /* controls */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; font: 500 14px var(--body); white-space: nowrap; }
+  .btn.sm { height: 32px; padding: 0 12px; }
+  .btn.icon { width: 36px; padding: 0; }
+  .btn.brand { background: var(--brand); color: #fff; }
+  .btn.default { background: #e5e5e5; color: #171717; }
+  .btn.secondary { background: var(--raised); color: var(--foreground); }
+  .btn.outline { background: rgb(255 255 255 / 0.045); border-color: var(--input); color: var(--foreground); }
+  .btn.ghost { color: var(--foreground); }
+  .btn.destructive { background: rgb(248 113 113 / 0.6); color: #fff; }
+  .field { height: 36px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--input); background: rgb(255 255 255 / 0.045); color: var(--foreground); font: 14px var(--body); display: flex; align-items: center; }
+  .field.ph { color: var(--muted-foreground); }
+  .lbl { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+  .hint { font-size: 12px; color: var(--muted-foreground); margin-top: 6px; }
+  .switch { width: 32px; height: 18px; border-radius: 99px; background: var(--input); position: relative; display: inline-block; vertical-align: middle; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fafafa; }
+  .switch.on { background: #e5e5e5; }
+  .switch.on::after { left: 16px; background: #171717; }
+  .check { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--input); display: inline-grid; place-items: center; vertical-align: middle; font-size: 11px; line-height: 1; }
+  .check.on { background: #e5e5e5; border-color: #e5e5e5; color: #171717; }
+  .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 500; background: var(--raised); }
+  .badge.outline { background: none; border: 1px solid var(--border); }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); } .dot.neutral { background: var(--faint); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; min-width: 0; }
+  .card > h3:first-child { margin-top: 0; }
+  .art { aspect-ratio: 1; border-radius: 6px; background: linear-gradient(135deg, #3a3a3a, #1c1c1c); display: block; }
+  .art.b { background: linear-gradient(135deg, #4a2a2a, #1a1212); }
+  .art.c { background: linear-gradient(135deg, #2a3a4a, #12181e); }
+  .art.d { background: linear-gradient(135deg, #3a3a2a, #1a1a12); }
+  .art.e { background: linear-gradient(135deg, #2e2a4a, #14121e); }
+
+  /* shell mock */
+  .shell { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; min-width: 860px; }
+  .shell-top { display: grid; grid-template-columns: 208px 1fr; }
+  .side { padding: 0 8px 12px; }
+  .side-head { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 6px; border-bottom: 1px solid var(--border); margin: 0 -8px 8px; padding-left: 14px; }
+  .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--brand); display: grid; place-items: center; }
+  .word { font: 800 13px/0.92 var(--display); font-stretch: 135%; text-transform: uppercase; }
+  .side .t-label { padding: 12px 8px 6px; display: block; color: rgb(250 250 250 / 0.5); }
+  .nav { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border-radius: 8px; font-size: 14px; position: relative; }
+  .nav.on { background: var(--raised); font-weight: 500; }
+  .nav.on::before { content: ""; position: absolute; left: -8px; top: 9px; width: 2px; height: 16px; border-radius: 1px; background: var(--brand); }
+  .nav svg, .ic { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .content { background: var(--background); border-top-left-radius: 12px; margin-top: 8px; min-width: 0; }
+  .head { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+  .head .crumb { font: 500 20px var(--title); }
+  .head .crumb .dim { margin-right: 6px; }
+  .page { padding: 20px; }
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .tile b { display: block; font-size: 13px; font-weight: 500; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile span { display: block; font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player { height: 72px; border-top: 1px solid var(--border); background: var(--surface); display: grid; grid-template-columns: 1fr 1.4fr 1fr; align-items: center; gap: 16px; padding: 0 16px; }
+  .now { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .now .art { width: 44px; flex: none; }
+  .now b { display: block; font-size: 13px; font-weight: 500; }
+  .now span { font-size: 12px; color: var(--muted-foreground); }
+  .transport { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .transport .row { gap: 14px; }
+  .playbtn { width: 32px; height: 32px; border-radius: 50%; background: #fafafa; color: #000; display: grid; place-items: center; }
+  .playbtn svg { fill: currentColor; stroke: none; width: 14px; height: 14px; }
+  .scrub { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 11px; color: var(--muted-foreground); }
+  .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--raised); position: relative; }
+  .bar i { position: absolute; inset: 0 62% 0 0; border-radius: 2px; background: var(--brand); }
+  .right { display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: var(--muted-foreground); }
+  .right .bar { flex: none; width: 84px; }
+  .right .bar i { background: #fafafa; inset: 0 30% 0 0; }
+  .playing td:nth-child(2) { color: var(--brand-text); }
+  .listrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .listrow:last-child { border-bottom: 0; padding-bottom: 0; }
+  .listrow:first-of-type { padding-top: 0; }
+  .tileic { width: 36px; height: 36px; border-radius: 8px; background: var(--raised); display: grid; place-items: center; flex: none; }
+  .listrow b { display: block; font-size: 14px; font-weight: 500; }
+  .listrow span.d { font-size: 12px; color: var(--muted-foreground); }
+  .grow { flex: 1; min-width: 0; }
+  .do, .dont { border-left: 2px solid var(--ok); padding: 2px 0 2px 12px; }
+  .dont { border-color: var(--bad); }
+  @media (max-width: 640px) { h1 { font-size: 22px; } h2 { font-size: 20px; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Crate style guide</h1>
+<p class="dim">Self-hosted music server. Web app and admin console. Dark only. "Crate" is a working name and lives in one constant.</p>
+<p>This is your WMGX console system carried over: same shadcn tokens, same type roles, same shell. The changes are true black behind content, a player bar, and patterns for music lists.</p>
+
+<h2>Principles</h2>
+<ul>
+  <li><b>The music is the colour.</b> The interface stays neutral grey on black. Album art is the only saturated thing on most screens.</li>
+  <li><b>Red means one thing at a time.</b> Brand red marks the current page, the one primary action on a screen, and what is playing. Nothing else.</li>
+  <li><b>Dense, not cramped.</b> 14px body, 36px controls, hairline rows. Show the table, not a summary of the table.</li>
+  <li><b>No decoration.</b> Cards only where a group of settings needs a boundary. Lists and tables sit straight on the page.</li>
+  <li><b>Still unless asked.</b> No looping animation anywhere. Colour transitions of 150ms on hover and focus only.</li>
+</ul>
+
+<h2>Colour</h2>
+<div class="grid g4">
+  <div class="sw"><i style="background:#000"></i><div><b>background</b><span>#000 · page</span></div></div>
+  <div class="sw"><i style="background:#171717"></i><div><b>card / sidebar</b><span>oklch(0.205 0 0)</span></div></div>
+  <div class="sw"><i style="background:#262626"></i><div><b>secondary / muted</b><span>oklch(0.269 0 0)</span></div></div>
+  <div class="sw"><i style="background:#fafafa"></i><div><b>foreground</b><span>oklch(0.985 0 0)</span></div></div>
+  <div class="sw"><i style="background:#a1a1a1"></i><div><b>muted-foreground</b><span>oklch(0.708 0 0)</span></div></div>
+  <div class="sw"><i style="background:rgb(255 255 255 / 0.10)"></i><div><b>border</b><span>white 10%</span></div></div>
+  <div class="sw"><i style="background:#e5e5e5"></i><div><b>primary</b><span>oklch(0.922 0 0)</span></div></div>
+  <div class="sw"><i style="background:#e7000b"></i><div><b>brand</b><span>#e7000b · fills</span></div></div>
+  <div class="sw"><i style="background:#ff4d4d"></i><div><b>brand-text</b><span>#ff4d4d · red as text</span></div></div>
+  <div class="sw"><i style="background:#34d399"></i><div><b>ok</b><span>emerald-400</span></div></div>
+  <div class="sw"><i style="background:#fbbf24"></i><div><b>warn</b><span>amber-400</span></div></div>
+  <div class="sw"><i style="background:#f87171"></i><div><b>bad</b><span>red-400</span></div></div>
+</div>
+<ul>
+  <li>Tokens are the stock shadcn neutral set, so every shadcn component works unstyled. Only <code>--background</code> (true black) and <code>--brand</code> differ from the console.</li>
+  <li><code>--brand</code> is for fills. Red text on black uses <code>--brand-text</code>, which passes contrast at small sizes.</li>
+  <li>Status colours appear as a 6px dot beside a word. Never as a filled badge, never as coloured body text.</li>
+</ul>
+
+<h2>Type</h2>
+<div class="grid g2">
+  <div>
+    <p style="font:800 22px/0.92 var(--display);font-stretch:135%;text-transform:uppercase;letter-spacing:-0.01em;margin:0 0 4px">Crate</p>
+    <p class="dim">Wordmark. Anybody 800, stretch 135%, caps. <code>t-display</code></p>
+    <p style="font:500 24px/1.2 var(--title);margin:18px 0 4px">Albums / Homework</p>
+    <p class="dim">Page title in the header breadcrumb. Cabin 500, 20 to 24px. <code>font-title</code></p>
+    <p style="font-size:14px;font-weight:600;margin:18px 0 4px">Recently added</p>
+    <p class="dim">Section heading. Montserrat 600, 14px.</p>
+  </div>
+  <div>
+    <p style="margin:0 0 4px">Around the World <span class="dim">· Daft Punk</span></p>
+    <p class="dim">Body. Montserrat 400/500, 14px. Detail lines are 12px muted.</p>
+    <p class="t-label" style="margin:18px 0 4px">Library · Title · Last played</p>
+    <p class="dim">Group labels and column headers. Anybody 700, stretch 135%, 10px caps. <code>t-label</code></p>
+    <p class="num" style="margin:18px 0 4px">7:09 · 1,204 tracks · 22 Nov 2026, 14:03</p>
+    <p class="dim">Durations, counts and times use <code>tabular-nums</code> so columns line up.</p>
+    <p class="mono" style="margin:18px 0 4px">192.168.1.24 · /music/Mixes/2024</p>
+    <p class="dim">IPs, paths, IDs and secrets are monospace, 12px.</p>
+  </div>
+</div>
+
+<h2>Shape and spacing</h2>
+<ul>
+  <li>Radius: 8px controls, 10 to 14px cards and dialogs, 6px album art, full for avatars and status dots.</li>
+  <li>Controls are 36px tall, 32px in toolbars and table rows. Icon buttons are square at the same heights.</li>
+  <li>Page padding 16 / 24 / 32px by breakpoint. Sections are 32px apart, a heading sits 12px above its content.</li>
+  <li>Hairlines are 1px at white 10%. Rows divide with a hairline, not zebra stripes or gaps.</li>
+  <li>Icons are Lucide, 16px, 2px stroke, in the text colour.</li>
+</ul>
+
+<h2>Shell</h2>
+<p>Sidebar on the sidebar grey, content on black with a rounded top-left corner, sticky header that carries the page title as a breadcrumb, player bar across the bottom. The sidebar collapses to icons on desktop and becomes a sheet on phones. Admin group only shows for admins.</p>
+<div class="scroll" style="margin-top:14px">
+<div class="shell">
+  <div class="shell-top">
+    <div class="side">
+      <div class="side-head">
+        <span class="mark"><svg class="ic" viewBox="0 0 24 24" style="stroke:#fff"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+        <span class="word">Crate</span>
+      </div>
+      <span class="t-label">Library</span>
+      <span class="nav on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Albums</span>
+      <span class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Artists</span>
+      <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Tracks</span>
+      <span class="nav"><svg viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h8"/><path d="M19 12v7"/><circle cx="17" cy="19" r="2"/></svg>Playlists</span>
+      <span class="t-label">Admin</span>
+      <span class="nav"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6"/></svg>Users</span>
+      <span class="nav"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Libraries</span>
+      <span class="nav"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Activity</span>
+    </div>
+    <div class="content">
+      <div class="head">
+        <span class="crumb">Albums</span>
+        <span class="field ph" style="width:260px;margin-left:auto;height:32px">Search</span>
+      </div>
+      <div class="page">
+        <div class="row" style="margin-bottom:12px">
+          <b style="font-size:14px;font-weight:600">Recently added</b>
+          <span class="dim num" style="font-size:12px">412 albums</span>
+        </div>
+        <div class="tiles">
+          <div class="tile"><i class="art"></i><b>Homework</b><span>Daft Punk · 1997</span></div>
+          <div class="tile"><i class="art b"></i><b>Since I Left You</b><span>The Avalanches · 2000</span></div>
+          <div class="tile"><i class="art c"></i><b>Selected Ambient Works 85-92</b><span>Aphex Twin · 1992</span></div>
+          <div class="tile"><i class="art d"></i><b>Discovery</b><span>Daft Punk · 2001</span></div>
+          <div class="tile"><i class="art e"></i><b>Untrue</b><span>Burial · 2007</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="player">
+    <div class="now"><i class="art"></i><div><b>Around the World</b><span>Daft Punk</span></div></div>
+    <div class="transport">
+      <div class="row">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8zM5 5v14"/></svg>
+        <span class="playbtn"><svg viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></svg></span>
+        <svg class="ic" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8zM19 5v14"/></svg>
+      </div>
+      <div class="scrub num"><span>2:42</span><span class="bar"><i></i></span><span>7:09</span></div>
+    </div>
+    <div class="right">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h8"/></svg>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM16 9a4 4 0 0 1 0 6"/></svg>
+      <span class="bar"><i></i></span>
+    </div>
+  </div>
+</div>
+</div>
+<ul>
+  <li>Player bar is 72px, always present (it says "Nothing playing" when the queue is empty), and never covers content: the content column ends above it.</li>
+  <li>Progress is the one red fill in the bar. Volume is white. Play is a white disc.</li>
+  <li>On phones the bar keeps art, title, play/pause and next. Tapping it opens the full queue as a sheet.</li>
+</ul>
+
+<h2>Track list</h2>
+<p>The core pattern. A plain table straight on the page. The playing row turns its title <code>brand-text</code> red and nothing else changes. Double click or the row's play button starts it. Row actions sit in a menu on the right, visible on hover and always visible on touch.</p>
+<div class="scroll">
+<table style="min-width:640px">
+  <thead><tr><th class="r" style="width:40px">#</th><th>Title</th><th>Artist</th><th class="r">Plays</th><th class="r">Time</th></tr></thead>
+  <tbody>
+    <tr><td class="r dim num">1</td><td>Daftendirekt</td><td class="dim">Daft Punk</td><td class="r dim num">12</td><td class="r dim num">2:44</td></tr>
+    <tr><td class="r dim num">2</td><td>WDPK 83.7 FM</td><td class="dim">Daft Punk</td><td class="r dim num">9</td><td class="r dim num">0:28</td></tr>
+    <tr class="playing"><td class="r num" style="color:var(--brand-text)">3</td><td>Around the World</td><td class="dim">Daft Punk</td><td class="r dim num">48</td><td class="r dim num">7:09</td></tr>
+    <tr><td class="r dim num">4</td><td>Da Funk</td><td class="dim">Daft Punk</td><td class="r dim num">31</td><td class="r dim num">5:28</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Controls</h2>
+<div class="grid g2">
+  <div>
+    <h3 style="margin-top:0">Buttons</h3>
+    <div class="row">
+      <span class="btn brand">Add user</span>
+      <span class="btn default">Save</span>
+      <span class="btn secondary">Scan now</span>
+      <span class="btn outline">Cancel</span>
+      <span class="btn ghost">Details</span>
+      <span class="btn destructive">Revoke</span>
+    </div>
+    <ul>
+      <li><b>brand</b>: one per screen at most, the thing the page is for.</li>
+      <li><b>default</b>: confirm inside dialogs and forms.</li>
+      <li><b>outline</b> and <b>ghost</b>: everything else. <b>destructive</b> only inside a confirm dialog.</li>
+      <li>Labels are a verb or verb and noun. Sentence case.</li>
+    </ul>
+    <h3>Status</h3>
+    <div class="row" style="gap:20px">
+      <span><i class="dot ok"></i>Active</span>
+      <span><i class="dot warn"></i>Scanning <span class="dim" style="font-size:12px">· 1,204 of 8,310</span></span>
+      <span><i class="dot bad"></i>Disabled</span>
+      <span><i class="dot neutral"></i>Never used</span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span class="badge">Admin</span><span class="badge outline">Mirror</span><span class="badge outline">FLAC</span>
+    </div>
+    <p class="dim" style="font-size:12px">Badges are for fixed facts (role, format, mode). State is always a dot and a word.</p>
+  </div>
+  <div>
+    <h3 style="margin-top:0">Fields</h3>
+    <span class="lbl">Folder</span>
+    <span class="field mono">/music/Mixes</span>
+    <p class="hint">A path on the server. Each subfolder becomes a playlist.</p>
+    <div class="row" style="margin-top:16px;gap:24px">
+      <span><i class="switch on"></i>&nbsp; Can download</span>
+      <span><i class="switch"></i>&nbsp; Can share</span>
+      <span><i class="check on">&#10003;</i>&nbsp; Selected</span>
+    </div>
+    <ul>
+      <li>Label above, help text below in 12px muted. Errors replace the help text in <code>bad</code> red.</li>
+      <li>Switches save on change with a toast. Text fields save with a button.</li>
+      <li>Secrets (app passwords, API keys) are shown once, monospace, with a copy button.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Lists and cards</h2>
+<div class="grid g2">
+  <div class="card">
+    <h3>App passwords</h3>
+    <div class="listrow">
+      <span class="tileic"><svg class="ic" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+      <div class="grow"><b>Symfonium</b><span class="d num">Last used 2 hours ago · 192.168.1.24</span></div>
+      <span class="btn ghost sm">Revoke</span>
+    </div>
+    <div class="listrow">
+      <span class="tileic"><svg class="ic" viewBox="0 0 24 24"><path d="M5 17h14M6 17l1.5-6h9L18 17M7 17v2M17 17v2"/></svg></span>
+      <div class="grow"><b>Car</b><span class="d">Never used</span></div>
+      <span class="btn ghost sm">Revoke</span>
+    </div>
+  </div>
+  <div>
+    <ul style="margin-top:0">
+      <li>A card is a 14px radius panel on the card grey with a hairline border. Use it to bound a group of settings or a short list. Never nest cards.</li>
+      <li>List rows: 36px icon tile, title, one muted detail line, actions on the right. Hairline between rows.</li>
+      <li>Big data (tracks, users, logs) is a table on the page, not a card.</li>
+      <li>Empty state is one muted sentence and, if there is an obvious next step, one button. No illustration.</li>
+      <li>Loading is a static skeleton block in the secondary grey. No shimmer, no spinner.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Admin patterns</h2>
+<h3>Access matrix</h3>
+<p>Who can reach which library, and what they can do there. One row per library, one column per capability. Changes save on click.</p>
+<div class="scroll">
+<table style="min-width:620px">
+  <thead><tr><th>Library</th><th>Path</th><th class="c">Access</th><th class="c">Download</th><th class="c">Share</th></tr></thead>
+  <tbody>
+    <tr><td>Main</td><td class="mono dim">/music/library</td><td class="c"><i class="check on">&#10003;</i></td><td class="c"><i class="check on">&#10003;</i></td><td class="c"><i class="check"></i></td></tr>
+    <tr><td>Mixes</td><td class="mono dim">/music/Mixes</td><td class="c"><i class="check on">&#10003;</i></td><td class="c"><i class="check"></i></td><td class="c"><i class="check"></i></td></tr>
+    <tr><td>Unreleased</td><td class="mono dim">/music/private</td><td class="c"><i class="check"></i></td><td class="c"><i class="check"></i></td><td class="c"><i class="check"></i></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Activity log</h3>
+<p>Newest first. Filters sit in a toolbar above (user, kind, client, date). Every row answers who, what, from where, when.</p>
+<div class="scroll">
+<table style="min-width:760px">
+  <thead><tr><th>When</th><th>User</th><th>Event</th><th>Detail</th><th>Client</th><th>IP</th></tr></thead>
+  <tbody>
+    <tr><td class="dim num">22 Nov, 14:03:11</td><td>william</td><td><i class="dot ok"></i>Played</td><td>Around the World <span class="dim">· Daft Punk</span></td><td class="dim">Symfonium</td><td class="mono dim">192.168.1.24</td></tr>
+    <tr><td class="dim num">22 Nov, 13:58:40</td><td>sam</td><td><i class="dot bad"></i>Sign-in failed</td><td class="dim">Wrong app password</td><td class="dim">Amperfy</td><td class="mono dim">203.0.113.9</td></tr>
+    <tr><td class="dim num">22 Nov, 13:41:02</td><td>william</td><td><i class="dot neutral"></i>Access changed</td><td>sam <span class="dim">· Mixes · download off</span></td><td class="dim">Web</td><td class="mono dim">192.168.1.10</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Copy</h2>
+<div class="grid g2">
+  <div class="do">
+    <p><b>Do</b></p>
+    <p>"Add user", "Scan now", "Revoke"</p>
+    <p>"No playlists yet."</p>
+    <p>"Scanned 8,310 tracks in 42s"</p>
+    <p>"22 Nov 2026, 14:03" and "2 hours ago"</p>
+    <p>"Daft Punk · 1997" (middle dot between facts)</p>
+  </div>
+  <div class="dont">
+    <p><b>Don't</b></p>
+    <p>"Create a New User Account"</p>
+    <p>"Looks like you don't have any playlists yet!"</p>
+    <p>"Scan completed successfully"</p>
+    <p>"11/22/26 2:03 PM"</p>
+    <p>Em dashes, exclamation marks, emoji</p>
+  </div>
+</div>
+<ul>
+  <li>Sentence case everywhere except <code>t-label</code> and the wordmark.</li>
+  <li>Say what happened, with the number. Errors say what to do next.</li>
+  <li>Destructive confirms name the thing: "Revoke Symfonium? It will stop working straight away."</li>
+</ul>
+
+<h2>Motion and feedback</h2>
+<ul>
+  <li>150ms colour transitions on hover and focus. Dialogs, menus and sheets use the stock shadcn enter and exit.</li>
+  <li>No pulse, shimmer, spinner, blur or animated equaliser. Progress is a number that updates ("1,204 of 8,310").</li>
+  <li>Results of an action are a Sonner toast, bottom right, above the player bar.</li>
+  <li>Focus ring is 3px at ring grey 50%, on every interactive element.</li>
+</ul>
+
+<h2>In code</h2>
+<ul>
+  <li>Tokens in <code>src/app/globals.css</code> (shadcn variables plus <code>--brand</code> and <code>--brand-text</code>). Utilities <code>t-label</code>, <code>t-display</code>, <code>font-title</code>.</li>
+  <li>shadcn components in <code>src/components/ui</code>, unmodified apart from the <code>brand</code> button variant.</li>
+  <li>Fonts through <code>next/font</code>: Montserrat, Cabin, Anybody (width axis).</li>
+  <li>Dark only. <code>class="dark"</code> is fixed on <code>html</code>; there is no light theme to maintain.</li>
+</ul>
+
+<p class="dim" style="margin-top:48px;font-size:12px">Prepared by Claude Fable 5.2 in Claude Code.</p>
+</main>
+</body>
+</html>
