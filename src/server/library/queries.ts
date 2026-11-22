@@ -37,6 +37,10 @@ const trackColumns = {
   genre: track.genre,
   duration: track.duration,
   bitRate: track.bitRate,
+  trackGain: track.trackGain,
+  albumGain: track.albumGain,
+  trackPeak: track.trackPeak,
+  albumPeak: track.albumPeak,
   size: track.size,
   suffix: track.suffix,
   contentType: track.contentType,
@@ -216,7 +220,7 @@ export async function annotate(
 // --- Playlists ---
 
 
-/** Whether a scope may rename, fill or delete a playlist. Mirror playlists follow the disk, so nobody may. */
+/** Whether a scope may rename, fill or delete a playlist. Ones a folder rule made follow the disk, so nobody may. */
 export const canEditPlaylist = (scope: Scope, row: { ownerId: string; readOnly: boolean }) =>
   !row.readOnly && (row.ownerId === scope.user.id || scope.isAdmin);
 
@@ -249,6 +253,9 @@ export async function listPlaylists(scope: Scope, where?: SQL) {
       isPublic: playlist.isPublic,
       readOnly: playlist.readOnly,
       comment: playlist.comment,
+      folderId: playlist.folderId,
+      ruleId: playlist.ruleId,
+      sourcePath: playlist.sourcePath,
       fromFolder: sql<boolean>`${playlist.ruleId} is not null`,
       createdAt: playlist.createdAt,
       updatedAt: playlist.updatedAt,

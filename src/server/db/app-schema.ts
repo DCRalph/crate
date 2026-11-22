@@ -7,9 +7,11 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./schema";
@@ -124,6 +126,11 @@ export const track = pgTable(
     relPath: text("rel_path").notNull(),
     /** With `size`, how the scanner knows a file hasn't changed. */
     mtimeMs: bigint("mtime_ms", { mode: "number" }).notNull(),
+    // ReplayGain tags, when the file has them: gain in dB, peak as a ratio of full scale.
+    trackGain: real("track_gain"),
+    albumGain: real("album_gain"),
+    trackPeak: real("track_peak"),
+    albumPeak: real("album_peak"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -153,16 +160,15 @@ export const annotation = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.itemType, t.itemId] })],
 );
 
-export const folderRuleModes = ["subfolders", "folder", "leaves"] as const;
-export const folderRuleSyncs = ["mirror", "seed"] as const;
+export const folderRuleModes = ["tree", "folder"] as const;
+export type FolderRuleMode = (typeof folderRuleModes)[number];
 
 /**
- * Builds playlists from a folder inside a library.
- *  - mode `subfolders`: one playlist per immediate subfolder (with everything under it)
- *  - mode `folder`: the folder itself is one playlist
- *  - mode `leaves`: every folder that directly holds tracks, named "A / B"
- *  - sync `mirror`: the playlist follows the disk and is read-only
- *  - sync `seed`: created once, then an ordinary editable playlist
+ * Keeps playlists in step with a folder inside a library. What it makes
+ * follows the disk and is read-only; copy a playlist to get one you can edit.
+ *  - mode `tree`: folders and playlists that match the folder tree. A folder
+ *    that holds tracks is a playlist; one that holds folders is a folder.
+ *  - mode `folder`: the folder and everything under it is one playlist.
  */
 export const folderRule = pgTable("folder_rule", {
   id: id(),
@@ -172,13 +178,41 @@ export const folderRule = pgTable("folder_rule", {
   /** Path inside the library, forward slashes, "" for the library root. */
   path: text("path").notNull(),
   mode: text("mode", { enum: folderRuleModes }).notNull(),
-  sync: text("sync", { enum: folderRuleSyncs }).notNull(),
   ownerId: text("owner_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   isPublic: boolean("is_public").default(true).notNull(),
+  /** The owner's folder that what this rule makes sits inside. Null puts it at the top. */
+  parentFolderId: integer("parent_folder_id").references((): AnyPgColumn => playlistFolder.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
+
+/**
+ * A folder in someone's playlist tree. Folders hold folders and playlists;
+ * playlists are always the leaves. Other people see a folder only when it
+ * leads to a playlist they can see.
+ */
+export const playlistFolder = pgTable(
+  "playlist_folder",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    parentId: integer("parent_id").references((): AnyPgColumn => playlistFolder.id, { onDelete: "cascade" }),
+    /** Set on folders a folder rule made, with the disk folder each stands for. Those follow the disk, so nobody edits them. */
+    ruleId: integer("rule_id").references(() => folderRule.id, { onDelete: "cascade" }),
+    sourcePath: text("source_path"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("playlist_folder_source_idx").on(t.ruleId, t.sourcePath),
+    index("playlist_folder_owner_idx").on(t.ownerId),
+    index("playlist_folder_parent_idx").on(t.parentId),
+  ],
+);
 
 export const playlist = pgTable(
   "playlist",
@@ -191,15 +225,21 @@ export const playlist = pgTable(
     /** Visible to everyone. They still only see the tracks their libraries allow. */
     isPublic: boolean("is_public").default(false).notNull(),
     comment: text("comment"),
+    /** Where it sits in its owner's tree. Null is the top level. */
+    folderId: integer("folder_id").references(() => playlistFolder.id, { onDelete: "set null" }),
     /** The folder rule that made this playlist, and the folder it came from. */
     ruleId: integer("rule_id").references(() => folderRule.id, { onDelete: "set null" }),
     sourcePath: text("source_path"),
-    /** Mirror playlists follow the disk, so nobody edits them. */
+    /** Playlists made by a folder rule follow the disk, so nobody edits them. */
     readOnly: boolean("read_only").default(false).notNull(),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("playlist_source_idx").on(t.ruleId, t.sourcePath), index("playlist_owner_idx").on(t.ownerId)],
+  (t) => [
+    uniqueIndex("playlist_source_idx").on(t.ruleId, t.sourcePath),
+    index("playlist_owner_idx").on(t.ownerId),
+    index("playlist_folder_idx").on(t.folderId),
+  ],
 );
 
 export const playlistTrack = pgTable(

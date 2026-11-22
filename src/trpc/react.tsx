@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import type { inferRouterOutputs } from "@trpc/server";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import superjson from "superjson";
 
@@ -14,6 +15,9 @@ import type { AppRouter } from "~/server/api/root";
  *   const albums = useQuery(trpc.library.albums.queryOptions({ sort: "added" }));
  */
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
+
+/** What each procedure returns, for typing rows: `RouterOutputs["playlists"]["tree"]`. */
+export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 const makeQueryClient = () =>
   new QueryClient({

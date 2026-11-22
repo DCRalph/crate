@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ListMusic, Pause, Play, SkipBack, SkipForward, Volume1, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
@@ -14,16 +14,51 @@ import { Slider } from "~/components/ui/slider";
 import { count, formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import type { WebTrack } from "~/server/api/routers/library";
+import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
-import { useCurrentTrack, usePlayer } from "./store";
+import { levelFor, usePlayback } from "./playback";
+import { usePlayer } from "./store";
+import { StreamControl } from "./stream-control";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
 const playedAfter = (duration: number) => Math.min(duration / 2, 240);
 
+/** How the audio element's clock maps onto the track it is playing. */
+type Clock = {
+  /** Seconds into the track where the loaded stream starts. Only a converted stream starts anywhere but 0. */
+  offset: number;
+  /** Where to move a file to once enough of it has loaded to seek. */
+  seekOnLoad: number | null;
+};
+
+/** How far into the track the element is, in seconds. */
+const positionOf = (clock: Clock, audio: HTMLAudioElement) => clock.seekOnLoad ?? clock.offset + audio.currentTime;
+
+/** Starts the element. Browsers refuse without a click, straight after a page reload say, and the player then shows paused. */
+function start(audio: HTMLAudioElement) {
+  audio.play().catch((error: unknown) => {
+    // Being cut short by the next load or a pause also fails, and isn't a refusal.
+    if (error instanceof DOMException && error.name === "NotAllowedError") usePlayer.getState().setPlaying(false);
+  });
+}
+
+/**
+ * Points the element at a track's stream `at` seconds in, starts it if the
+ * player is playing, and returns the clock for it. A converted stream has no
+ * length and can't be sought, so it is asked for from `at` and the element
+ * counts on from there. A file is sent whole and moved to `at` once it has loaded.
+ */
+function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number): Clock {
+  audio.src = webStreamUrl(trackId, sent, at);
+  if (usePlayer.getState().playing) start(audio);
+  return sent.transcode ? { offset: at, seekOnLoad: null } : { offset: 0, seekOnLoad: at > 0 ? at : null };
+}
+
 /**
  * The bar across the bottom of the app, and the only audio element. It
  * follows the player store: a new current track loads, `playing` plays or
- * pauses. Media keys and lock-screen controls work through the Media Session API.
+ * pauses, and the playback preferences decide what is asked for and how loud
+ * it is. Media keys and lock-screen controls work through the Media Session API.
  *
  * Phones get a slimmer bar (title, play, next); tapping it opens the Now
  * playing sheet, which has the scrubber, the full transport and the queue.
@@ -31,41 +66,60 @@ const playedAfter = (duration: number) => Math.min(duration / 2, 240);
 export function PlayerBar() {
   const trpc = useTRPC();
   const audioRef = useRef<HTMLAudioElement>(null);
-  const track = useCurrentTrack();
+  const { track, sent } = usePlayback();
   const playing = usePlayer((state) => state.playing);
   const volume = usePlayer((state) => state.volume);
+  const normalise = usePlayer((state) => state.normalise);
   const { next, previous, setPlaying, setVolume, toggleMute } = usePlayer.getState();
   const [time, setTime] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
-  /** Counts loads, so each play of a track is recorded once even if it repeats. */
-  const loads = useRef(0);
-  const recordedLoad = useRef(0);
+  const clock = useRef<Clock>({ offset: 0, seekOnLoad: null });
+  /** The track the element has loaded, to tell a new play from the same one loaded again. */
+  const loadedTrack = useRef<number | undefined>(undefined);
+  /** Counts plays, so each is recorded once however often its stream is loaded (a seek, a change of quality). */
+  const plays = useRef(0);
+  const recordedPlay = useRef(0);
   const recordPlay = useMutation(trpc.library.recordPlay.mutationOptions());
 
-  // The saved queue is read after mount so the first render matches the server's.
+  // The saved queue and preferences are read after mount so the first render matches the server's.
   useEffect(() => void usePlayer.persist.rehydrate(), []);
 
+  /** Loads the current track's stream from `at` seconds in. */
+  const load = (audio: HTMLAudioElement, at: number) => {
+    if (track && sent) clock.current = loadStream(audio, track.id, sent, at);
+  };
+
   const trackId = track?.id;
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (trackId === undefined) {
+  // Where the current track streams from. It changes with the track, and with what the track is sent as.
+  const source = track && sent ? webStreamUrl(track.id, sent) : null;
+  const onSource = useEffectEvent((audio: HTMLAudioElement) => {
+    if (!track) {
+      loadedTrack.current = undefined;
       audio.removeAttribute("src");
       audio.load();
-    } else audio.src = `/api/stream/${trackId}`;
-  }, [trackId]);
+      return;
+    }
+    // The same track from another address is a change of quality or format, not a new play: it carries on from where it was.
+    const samePlay = loadedTrack.current === track.id;
+    if (!samePlay) plays.current++;
+    loadedTrack.current = track.id;
+    load(audio, samePlay && !audio.ended ? positionOf(clock.current, audio) : 0);
+  });
+  useEffect(() => {
+    if (audioRef.current) onSource(audioRef.current);
+  }, [source]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || trackId === undefined) return;
-    // Browsers refuse to start audio without a click, e.g. straight after a reload.
-    if (playing) audio.play().catch(() => usePlayer.getState().setPlaying(false));
+    if (playing) start(audio);
     else audio.pause();
   }, [playing, trackId]);
 
+  const level = track ? levelFor(track, normalise) : 1;
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
+    if (audioRef.current) audioRef.current.volume = volume * level;
+  }, [volume, level]);
 
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
@@ -96,7 +150,13 @@ export function PlayerBar() {
 
   const duration = track?.duration ?? 0;
   const seek = (seconds: number) => {
-    if (audioRef.current) audioRef.current.currentTime = seconds;
+    const audio = audioRef.current;
+    if (!audio || !sent) return;
+    // A converted stream can't be sought, so it is loaded again from there.
+    if (sent.transcode) load(audio, seconds);
+    // A file that hasn't loaded far enough to seek is moved when it has.
+    else if (audio.readyState === 0) clock.current = { offset: 0, seekOnLoad: seconds };
+    else audio.currentTime = seconds;
     setTime(seconds);
   };
   const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: previous };
@@ -106,15 +166,18 @@ export function PlayerBar() {
       <audio
         ref={audioRef}
         preload="auto"
-        onLoadStart={() => {
-          loads.current++;
-          setTime(0);
+        onLoadStart={(event) => setTime(positionOf(clock.current, event.currentTarget))}
+        onLoadedMetadata={(event) => {
+          const { seekOnLoad } = clock.current;
+          if (seekOnLoad === null) return;
+          clock.current = { offset: 0, seekOnLoad: null };
+          event.currentTarget.currentTime = seekOnLoad;
         }}
         onTimeUpdate={(event) => {
-          const now = event.currentTarget.currentTime;
+          const now = positionOf(clock.current, event.currentTarget);
           setTime(now);
-          if (track && recordedLoad.current !== loads.current && now > 0 && now >= playedAfter(track.duration)) {
-            recordedLoad.current = loads.current;
+          if (track && recordedPlay.current !== plays.current && now > 0 && now >= playedAfter(track.duration)) {
+            recordedPlay.current = plays.current;
             recordPlay.mutate({ trackId: track.id });
           }
         }}
@@ -122,10 +185,15 @@ export function PlayerBar() {
           const before = usePlayer.getState().queue[usePlayer.getState().index]?.id;
           next();
           const after = usePlayer.getState();
-          // The same track twice in a row doesn't reload, so it is restarted by hand.
-          if (after.playing && after.queue[after.index]?.id === before) {
-            event.currentTarget.currentTime = 0;
-            void event.currentTarget.play();
+          if (after.queue[after.index]?.id !== before) return;
+          if (after.playing) {
+            // The same track twice in a row doesn't load again, so it is restarted by hand, as a new play.
+            plays.current++;
+            seek(0);
+            start(event.currentTarget);
+          } else if (sent?.transcode) {
+            // The queue ran out. Playing a finished file starts it over; a converted stream has to be loaded again to do that.
+            seek(0);
           }
         }}
         onPlay={() => setPlaying(true)}
@@ -178,6 +246,7 @@ export function PlayerBar() {
       </div>
 
       <div className="flex items-center justify-end gap-1 md:w-1/4 lg:w-1/3">
+        <StreamControl className="max-md:hidden" />
         <Button
           variant="ghost"
           size="icon-sm"
@@ -199,6 +268,8 @@ export function PlayerBar() {
       <NowPlaying open={sheetOpen} onOpenChange={setSheetOpen} track={track}>
         <Scrubber time={time} duration={duration} disabled={!track} onSeek={seek} />
         <Transport {...transport} large />
+        {/* The settings page would open behind the sheet, so following the link to it closes the sheet. */}
+        <StreamControl className="self-center" onNavigate={() => setSheetOpen(false)} />
       </NowPlaying>
     </footer>
   );
@@ -253,7 +324,10 @@ function Transport({
   );
 }
 
-/** Elapsed time, the seek slider, and the track's length. Shows where a drag will land before it is let go. */
+/**
+ * Elapsed time, the seek slider, and the track's length. A drag shows where it
+ * will land and seeks when it is let go; an arrow key seeks straight away.
+ */
 function Scrubber({
   time,
   duration,
@@ -268,6 +342,8 @@ function Scrubber({
   className?: string;
 }) {
   const [dragging, setDragging] = useState<number | null>(null);
+  // Only a pointer drag has a "let go". For a key press the slider reports the commit before the change, so the two can't share a path.
+  const pointerDown = useRef(false);
   const shown = dragging ?? time;
   return (
     <div className={cn("text-muted-foreground flex w-full items-center gap-2 text-[11px] tabular-nums", className)}>
@@ -280,8 +356,16 @@ function Scrubber({
         max={Math.max(duration, 1)}
         step={1}
         value={[Math.min(shown, duration)]}
-        onValueChange={([value]) => setDragging(value ?? 0)}
+        onPointerDown={() => {
+          pointerDown.current = true;
+        }}
+        onValueChange={([value]) => {
+          if (pointerDown.current) setDragging(value ?? 0);
+          else onSeek(value ?? 0);
+        }}
         onValueCommit={([value]) => {
+          if (!pointerDown.current) return;
+          pointerDown.current = false;
           onSeek(value ?? 0);
           setDragging(null);
         }}
@@ -294,7 +378,8 @@ function Scrubber({
 /**
  * The sheet behind the queue button. On a desktop it is the queue, sitting
  * above the bar and leaving it usable. On a phone it fills the screen and
- * adds the cover, scrubber and transport (passed as children) that the slim bar leaves out.
+ * adds the cover, and the scrubber, transport and playback settings (passed
+ * as children) that the slim bar leaves out.
  */
 function NowPlaying({
   open,
@@ -321,9 +406,9 @@ function NowPlaying({
           event.preventDefault();
           if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
         }}
-        // Using the bar (skipping, the queue button itself) shouldn't count as clicking away.
+        // Using the bar (skipping, the queue button itself, its playback settings) shouldn't count as clicking away.
         onInteractOutside={(event) => {
-          if ((event.target as HTMLElement).closest("#player-bar")) event.preventDefault();
+          if ((event.target as HTMLElement).closest("#player-bar, [data-player-settings]")) event.preventDefault();
         }}
       >
         <SheetHeader className="border-b">

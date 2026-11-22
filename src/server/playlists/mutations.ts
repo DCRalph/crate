@@ -4,8 +4,9 @@ import { asc, eq } from "drizzle-orm";
 import type { Scope } from "~/server/access";
 import { db } from "~/server/db";
 import { playlist, playlistTrack } from "~/server/db/app-schema";
-import { canEditPlaylist, listPlaylists, visibleTrackIds } from "~/server/library/queries";
+import { canEditPlaylist, getPlaylist, listPlaylists, visibleTrackIds } from "~/server/library/queries";
 import { setPlaylistTracks } from "./folder-rules";
+import { assertPlace } from "./folders";
 
 // Playlist writes, shared by the web API and the Subsonic API.
 
@@ -24,12 +25,23 @@ async function editable(scope: Scope, id: number) {
   return row;
 }
 
-export async function createPlaylist(scope: Scope, input: { name: string; trackIds?: number[]; isPublic?: boolean }) {
+/** Makes a playlist for this user, optionally in one of their folders and already holding tracks. */
+export async function createPlaylist(
+  scope: Scope,
+  input: { name: string; trackIds?: number[]; isPublic?: boolean; comment?: string; folderId?: number | null },
+) {
+  await assertPlace(scope.user.id, input.folderId ?? null);
   const trackIds = await visibleTrackIds(scope, input.trackIds ?? []);
   return db.transaction(async (tx) => {
     const [created] = await tx
       .insert(playlist)
-      .values({ name: input.name, ownerId: scope.user.id, isPublic: input.isPublic ?? false })
+      .values({
+        name: input.name,
+        ownerId: scope.user.id,
+        isPublic: input.isPublic ?? false,
+        comment: input.comment || null,
+        folderId: input.folderId ?? null,
+      })
       .returning({ id: playlist.id });
     await setPlaylistTracks(tx, created!.id, trackIds);
     return created!.id;
@@ -37,7 +49,7 @@ export async function createPlaylist(scope: Scope, input: { name: string; trackI
 }
 
 /**
- * Changes a playlist's details and tracks. `removeIndexes` are positions in the
+ * Changes a playlist's details, its folder and its tracks. `removeIndexes` are positions in the
  * list as this user sees it (tracks they can't reach are skipped when counting),
  * removed before `addTrackIds` are appended. `trackIds` replaces the visible
  * tracks outright. Tracks the user can't see are always left in place.
@@ -49,16 +61,18 @@ export async function updatePlaylist(
     name?: string;
     comment?: string;
     isPublic?: boolean;
+    folderId?: number | null;
     trackIds?: number[];
     addTrackIds?: number[];
     removeIndexes?: number[];
   },
 ) {
-  await editable(scope, id);
+  const row = await editable(scope, id);
+  if (change.folderId !== undefined) await assertPlace(row.ownerId, change.folderId);
   const adding = await visibleTrackIds(scope, change.trackIds ?? change.addTrackIds ?? []);
 
   await db.transaction(async (tx) => {
-    const details = { name: change.name, comment: change.comment, isPublic: change.isPublic };
+    const details = { name: change.name, comment: change.comment, isPublic: change.isPublic, folderId: change.folderId };
     if (Object.values(details).some((value) => value !== undefined)) {
       await tx.update(playlist).set({ ...details, updatedAt: new Date() }).where(eq(playlist.id, id));
     }
@@ -81,6 +95,20 @@ export async function updatePlaylist(
       return change.trackIds ? false : !remove.has(index);
     });
     await setPlaylistTracks(tx, id, [...kept, ...adding]);
+  });
+}
+
+/**
+ * Copies a playlist the scope can see into one of its own, with the tracks it
+ * can reach. This is how a playlist that follows the disk becomes one to edit.
+ */
+export async function duplicatePlaylist(scope: Scope, id: number) {
+  const found = await getPlaylist(scope, id);
+  if (!found) throw new PlaylistError("not_found");
+  return createPlaylist(scope, {
+    name: `${found.name} copy`,
+    comment: found.comment ?? undefined,
+    trackIds: found.tracks.map((row) => row.id),
   });
 }
 

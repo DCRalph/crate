@@ -23,6 +23,7 @@ import { scanProgress } from "~/server/library/scanner";
 import { recordPlay } from "~/server/logs";
 import { fileResponse, transcodeResponse } from "~/server/media/stream";
 import { decideStream } from "~/server/media/transcode";
+import { namedByFolder, withoutFolderName } from "~/server/playlists/folders";
 import { createPlaylist, deletePlaylist, PlaylistError, updatePlaylist } from "~/server/playlists/mutations";
 import { SubsonicError, type Payload } from "./respond";
 import {
@@ -93,7 +94,8 @@ async function playlistWrite<T>(work: () => Promise<T>) {
 async function playlistPayload(ctx: Context, id: number) {
   const found = await getPlaylist(ctx.scope, id);
   if (!found) throw new SubsonicError(70, "Playlist not found.");
-  return { playlist: { ...toPlaylist(found), entry: found.tracks.map(toSong) } };
+  const [named] = await namedByFolder([found]);
+  return { playlist: { ...toPlaylist(named!), entry: found.tracks.map(toSong) } };
 }
 
 /** `musicFolderId` narrows a list to one library. Scope is applied on top, so it can't widen anything. */
@@ -340,7 +342,8 @@ export const handlers: Record<string, Handler> = {
     };
   },
 
-  getPlaylists: async ({ scope }) => ({ playlists: { playlist: (await listPlaylists(scope)).map(toPlaylist) } }),
+  // Subsonic has no playlist folders, so a playlist's folders ride along in its name.
+  getPlaylists: async ({ scope }) => ({ playlists: { playlist: (await namedByFolder(await listPlaylists(scope))).map(toPlaylist) } }),
   getPlaylist: async (ctx) => playlistPayload(ctx, idOf(ctx.params.required("id"), "playlist")),
 
   createPlaylist: async (ctx) => {
@@ -359,9 +362,12 @@ export const handlers: Record<string, Handler> = {
 
   updatePlaylist: async ({ scope, params }) => {
     const isPublic = params.get("public");
-    await playlistWrite(() =>
-      updatePlaylist(scope, idOf(params.required("playlistId"), "playlist"), {
-        name: params.get("name"),
+    const playlistId = idOf(params.required("playlistId"), "playlist");
+    const name = params.get("name");
+    await playlistWrite(async () =>
+      updatePlaylist(scope, playlistId, {
+        // A client that renames usually sends back the name it was given, folders included.
+        name: name === undefined ? undefined : await withoutFolderName(playlistId, name),
         comment: params.get("comment"),
         isPublic: isPublic === undefined ? undefined : isPublic === "true",
         addTrackIds: params.all("songIdToAdd").map((value) => idOf(value, "track")),

@@ -14,9 +14,11 @@ export const activityActions = {
   "app_password.created": { label: "App password added", tone: "neutral" },
   "app_password.revoked": { label: "App password revoked", tone: "warn" },
   "library.created": { label: "Library added", tone: "neutral" },
+  "library.updated": { label: "Library changed", tone: "neutral" },
   "library.deleted": { label: "Library removed", tone: "warn" },
   "library.scanned": { label: "Library scanned", tone: "neutral" },
   "folder_rule.created": { label: "Folder rule added", tone: "neutral" },
+  "folder_rule.updated": { label: "Folder rule changed", tone: "neutral" },
   "folder_rule.deleted": { label: "Folder rule removed", tone: "warn" },
 } as const satisfies Record<string, { label: string; tone: "ok" | "warn" | "bad" | "neutral" }>;
 

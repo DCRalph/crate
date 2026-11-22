@@ -1,0 +1,1 @@
+ALTER TABLE "folder_rule" DROP COLUMN "sync";

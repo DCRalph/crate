@@ -24,6 +24,12 @@ export function idOf(value: string, type: IdType) {
 
 const iso = (date: Date | null) => date?.toISOString();
 
+/** OpenSubsonic's `replayGain` for a song, or undefined when the file has no ReplayGain tags. */
+function toReplayGain({ trackGain, albumGain, trackPeak, albumPeak }: TrackRow) {
+  const tags = { trackGain, albumGain, trackPeak, albumPeak };
+  return Object.values(tags).some((value) => value !== null) ? tags : undefined;
+}
+
 export const toSong = (row: TrackRow) => ({
   id: `tr-${row.id}`,
   parent: `al-${row.albumId}`,
@@ -49,6 +55,7 @@ export const toSong = (row: TrackRow) => ({
   isVideo: false,
   starred: iso(row.starredAt),
   userRating: row.rating,
+  replayGain: toReplayGain(row),
 });
 
 /** An album in the tag-based (ID3) calls. */
