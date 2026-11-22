@@ -121,6 +121,20 @@ function SearchBox() {
   // A search still waiting to be sent is dropped when the page changes by other
   // means (or the box goes away), so it can't fire and replace the page you went to.
   useEffect(() => () => clearTimeout(timer.current), [navigations]);
+  // The same, sooner: a slow page can take longer to arrive than the search takes
+  // to send, so the wait is also dropped the moment a link is clicked or Back is pressed.
+  useEffect(() => {
+    const cancel = () => clearTimeout(timer.current);
+    const onClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest("a[href]")) cancel();
+    };
+    window.addEventListener("popstate", cancel);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("popstate", cancel);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
