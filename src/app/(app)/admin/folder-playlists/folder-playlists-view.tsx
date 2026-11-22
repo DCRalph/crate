@@ -8,7 +8,7 @@ import { Plus } from "lucide-react";
 import { ruleModes } from "~/components/admin/folder-rule-parts";
 import { DataTable, useDataTable, type DataTableColumn } from "~/components/data-table";
 import { Page } from "~/components/shell/page";
-import { LoadError, SectionHeading } from "~/components/shell/states";
+import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { count } from "~/lib/format";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
@@ -42,15 +42,17 @@ export function FolderPlaylistsView() {
   const table = useDataTable({ columns, getRowId: (rule) => String(rule.id), storageKey: "folder-rules" });
 
   return (
-    <Page>
-      <SectionHeading title="Folder playlists" detail={rules.data ? count(rules.data.length, "rule") : null}>
+    <Page
+      detail={rules.data ? count(rules.data.length, "rule") : null}
+      actions={
         <Button variant="brand" size="sm" asChild>
           <Link href="/admin/folder-playlists/new">
             <Plus />
             Add rule
           </Link>
         </Button>
-      </SectionHeading>
+      }
+    >
       <p className="text-muted-foreground mb-4 max-w-prose text-sm">
         A rule follows one folder in a library. After every scan, the playlists and folders it makes are brought back in line with the files.
       </p>

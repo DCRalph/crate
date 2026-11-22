@@ -6,7 +6,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { AlbumGrid, AlbumGridSkeleton } from "~/components/library/album-grid";
 import { Page } from "~/components/shell/page";
-import { Empty, LoadError, SectionHeading } from "~/components/shell/states";
+import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { useTRPC } from "~/trpc/react";
@@ -32,8 +32,8 @@ export function AlbumsView({ isAdmin }: { isAdmin: boolean }) {
   const byPlays = sort === "recent" || sort === "frequent";
 
   return (
-    <Page>
-      <SectionHeading title={sorts[sort]}>
+    <Page
+      actions={
         <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
           <SelectTrigger size="sm" aria-label="Sort albums" className="w-44">
             <SelectValue />
@@ -46,7 +46,8 @@ export function AlbumsView({ isAdmin }: { isAdmin: boolean }) {
             ))}
           </SelectContent>
         </Select>
-      </SectionHeading>
+      }
+    >
 
       {albums.isPending ? (
         <AlbumGridSkeleton />

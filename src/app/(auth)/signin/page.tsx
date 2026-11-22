@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Mark } from "~/components/shell/mark";
-import { site } from "~/lib/site";
 import { getSession, safeNext } from "~/server/auth/session";
 import { SignInForm } from "./sign-in-form";
 
@@ -15,12 +14,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   return (
     <main className="grid min-h-svh place-items-center p-4">
       <div className="w-full max-w-xs">
-        <div className="mb-8 flex items-center gap-3">
-          <Mark spin="arrive" className="size-9" />
-          <p className="t-display text-lg">{site.name}</p>
+        <Mark className="mb-5" />
+        <div className="print rounded-lg p-5 shadow-[0_1px_2px_rgb(0_0_0/0.14)]">
+          <SignInForm next={next} />
         </div>
-        <SignInForm next={next} />
-        <p className="text-muted-foreground mt-6 text-xs">No account? Ask whoever runs this server.</p>
+        <p className="text-muted-foreground mt-5 text-xs">No account? Ask whoever runs this server.</p>
       </div>
     </main>
   );

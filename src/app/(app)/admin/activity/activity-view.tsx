@@ -206,8 +206,8 @@ const requestColumns: DataTableColumn<RequestRow>[] = [
     type: "badge",
     filterable: true,
     options: [
-      { label: "OK", value: "ok", dotClassName: "bg-emerald-400" },
-      { label: "Failed", value: "failed", dotClassName: "bg-red-400" },
+      { label: "OK", value: "ok", dotClassName: "bg-ok" },
+      { label: "Failed", value: "failed", dotClassName: "bg-destructive" },
     ],
     cell: (row) => (row.ok ? <Status tone="ok" label="OK" /> : <Status tone="bad" label="Failed" reason={row.error} />),
   },

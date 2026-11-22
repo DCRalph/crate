@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-Written from what the owner has said in conversation and from the built app. Nothing here was confirmed in an interview; lines marked (inferred) are my reading.
+Written from what the owner has said in conversation and from the built app. Nothing here was confirmed in an interview; lines marked (inferred) are the writer's reading.
 
 ## Platform
 
@@ -36,7 +36,7 @@ A personal server with the access control of a shared one: access is granted per
 ## Brand Commitments
 
 - Working name: Crate (chosen by the agent, not confirmed by the owner).
-- The owner wants this project to look unlike his other projects, which share a true-black console style.
+- The owner wants this project to look unlike his other projects, which share a true-black console style. He chose the Wallbox look (a jukebox selector panel) with a day and a night mode.
 
 ## Evidence on Hand
 

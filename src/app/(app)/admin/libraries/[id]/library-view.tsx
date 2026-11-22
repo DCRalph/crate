@@ -25,7 +25,6 @@ import { ruleModes } from "~/components/admin/folder-rule-parts";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
 
 type Library = RouterOutputs["admin"]["libraries"]["byId"];
-const head = "t-label text-muted-foreground text-[10px]";
 const number = new Intl.NumberFormat("en");
 
 /** One library: its name and folder, its scans, who can reach it, the folder rules on it, and removing it. */
@@ -113,9 +112,9 @@ export function LibraryView({ id }: { id: number }) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={head}>Person</TableHead>
-              <TableHead className={`${head} w-24 text-center`}>Access</TableHead>
-              <TableHead className={`${head} w-24 text-center`}>Download</TableHead>
+              <TableHead >Person</TableHead>
+              <TableHead className={`w-24 text-center`}>Access</TableHead>
+              <TableHead className={`w-24 text-center`}>Download</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

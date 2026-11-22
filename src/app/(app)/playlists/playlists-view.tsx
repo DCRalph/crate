@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
 import { Page } from "~/components/shell/page";
-import { Empty, LoadError, SectionHeading } from "~/components/shell/states";
+import { Empty, LoadError } from "~/components/shell/states";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
@@ -25,7 +25,7 @@ type PlaylistRow = RouterOutputs["playlists"]["tree"]["playlists"][number];
 type Node = TreeNode<FolderRow, PlaylistRow>;
 
 const columns = "grid grid-cols-[minmax(0,1fr)_4rem_2rem] items-center gap-x-3 sm:grid-cols-[minmax(0,1fr)_4rem_6.5rem_7rem_2rem]";
-const head = "t-label text-muted-foreground text-[10px]";
+const head = "t-label text-[11.5px]";
 
 /** Keeps what matches `text`: a matching folder with everything in it, or just the playlists that match and the folders leading to them. */
 function matching(level: Tree<FolderRow, PlaylistRow>, text: string): Tree<FolderRow, PlaylistRow> {
@@ -89,10 +89,7 @@ export function PlaylistsView() {
   );
 
   return (
-    <Page maxWidth="max-w-5xl">
-      <SectionHeading title="All playlists" detail={tree.data ? count(tree.data.playlists.length, "playlist") : null}>
-        {actions}
-      </SectionHeading>
+    <Page maxWidth="max-w-5xl" detail={tree.data ? count(tree.data.playlists.length, "playlist") : null} actions={actions}>
       {tree.isPending ? (
         <Skeleton className="h-40" />
       ) : tree.isError ? (
@@ -105,8 +102,8 @@ export function PlaylistsView() {
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input aria-label="Find a playlist or folder" placeholder="Find a playlist or folder" className="pl-9" value={filter} onChange={(event) => setFilter(event.target.value)} />
           </div>
-          <div>
-            <div className={cn(columns, "border-b px-2 pb-2")} aria-hidden>
+          <div className="print overflow-hidden rounded-lg pb-1 shadow-[0_1px_2px_rgb(0_0_0/0.14)]">
+            <div className={cn(columns, "bg-brand h-8 px-4")} aria-hidden>
               <span className={head}>Name</span>
               <span className={cn(head, "text-right")}>Tracks</span>
               <span className={cn(head, "text-right max-sm:hidden")}>Length</span>
@@ -114,7 +111,7 @@ export function PlaylistsView() {
               <span />
             </div>
             <Level level={shown} depth={0} isOpen={isOpen} onFlip={flip} />
-            {text && !shown.items.length && !shown.folders.length ? <Empty>Nothing called that.</Empty> : null}
+            {text && !shown.items.length && !shown.folders.length ? <p className="text-muted-foreground px-4 py-6 text-sm">Nothing called that.</p> : null}
           </div>
         </>
       )}
@@ -147,7 +144,7 @@ function FolderRows({ node, depth, isOpen, onFlip }: { node: Node; depth: number
 
   return (
     <>
-      <div className={cn(columns, "hover:bg-accent/40 min-h-10 rounded-md border-b px-2 text-sm transition-colors")}>
+      <div className={cn(columns, "hover:bg-accent min-h-10 border-b px-4 text-sm transition-colors")}>
         <div className="flex min-w-0 items-center gap-2" style={indent(depth)}>
           <button
             type="button"
@@ -157,7 +154,7 @@ function FolderRows({ node, depth, isOpen, onFlip }: { node: Node; depth: number
           >
             <ChevronRight className={cn("text-muted-foreground size-4 shrink-0 transition-transform duration-150", open && "rotate-90")} />
             <Folder className="text-muted-foreground size-4 shrink-0" />
-            <span className="truncate font-medium">{folder.name}</span>
+            <span className="t-label truncate text-[13px] leading-normal">{folder.name}</span>
             {folder.fromDisk ? <Badge variant="outline">From disk</Badge> : null}
           </button>
         </div>
@@ -170,7 +167,7 @@ function FolderRows({ node, depth, isOpen, onFlip }: { node: Node; depth: number
         node.folders.length || node.items.length ? (
           <Level level={node} depth={depth + 1} isOpen={isOpen} onFlip={onFlip} />
         ) : (
-          <p className="text-muted-foreground border-b px-2 py-2.5 text-sm" style={indent(depth + 1)}>
+          <p className="text-muted-foreground border-b px-4 py-2.5 text-sm" style={indent(depth + 1)}>
             <span className="pl-6">Empty</span>
           </p>
         )
@@ -226,7 +223,7 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
   const remove = useMutation(trpc.playlists.delete.mutationOptions({ onSuccess: refresh, onError }));
 
   return (
-    <div className={cn(columns, "hover:bg-accent/40 min-h-10 rounded-md border-b px-2 text-sm transition-colors")}>
+    <div className={cn(columns, "hover:bg-accent min-h-10 border-b px-4 text-sm transition-colors")}>
       <div className="flex min-w-0 items-center gap-2 py-2" style={indent(depth)}>
         {/* Sits under a folder's icon, past its chevron. */}
         <ListMusic className="text-muted-foreground ml-6 size-4 shrink-0" />

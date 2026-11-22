@@ -59,7 +59,7 @@ export function SearchView() {
             {artists.map((artist) => (
               <li key={artist.id}>
                 <Link href={`/artists/${artist.id}`} className="flex items-center gap-2 text-sm font-medium hover:underline">
-                  <Cover type="artist" id={artist.id} size={80} className="size-8 rounded-full" />
+                  <Cover type="artist" id={artist.id} size={80} className="size-8" />
                   {artist.name}
                 </Link>
               </li>

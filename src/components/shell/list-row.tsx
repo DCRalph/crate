@@ -24,7 +24,7 @@ export function ListRow({
   return (
     <li className={cn("flex items-center gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0", className)}>
       {icon ? (
-        <span className="bg-secondary grid size-9 shrink-0 place-items-center rounded-lg [&>svg]:size-4">{icon}</span>
+        <span className="bg-secondary grid size-9 shrink-0 place-items-center rounded-md [&>svg]:size-4">{icon}</span>
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{title}</p>

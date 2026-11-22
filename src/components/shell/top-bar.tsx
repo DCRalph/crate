@@ -3,82 +3,114 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, Search, Shield, UserRound } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "~/components/ui/breadcrumb";
+import { usePlayer } from "~/components/player/store";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
-import { Separator } from "~/components/ui/separator";
-import { SidebarTrigger } from "~/components/ui/sidebar";
 import { authClient } from "~/lib/auth-client";
-import { useCrumbLeaf } from "./crumb";
-import { navItemFor } from "./navigation";
+import { cn } from "~/lib/utils";
+import { Mark } from "./mark";
+import { adminNav, libraryNav, navGroupFor, navItemFor, youNav, type NavItem } from "./navigation";
+import { useThemeChoice, type ThemeChoice } from "./theme";
 
 export type HeaderUser = { name: string; username: string; isAdmin: boolean };
 
+/** One page tab. The current one is ivory and stands a little taller, joining the ivory line under the row. */
+function Tab({ href, current, children }: { href: string; current: boolean; children: React.ReactNode }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  // On a phone the row scrolls sideways, so the tab you are on is brought into view.
+  useEffect(() => {
+    if (current) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [current]);
+  return (
+    <Link
+      ref={ref}
+      href={href}
+      aria-current={current ? "page" : undefined}
+      className={cn(
+        "t-label focus-visible:ring-ring/60 shrink-0 rounded-t-md px-3.5 pt-2 text-[12.5px] outline-none transition-colors focus-visible:ring-[3px]",
+        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-muted-foreground hover:text-foreground pb-[7px]",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 /**
- * Sticky top bar: sidebar toggle, the breadcrumb that doubles as the page
- * title ("Albums / Homework"), search, and the user menu.
+ * The top of the app. The library's pages are tabs standing on an ivory
+ * line, the way a wallbox turns its pages. Admin is one tab that opens a
+ * second row; a person's own settings live under their initial and get the
+ * same second row. Phones put the tabs on a line of their own, scrolled
+ * sideways.
  */
-export function AppHeader({ user }: { user: HeaderUser }) {
+export function TopBar({ user }: { user: HeaderUser }) {
   const pathname = usePathname();
-  const leaf = useCrumbLeaf();
-  const item = navItemFor(pathname);
-  const crumbs: { href: string; label: string }[] = [];
-  if (item) crumbs.push({ href: item.url, label: item.title });
-  else if (pathname === "/search") crumbs.push({ href: pathname, label: "Search" });
-  // A record page (an album, a person) adds its name once it has loaded.
-  if (item && pathname !== item.url && leaf) crumbs.push({ href: pathname, label: leaf });
+  const current = navItemFor(pathname);
+  const group = navGroupFor(pathname);
+  const playing = usePlayer((state) => state.playing);
 
   return (
-    <nav className="bg-background/90 sticky top-0 z-40 h-14 w-full shrink-0 border-b backdrop-blur-sm lg:h-16">
-      <div className="flex h-full w-full items-center gap-2 px-2 sm:gap-4 sm:px-4 lg:px-6">
-        <SidebarTrigger size="icon" className="shrink-0" />
-        <Separator orientation="vertical" className="hidden h-8! shrink-0 sm:block" />
-        <Breadcrumb className="min-w-0 flex-1 overflow-hidden">
-          <BreadcrumbList className="flex-nowrap">
-            {crumbs.map((crumb, index) => {
-              const isLast = index === crumbs.length - 1;
-              return (
-                // Phones only get the current page; the trail would crowd it out.
-                <span key={crumb.href} className="contents">
-                  <BreadcrumbItem className={isLast ? "min-w-0" : "shrink-0 max-sm:hidden"}>
-                    {isLast ? (
-                      <BreadcrumbPage className="font-title truncate text-lg sm:text-xl lg:text-2xl">{crumb.label}</BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink asChild>
-                        <Link href={crumb.href} className="font-title text-lg text-nowrap sm:text-xl lg:text-2xl">
-                          {crumb.label}
-                        </Link>
-                      </BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                  {isLast ? null : <BreadcrumbSeparator className="shrink-0 max-sm:hidden" />}
-                </span>
-              );
-            })}
-          </BreadcrumbList>
-        </Breadcrumb>
-        {/* Reads the URL's query, which a prerendered shell doesn't have yet. */}
-        <Suspense>
-          <SearchBox />
-        </Suspense>
-        <UserMenu user={user} />
+    <header className="bg-muted shrink-0">
+      <div className="border-strip flex flex-wrap items-end gap-x-3 border-b-[3px] px-3 pt-2.5 sm:px-4">
+        <Link href="/albums" aria-label="Albums" className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
+          <Mark lit={playing} />
+        </Link>
+        <div className="mb-2 flex min-w-0 flex-1 items-center justify-end gap-2 md:order-3 md:flex-none">
+          {/* Reads the URL's query, which a prerendered shell doesn't have yet. */}
+          <Suspense>
+            <SearchBox />
+          </Suspense>
+          <UserMenu user={user} />
+        </div>
+        <nav aria-label="Pages" className="no-scrollbar flex w-full items-end gap-1 overflow-x-auto md:order-2 md:w-auto md:flex-1">
+          {libraryNav.map((item) => (
+            <Tab key={item.url} href={item.url} current={current === item}>
+              {item.title}
+            </Tab>
+          ))}
+          {user.isAdmin ? (
+            <>
+              <span className="min-w-2 flex-1" />
+              <Tab href={adminNav.items[0]!.url} current={group === adminNav}>
+                {adminNav.title}
+              </Tab>
+            </>
+          ) : null}
+        </nav>
       </div>
+      {group ? <SubTabs items={group.items} current={current} label={group.title} /> : null}
+    </header>
+  );
+}
+
+/** The second row: the pages inside Admin, or inside a person's own settings. It is print, like the tab it hangs from. */
+function SubTabs({ items, current, label }: { items: NavItem[]; current: NavItem | undefined; label: string }) {
+  return (
+    <nav aria-label={label} className="print no-scrollbar flex h-9 items-stretch gap-5 overflow-x-auto px-4 sm:px-5">
+      {items.map((item) => (
+        <Link
+          key={item.url}
+          href={item.url}
+          aria-current={current === item ? "page" : undefined}
+          className={cn(
+            "t-label flex shrink-0 items-center border-y-[3px] border-transparent text-[12px] outline-none transition-colors focus-visible:underline",
+            current === item ? "text-foreground border-b-brand" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {item.title}
+        </Link>
+      ))}
     </nav>
   );
 }
@@ -170,7 +202,7 @@ function SearchBox() {
   return (
     <form
       role="search"
-      className="group relative w-36 shrink-0 sm:w-56 lg:w-72"
+      className="group relative min-w-0 flex-1 md:w-52 md:flex-none lg:w-64"
       onSubmit={(event) => {
         event.preventDefault();
         go(value, 0);
@@ -183,7 +215,7 @@ function SearchBox() {
         aria-label="Search"
         aria-keyshortcuts="/"
         placeholder="Search"
-        className="h-8 pr-8 pl-8"
+        className="h-[30px] pr-8 pl-8"
         value={value}
         onChange={(event) => change(event.target.value, 250)}
         onKeyDown={(event) => {
@@ -202,37 +234,53 @@ function SearchBox() {
   );
 }
 
+const themes: { value: ThemeChoice; label: string }[] = [
+  { value: "auto", label: "Match the device" },
+  { value: "day", label: "Day" },
+  { value: "night", label: "Night" },
+];
+
+/** The menu under a person's initial: their own pages, day or night, and signing out. */
 function UserMenu({ user }: { user: HeaderUser }) {
   const router = useRouter();
+  const [theme, setTheme] = useThemeChoice();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="hover:bg-foreground/10 flex shrink-0 items-center gap-2 rounded-md p-2 text-sm transition-colors">
-          <span className="bg-secondary grid size-7 place-items-center rounded-full text-xs font-semibold uppercase">
-            {user.name.charAt(0)}
-          </span>
-          <span className="hidden max-w-32 truncate font-medium md:block">{user.name}</span>
-          <ChevronDown className="text-muted-foreground hidden size-4 md:block" />
+        <button
+          type="button"
+          aria-label={`${user.name}: your pages and settings`}
+          className="print key focus-visible:ring-ring/60 grid size-[30px] shrink-0 place-items-center rounded-md text-[12.5px] font-bold uppercase outline-none focus-visible:ring-[3px]"
+        >
+          {user.name.charAt(0)}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex flex-col py-2">
           <span className="truncate text-sm font-medium">{user.name}</span>
-          <span className="text-muted-foreground truncate text-xs font-normal">{user.username}</span>
-          {user.isAdmin ? (
-            <span className="mt-1 flex items-center gap-1 text-xs font-medium">
-              <Shield className="size-3" />
-              Admin
-            </span>
-          ) : null}
+          <span className="text-muted-foreground truncate text-xs font-normal">
+            {user.username}
+            {user.isAdmin ? " · Admin" : ""}
+          </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/account" className="flex items-center gap-3 py-2">
-            <UserRound className="text-muted-foreground size-4" />
-            Account
-          </Link>
-        </DropdownMenuItem>
+        {youNav.items.map((item) => (
+          <DropdownMenuItem key={item.url} asChild>
+            <Link href={item.url} className="flex items-center gap-3 py-2">
+              <item.icon className="text-muted-foreground size-4" />
+              {item.title}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="t-label text-muted-foreground text-[11px]">Appearance</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as ThemeChoice)}>
+          {themes.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="flex items-center gap-3 py-2"

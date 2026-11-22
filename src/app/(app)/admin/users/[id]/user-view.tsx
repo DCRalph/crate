@@ -23,7 +23,7 @@ import { LibraryAccessTable, PasswordField, QualitySelect, RoleSelect } from "..
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="t-label text-muted-foreground text-[10px]">{label}</dt>
+      <dt >{label}</dt>
       <dd className="mt-1 text-sm break-words tabular-nums">{children}</dd>
     </div>
   );

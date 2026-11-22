@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ScanStatus, useScanAnnouncements } from "~/components/admin/scan";
 import { DataTable, useDataTable, type DataTableColumn } from "~/components/data-table";
 import { Page } from "~/components/shell/page";
-import { LoadError, SectionHeading } from "~/components/shell/states";
+import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { count } from "~/lib/format";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
@@ -59,19 +59,23 @@ export function LibrariesView() {
   const table = useDataTable({ columns, getRowId: (row) => String(row.id), storageKey: "libraries" });
 
   return (
-    <Page>
-      <SectionHeading title="All libraries" detail={libraries.data ? count(rows.length, "library", "libraries") : null}>
-        <Button variant="secondary" size="sm" disabled={!!libraries.data?.scan || !rows.length} onClick={() => scan.mutate({})}>
-          <RefreshCw />
-          Scan all
-        </Button>
-        <Button variant="brand" size="sm" asChild>
-          <Link href="/admin/libraries/new">
-            <Plus />
-            Add library
-          </Link>
-        </Button>
-      </SectionHeading>
+    <Page
+      detail={libraries.data ? count(rows.length, "library", "libraries") : null}
+      actions={
+        <>
+          <Button variant="secondary" size="sm" disabled={!!libraries.data?.scan || !rows.length} onClick={() => scan.mutate({})}>
+            <RefreshCw />
+            Scan all
+          </Button>
+          <Button variant="brand" size="sm" asChild>
+            <Link href="/admin/libraries/new">
+              <Plus />
+              Add library
+            </Link>
+          </Button>
+        </>
+      }
+    >
       {libraries.isError ? (
         <LoadError message={libraries.error.message} />
       ) : (

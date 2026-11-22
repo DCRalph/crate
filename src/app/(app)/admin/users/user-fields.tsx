@@ -119,7 +119,6 @@ export function PasswordField({
 }
 
 type AccessRow = RouterOutputs["admin"]["users"]["byId"]["access"][number];
-const head = "t-label text-muted-foreground text-[10px]";
 
 /**
  * Every library with a box for access and one for downloads. Download only
@@ -139,10 +138,10 @@ export function LibraryAccessTable({
     <Table>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead className={head}>Library</TableHead>
-          <TableHead className={`${head} max-sm:hidden`}>Folder</TableHead>
-          <TableHead className={`${head} w-24 text-center`}>Access</TableHead>
-          <TableHead className={`${head} w-24 text-center`}>Download</TableHead>
+          <TableHead >Library</TableHead>
+          <TableHead className={`max-sm:hidden`}>Folder</TableHead>
+          <TableHead className={`w-24 text-center`}>Access</TableHead>
+          <TableHead className={`w-24 text-center`}>Download</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

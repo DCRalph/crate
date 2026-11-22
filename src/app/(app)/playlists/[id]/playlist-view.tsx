@@ -7,6 +7,7 @@ import { Copy, ListEnd, Pencil, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
+import { Hero } from "~/components/library/hero";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
 import { PageCrumb } from "~/components/shell/crumb";
@@ -54,55 +55,52 @@ export function PlaylistView({ id }: { id: number }) {
   }
 
   return (
-    <Page maxWidth="max-w-5xl">
+    <Page maxWidth="max-w-5xl" title="trail">
       <PageCrumb label={data.name} />
-      <div className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end">
-        <Cover type="playlist" id={id} size={480} className="w-40 sm:w-48" />
-        <div className="min-w-0">
-          <h1 className="font-title text-2xl font-semibold text-balance sm:text-3xl">{data.name}</h1>
-          <p className="text-muted-foreground mt-1 text-sm tabular-nums">
-            {[
-              data.readOnly ? "Follows a folder on disk" : `By ${data.isMine ? "you" : data.ownerName}`,
-              count(data.tracks.length, "track"),
-              formatLength(data.duration),
-              data.isPublic && !data.readOnly ? "Public" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {data.comment ? <p className="text-muted-foreground mt-2 max-w-prose text-sm">{data.comment}</p> : null}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button variant="brand" disabled={!data.tracks.length} onClick={() => play(data.tracks)}>
-              <Play className="fill-current" />
-              Play
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!data.tracks.length}
-              onClick={() => {
-                enqueue(data.tracks);
-                toast(`Added to queue: ${data.name}`);
-              }}
-            >
-              <ListEnd />
-              Add to queue
-            </Button>
-            {data.canEdit ? (
-              <Button variant="outline" asChild>
-                <Link href={`/playlists/${id}/edit`}>
-                  <Pencil />
-                  Edit
-                </Link>
-              </Button>
-            ) : (
-              <Button variant="outline" disabled={copy.isPending} onClick={() => copy.mutate({ id })}>
-                <Copy />
-                Make a copy
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      <Hero
+        cover={<Cover type="playlist" id={id} size={480} className="w-40 sm:w-48" />}
+        title={data.name}
+        note={data.comment}
+        band={[
+          data.readOnly ? "Follows a folder on disk" : `By ${data.isMine ? "you" : data.ownerName}`,
+          count(data.tracks.length, "track"),
+          formatLength(data.duration),
+          data.isPublic && !data.readOnly ? "Public" : null,
+        ]
+          .filter(Boolean)
+          .map((fact) => (
+            <span key={fact}>{fact}</span>
+          ))}
+      >
+        <Button variant="brand" disabled={!data.tracks.length} onClick={() => play(data.tracks)}>
+          <Play className="fill-current" />
+          Play
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!data.tracks.length}
+          onClick={() => {
+            enqueue(data.tracks);
+            toast(`Added to queue: ${data.name}`);
+          }}
+        >
+          <ListEnd />
+          Add to queue
+        </Button>
+        {data.canEdit ? (
+          <Button variant="outline" asChild>
+            <Link href={`/playlists/${id}/edit`}>
+              <Pencil />
+              Edit
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" disabled={copy.isPending} onClick={() => copy.mutate({ id })}>
+            <Copy />
+            Make a copy
+          </Button>
+        )}
+      </Hero>
 
       {data.tracks.length ? (
         <TrackTable

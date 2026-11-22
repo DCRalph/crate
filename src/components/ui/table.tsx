@@ -25,7 +25,11 @@ function Table({
       <table
         data-slot="table"
         data-sticky-header={stickyHeader || undefined}
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn(
+          // The head is the coral band. It is painted once across the table rather than cell by cell, so no seams show between columns.
+          "w-full caption-bottom text-sm [background:linear-gradient(var(--band),var(--band))_top/100%_2rem_no-repeat]",
+          className
+        )}
         {...props}
       />
     </div>
@@ -36,7 +40,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn("text-ink [&_tr]:border-0 [&_tr]:hover:bg-transparent", className)}
       {...props}
     />
   )
@@ -83,9 +87,9 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "t-label h-8 px-2 text-left align-middle text-[11.5px] whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         // A sticky cell leaves the row's border behind, so it draws its own.
-        "in-data-[sticky-header]:sticky in-data-[sticky-header]:top-0 in-data-[sticky-header]:z-10 in-data-[sticky-header]:bg-card in-data-[sticky-header]:shadow-[inset_0_-1px_0_var(--border)]",
+        "in-data-[sticky-header]:sticky in-data-[sticky-header]:top-0 in-data-[sticky-header]:z-10 in-data-[sticky-header]:bg-brand",
         className
       )}
       {...props}

@@ -270,7 +270,7 @@ export function DataTable<TRow>({
         <div
           ref={cardRef}
           className={cn(
-            "border-border bg-card relative rounded-xl border",
+            "print relative rounded-lg shadow-[0_1px_2px_rgb(0_0_0/0.14)]",
             // Clip rather than hide: a hidden overflow is a scroll container,
             // and the sticky header would stick to it instead of the page.
             stickyHeader ? "overflow-clip" : "overflow-hidden",
@@ -332,10 +332,10 @@ export function DataTable<TRow>({
                     <TableHead
                       key={column.id}
                       className={cn(
-                        "text-foreground/80",
+                        "",
                         alignClass(column.align),
                         column.sortable &&
-                          "hover:text-foreground cursor-pointer transition-colors select-none",
+                          "cursor-pointer select-none",
                         column.headerClassName,
                       )}
                       onClick={
@@ -351,7 +351,7 @@ export function DataTable<TRow>({
                         )}
                       >
                         {column.icon && (
-                          <column.icon className="text-muted-foreground size-4" />
+                          <column.icon className="size-4" />
                         )}
                         {column.header}
                         {column.sortable &&
@@ -362,7 +362,7 @@ export function DataTable<TRow>({
                               <ArrowUp className="size-3.5" />
                             )
                           ) : (
-                            <ArrowDownUp className="text-muted-foreground/40 size-3.5 opacity-0 transition-opacity group-hover/th:opacity-100" />
+                            <ArrowDownUp className="size-3.5 opacity-0 transition-opacity group-hover/th:opacity-50" />
                           ))}
                       </span>
                     </TableHead>

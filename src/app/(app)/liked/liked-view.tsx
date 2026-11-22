@@ -6,7 +6,7 @@ import { Play } from "lucide-react";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
 import { Page } from "~/components/shell/page";
-import { Empty, LoadError, SectionHeading } from "~/components/shell/states";
+import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
@@ -18,13 +18,16 @@ export function LikedView() {
   const tracks = liked.data ?? [];
 
   return (
-    <Page maxWidth="max-w-5xl">
-      <SectionHeading title="Liked tracks" detail={liked.data ? count(tracks.length, "track") : null}>
+    <Page
+      maxWidth="max-w-5xl"
+      detail={liked.data ? count(tracks.length, "track") : null}
+      actions={
         <Button variant="brand" size="sm" disabled={!tracks.length} onClick={() => usePlayer.getState().play(tracks)}>
           <Play className="fill-current" />
           Play
         </Button>
-      </SectionHeading>
+      }
+    >
       {liked.isPending ? (
         <TrackTableSkeleton />
       ) : liked.isError ? (
