@@ -5,7 +5,7 @@ import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 
 import { parseRange } from "./range";
-import { transcodeFormats, type TranscodeFormat } from "./transcode";
+import { transcodeArgs, transcodeFormats, type TranscodeFormat } from "./transcode";
 
 // Node's web stream type and the DOM's differ only in their reader overloads.
 const webStream = (stream: Readable) => Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>;
@@ -53,25 +53,12 @@ export function transcodeResponse(
   filePath: string,
   options: { format: TranscodeFormat; bitRate: number; offsetSeconds?: number },
 ): Response {
-  const format = transcodeFormats[options.format];
-  const ffmpeg = spawn(
-    "ffmpeg",
-    [
-      "-v", "error", "-nostdin",
-      ...(options.offsetSeconds ? ["-ss", String(options.offsetSeconds)] : []),
-      "-i", filePath,
-      "-map", "0:a:0", "-vn",
-      "-b:a", `${options.bitRate}k`,
-      ...format.args,
-      "pipe:1",
-    ],
-    { stdio: ["ignore", "pipe", "inherit"] },
-  );
+  const ffmpeg = spawn("ffmpeg", transcodeArgs(filePath, options), { stdio: ["ignore", "pipe", "inherit"] });
   // The listener stopped or skipped: stop encoding the rest.
   request.signal.addEventListener("abort", () => ffmpeg.kill("SIGKILL"));
   ffmpeg.on("error", (error) => console.error("[transcode] ffmpeg failed to start:", error));
 
   return new Response(webStream(ffmpeg.stdout), {
-    headers: { "Content-Type": format.contentType, "Cache-Control": "private, no-cache", "Accept-Ranges": "none" },
+    headers: { "Content-Type": transcodeFormats[options.format].contentType, "Cache-Control": "private, no-cache", "Accept-Ranges": "none" },
   });
 }

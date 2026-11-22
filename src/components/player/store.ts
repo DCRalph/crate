@@ -24,6 +24,8 @@ type PlayerState = {
   /** What a track is converted to when it has to be. */
   format: TranscodeFormat;
   normalise: Normalise;
+  /** Tracks that failed to play as they are in this browser, by id. They are converted for the rest of the session. */
+  unplayable: ReadonlySet<number>;
   /** Replaces the queue and starts playing at `startAt`. */
   play: (tracks: WebTrack[], startAt?: number) => void;
   /** Adds to the end of the queue. Starts playing if nothing was queued. */
@@ -39,6 +41,7 @@ type PlayerState = {
   setQuality: (quality: number | null) => void;
   setFormat: (format: TranscodeFormat) => void;
   setNormalise: (normalise: Normalise) => void;
+  markUnplayable: (trackId: number) => void;
   /** Keeps queued copies of a track in step when it is liked or unliked. */
   setStarred: (trackId: number, starred: boolean) => void;
 };
@@ -47,7 +50,7 @@ type PlayerState = {
  * The play queue and the playback preferences. The audio element lives in
  * PlayerBar and follows this store. The queue, volume and preferences are kept
  * in this browser and survive a reload; `playing` doesn't, because browsers
- * won't start audio without a click.
+ * won't start audio without a click, and `unplayable` starts empty each time.
  */
 export const usePlayer = create<PlayerState>()(
   persist(
@@ -60,6 +63,7 @@ export const usePlayer = create<PlayerState>()(
       quality: null,
       format: "mp3",
       normalise: "off",
+      unplayable: new Set(),
       play: (tracks, startAt = 0) => set({ queue: tracks, index: startAt, playing: tracks.length > 0 }),
       enqueue: (tracks) => {
         const { queue } = get();
@@ -91,6 +95,7 @@ export const usePlayer = create<PlayerState>()(
       setQuality: (quality) => set({ quality }),
       setFormat: (format) => set({ format }),
       setNormalise: (normalise) => set({ normalise }),
+      markUnplayable: (trackId) => set({ unplayable: new Set(get().unplayable).add(trackId) }),
       setStarred: (trackId, starred) =>
         set({ queue: get().queue.map((track) => (track.id === trackId ? { ...track, starred } : track)) }),
     }),
