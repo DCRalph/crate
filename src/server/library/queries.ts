@@ -11,6 +11,7 @@ import {
   playlist,
   playlistTrack,
   track,
+  trackArtist,
   type AnnotationType,
 } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
@@ -24,13 +25,23 @@ type Page = { limit?: number; offset?: number };
 const annotationOf = (scope: Scope, itemType: AnnotationType, idColumn: typeof track.id | typeof album.id | typeof artist.id) =>
   and(eq(annotation.userId, scope.user.id), eq(annotation.itemType, itemType), eq(annotation.itemId, idColumn));
 
+/** Everyone credited on a track, in the order the credit names them. */
+const creditedArtists = sql<{ id: number; name: string }[]>`(
+  select coalesce(json_agg(json_build_object('id', credited.id, 'name', credited.name) order by credit.position), '[]'::json)
+  from ${trackArtist} as credit inner join ${artist} as credited on credited.id = credit.artist_id
+  where credit.track_id = ${track.id}
+)`;
+
 const trackColumns = {
   id: track.id,
   title: track.title,
   albumId: track.albumId,
   albumName: album.name,
+  /** The first credited artist. */
   artistId: track.artistId,
-  artistName: artist.name,
+  /** The artist line as shown, joint credits and all. */
+  artistName: track.artistCredit,
+  artists: creditedArtists,
   trackNumber: track.trackNumber,
   discNumber: track.discNumber,
   year: track.year,
@@ -61,7 +72,6 @@ export async function listTracks(scope: Scope, options: Page & { where?: SQL; or
     .select(trackColumns)
     .from(track)
     .innerJoin(album, eq(album.id, track.albumId))
-    .innerJoin(artist, eq(artist.id, track.artistId))
     .leftJoin(annotation, annotationOf(scope, "track", track.id))
     .where(and(inScope(track.libraryId, scope), options.where))
     .orderBy(...(options.orderBy ?? albumOrder))
@@ -76,14 +86,13 @@ export async function findTrackFile(scope: Scope, id: number) {
       id: track.id,
       path: track.path,
       title: track.title,
-      artistName: artist.name,
+      artistName: track.artistCredit,
       suffix: track.suffix,
       contentType: track.contentType,
       bitRate: track.bitRate,
       libraryId: track.libraryId,
     })
     .from(track)
-    .innerJoin(artist, eq(artist.id, track.artistId))
     .where(and(eq(track.id, id), inScope(track.libraryId, scope)));
   return row;
 }
@@ -91,8 +100,10 @@ export async function findTrackFile(scope: Scope, id: number) {
 const albumColumns = {
   id: album.id,
   name: album.name,
+  /** The first artist on the album artist credit. */
   artistId: album.artistId,
-  artistName: artist.name,
+  /** The album artist as shown. */
+  artistName: album.artistCredit,
   year: album.year,
   genre: album.genre,
   trackCount: album.trackCount,
@@ -109,7 +120,6 @@ export async function listAlbums(scope: Scope, options: Page & { where?: SQL; or
   return db
     .select(albumColumns)
     .from(album)
-    .innerJoin(artist, eq(artist.id, album.artistId))
     .leftJoin(annotation, annotationOf(scope, "album", album.id))
     .where(and(inScope(album.libraryId, scope), options.where))
     .orderBy(...(options.orderBy ?? [asc(sql`lower(${album.name})`)]))
@@ -135,45 +145,124 @@ export async function listAlbumsByPlays(scope: Scope, by: "recent" | "frequent",
   return ids.flatMap((id) => albums.get(id) ?? []);
 }
 
+/** Each artist with each album they are on: as its album artist, or credited on one of its tracks. */
+const appearance = db
+  .select({ artistId: trackArtist.artistId, albumId: track.albumId })
+  .from(trackArtist)
+  .innerJoin(track, eq(track.id, trackArtist.trackId))
+  .union(db.select({ artistId: album.artistId, albumId: album.id }).from(album))
+  .as("appearance");
+
+/** A filter for `listAlbums`: every album an artist is on, not only the ones filed under them. */
+export const albumsWith = (artistId: number) =>
+  inArray(album.id, db.select({ albumId: appearance.albumId }).from(appearance).where(eq(appearance.artistId, artistId)));
+
 export type ArtistRow = Awaited<ReturnType<typeof listArtists>>[number];
 
-/** Album artists with at least one album in scope. */
-export async function listArtists(scope: Scope, options: Page & { where?: SQL } = {}) {
+/**
+ * Everyone credited on something in scope, each with the number of albums
+ * they are on. A joint credit counts for each of its artists.
+ */
+export async function listArtists(scope: Scope, options: Page & { where?: SQL; orderBy?: SQL[] } = {}) {
   return db
     .select({ id: artist.id, name: artist.name, albumCount: count(album.id), starredAt: annotation.starredAt })
     .from(artist)
-    .innerJoin(album, and(eq(album.artistId, artist.id), inScope(album.libraryId, scope)))
+    .innerJoin(appearance, eq(appearance.artistId, artist.id))
+    .innerJoin(album, and(eq(album.id, appearance.albumId), inScope(album.libraryId, scope)))
     .leftJoin(annotation, annotationOf(scope, "artist", artist.id))
     .where(options.where)
     .groupBy(artist.id, annotation.starredAt)
-    .orderBy(asc(sql`lower(${artist.name})`))
+    .orderBy(...(options.orderBy ?? [asc(sql`lower(${artist.name})`)]))
     .limit(options.limit ?? 10_000)
     .offset(options.offset ?? 0);
 }
 
-const escapeLike = (text: string) => text.replace(/[\\%_]/g, "\\$&");
+// --- Search ---
 
-/** Every word of `query` must appear somewhere in `haystack`. An empty query matches everything. */
-function matches(haystack: SQL, query: string) {
-  const words = query.trim().split(/\s+/).filter(Boolean);
-  return words.length ? and(...words.map((word) => sql`${haystack} ilike ${`%${escapeLike(word)}%`}`)) : undefined;
+// Letters that are searched as their plain form, and "$" for the names that use it as an s.
+const plainLetters = {
+  a: "àáâãäåāăą",
+  c: "çćč",
+  d: "ďđ",
+  e: "èéêëēėęě",
+  g: "ğ",
+  i: "ìíîïīįı",
+  l: "ł",
+  n: "ñńň",
+  o: "òóôõöøōő",
+  r: "ř",
+  s: "śšş$",
+  t: "ť",
+  u: "ùúûüūůűų",
+  y: "ýÿ",
+  z: "žźż",
+};
+const foldFrom = Object.values(plainLetters).join("");
+const foldTo = Object.entries(plainLetters)
+  .map(([plain, accented]) => plain.repeat([...accented].length))
+  .join("");
+/** Punctuation that is ignored: translate() deletes characters that have nothing to map to. */
+const ignored = `.,'’‘´\`"!?()[]{}:;/\\*_~&+#@<>|=^%-–—`;
+
+/**
+ * Text as search compares it: lowercase, accents and punctuation gone, single
+ * spaces. So "rufus" finds RÜFÜS DU SOL, "amc" finds A.M.C and "asap" finds
+ * A$AP Rocky. Both sides of every comparison go through it.
+ */
+const folded = (text: SQL | string) =>
+  sql`btrim(regexp_replace(translate(lower(${text}), ${foldFrom + ignored}, ${foldTo}), '\\s+', ' ', 'g'))`;
+
+/** Every word has to appear somewhere in `haystack`, which is already folded. */
+const hasWords = (haystack: SQL, words: string[]) =>
+  sql.join(
+    words.map((word) => sql`strpos(${haystack}, ${folded(word)}) > 0`),
+    sql` and `,
+  );
+
+/**
+ * How well `field` answers the query, best first: it is the query (0), starts
+ * with it (1), holds it as typed (2), holds every word (3), or the row matched
+ * through another field (4).
+ */
+function relevance(field: SQL, words: string[]) {
+  const name = folded(field);
+  const phrase = folded(words.join(" "));
+  return sql`case when ${name} = ${phrase} then 0 when starts_with(${name}, ${phrase}) then 1 when strpos(${name}, ${phrase}) > 0 then 2 when ${hasWords(name, words)} then 3 else 4 end`;
 }
 
 /**
- * Search across artists, albums and tracks. Tracks match on title, artist and
- * album together, so "daft around" finds Around the World.
+ * Search across artists, albums and tracks. Every word has to match, but not
+ * all in one field: tracks match on title, artist credit and album together,
+ * so "daft around" finds Around the World, and a track is found by anyone
+ * credited on it. Accents, case and punctuation are ignored. The closest
+ * matches on the name or title come first (see `relevance`), then by name. An
+ * empty query lists everything, which is how Subsonic apps sync a library.
  */
 export async function search(
   scope: Scope,
   query: string,
   pages: { artists?: Page; albums?: Page; tracks?: Page } = {},
 ) {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  const matching = (haystack: SQL) => (words.length ? hasWords(folded(haystack), words) : undefined);
+  const closestFirst = (field: SQL, ...then: SQL[]) => (words.length ? [asc(relevance(field, words)), ...then] : then);
+
   const [artists, albums, tracks] = await Promise.all([
-    listArtists(scope, { where: matches(sql`${artist.name}`, query), limit: 20, ...pages.artists }),
-    listAlbums(scope, { where: matches(sql`(${album.name} || ' ' || ${artist.name})`, query), limit: 20, ...pages.albums }),
+    listArtists(scope, {
+      where: matching(sql`${artist.name}`),
+      orderBy: closestFirst(sql`${artist.name}`, asc(sql`lower(${artist.name})`)),
+      limit: 20,
+      ...pages.artists,
+    }),
+    listAlbums(scope, {
+      where: matching(sql`${album.name} || ' ' || ${album.artistCredit}`),
+      orderBy: closestFirst(sql`${album.name}`, asc(sql`lower(${album.name})`), asc(album.id)),
+      limit: 20,
+      ...pages.albums,
+    }),
     listTracks(scope, {
-      where: matches(sql`(${track.title} || ' ' || ${artist.name} || ' ' || ${album.name})`, query),
-      orderBy: [asc(sql`lower(${track.title})`), asc(track.id)],
+      where: matching(sql`${track.title} || ' ' || ${track.artistCredit} || ' ' || ${album.name}`),
+      orderBy: closestFirst(sql`${track.title}`, asc(sql`lower(${track.title})`), asc(track.id)),
       limit: 20,
       ...pages.tracks,
     }),
@@ -285,7 +374,6 @@ export async function getPlaylist(scope: Scope, id: number) {
     .from(playlistTrack)
     .innerJoin(track, eq(track.id, playlistTrack.trackId))
     .innerJoin(album, eq(album.id, track.albumId))
-    .innerJoin(artist, eq(artist.id, track.artistId))
     .leftJoin(annotation, annotationOf(scope, "track", track.id))
     .where(and(eq(playlistTrack.playlistId, id), inScope(track.libraryId, scope)))
     .orderBy(asc(playlistTrack.position));

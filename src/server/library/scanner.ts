@@ -1,16 +1,18 @@
 import "server-only";
 import { readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
-import { and, eq, inArray, notExists, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notExists, sql } from "drizzle-orm";
 import { parseFile } from "music-metadata";
 
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
-import { album, artist, library, track, type ScanResult } from "~/server/db/app-schema";
+import { album, artist, library, track, trackArtist, type ScanResult } from "~/server/db/app-schema";
 import { syncFolderRules } from "~/server/playlists/folder-rules";
+import { artistKey, fromFileName, readCredit, splitJoint, type Credit } from "./artists";
 import { audioTypes, coverFilePattern, suffixOf } from "./audio";
 
 type Library = typeof library.$inferSelect;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** What the admin page shows while a scan runs. */
 export type ScanProgress = {
@@ -81,7 +83,74 @@ async function inPool<T>(items: T[], limit: number, work: (item: T) => Promise<v
   );
 }
 
-const nameKey = (name: string) => name.trim().toLowerCase();
+/** The id of the artist with this name, added if it is new. Spellings that differ only in case are one artist. */
+async function addArtist(name: string) {
+  const key = artistKey(name);
+  const [row] = await db
+    .insert(artist)
+    .values({ name: name.trim(), nameKey: key })
+    // A no-op update so the existing row's id comes back.
+    .onConflictDoUpdate({ target: artist.nameKey, set: { nameKey: key } })
+    .returning({ id: artist.id });
+  return row!.id;
+}
+
+/** Replaces who a track is credited to, in order. The caller keeps `track.artistId` as the first of them. */
+async function setTrackArtists(tx: Tx, trackId: number, artistIds: number[]) {
+  await tx.delete(trackArtist).where(eq(trackArtist.trackId, trackId));
+  await tx.insert(trackArtist).values(artistIds.map((artistId, position) => ({ trackId, artistId, position })));
+}
+
+/** Removes artists nothing is credited to any more. */
+async function removeUnusedArtists() {
+  const unused = (table: typeof album | typeof track | typeof trackArtist) =>
+    notExists(db.select({ one: sql`1` }).from(table).where(eq(table.artistId, artist.id)));
+  await db.delete(artist).where(and(unused(album), unused(track), unused(trackArtist)));
+}
+
+/**
+ * Splits joint artists the library can now tell apart. The scanner only
+ * splits a credit on separators that never sit inside a name, so "Skrillex &
+ * Feid" starts as one artist. Here each name with an "&" or "and" is checked
+ * against the other artists, and when a part is an artist in its own right the
+ * tracks and albums of the joint one are credited to its parts instead and it
+ * is removed. It works from the database alone and runs after every scan, so
+ * the order files turn up in makes no difference: "A & B" is split by whichever
+ * scan first sees "A" alone, and stays split after that.
+ */
+async function splitJointArtists() {
+  // Until nothing changes: the parts of one split can be what another was waiting for.
+  for (;;) {
+    const artists = await db.select({ id: artist.id, name: artist.name, nameKey: artist.nameKey }).from(artist);
+    const keys = new Set(artists.map((row) => row.nameKey));
+    const joint = artists.flatMap((row) => {
+      const names = splitJoint(row.name, (name) => keys.has(artistKey(name)));
+      return names.length > 1 ? [{ id: row.id, names }] : [];
+    });
+    if (!joint.length) return;
+
+    for (const { id, names } of joint) {
+      const partIds: number[] = [];
+      for (const name of names) partIds.push(await addArtist(name));
+      await db.transaction(async (tx) => {
+        const credited = await tx.select({ trackId: trackArtist.trackId }).from(trackArtist).where(eq(trackArtist.artistId, id));
+        for (const { trackId } of credited) {
+          const current = await tx
+            .select({ artistId: trackArtist.artistId })
+            .from(trackArtist)
+            .where(eq(trackArtist.trackId, trackId))
+            .orderBy(asc(trackArtist.position));
+          // The parts take the joint artist's place. A part already credited keeps its earlier place.
+          const artistIds = [...new Set(current.flatMap((row) => (row.artistId === id ? partIds : [row.artistId])))];
+          await setTrackArtists(tx, trackId, artistIds);
+          await tx.update(track).set({ artistId: artistIds[0]! }).where(eq(track.id, trackId));
+        }
+        await tx.update(album).set({ artistId: partIds[0]! }).where(eq(album.artistId, id));
+        await tx.delete(artist).where(eq(artist.id, id));
+      });
+    }
+  }
+}
 
 /**
  * Brings one library's rows in line with its folder: new and changed files are
@@ -119,32 +188,30 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
   const albumCovers = new Map<number, string | null>();
 
   const artistId = (name: string) => {
-    const key = nameKey(name);
+    const key = artistKey(name);
     let id = artistIds.get(key);
     if (!id) {
-      id = db
-        .insert(artist)
-        .values({ name: name.trim(), nameKey: key })
-        // A no-op update so the existing row's id comes back.
-        .onConflictDoUpdate({ target: artist.nameKey, set: { nameKey: key } })
-        .returning({ id: artist.id })
-        .then((rows) => rows[0]!.id);
+      id = addArtist(name);
       artistIds.set(key, id);
     }
     return id;
   };
 
-  const albumId = (values: { artistId: number; name: string; year: number | null; genre: string | null }) => {
-    const key = `${values.artistId}\0${values.name}`;
+  const albumId = (values: { artistId: number; artistCredit: string; name: string; year: number | null; genre: string | null }) => {
+    const key = `${values.artistCredit}\0${values.name}`;
     let id = albumIds.get(key);
     if (!id) {
       id = db
         .insert(album)
         .values({ ...values, libraryId: lib.id })
         .onConflictDoUpdate({
-          target: [album.libraryId, album.artistId, album.name],
+          target: [album.libraryId, album.artistCredit, album.name],
           // Tags win over whatever an earlier scan guessed.
-          set: { year: sql`coalesce(excluded.year, ${album.year})`, genre: sql`coalesce(excluded.genre, ${album.genre})` },
+          set: {
+            artistId: values.artistId,
+            year: sql`coalesce(excluded.year, ${album.year})`,
+            genre: sql`coalesce(excluded.genre, ${album.genre})`,
+          },
         })
         .returning({ id: album.id })
         .then((rows) => rows[0]!.id);
@@ -163,9 +230,10 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
         return;
       }
       const tags = await readTags(file.path);
-      const trackArtistId = await artistId(tags.artist);
+      const trackArtistIds = await Promise.all(tags.artist.names.map(artistId));
       const trackAlbumId = await albumId({
-        artistId: await artistId(tags.albumArtist),
+        artistId: await artistId(tags.albumArtist.names[0]!),
+        artistCredit: tags.albumArtist.credit,
         name: tags.album,
         year: tags.year,
         genre: tags.genre,
@@ -176,7 +244,8 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
       const values = {
         libraryId: lib.id,
         albumId: trackAlbumId,
-        artistId: trackArtistId,
+        artistId: trackArtistIds[0]!,
+        artistCredit: tags.artist.credit,
         title: tags.title,
         trackNumber: tags.trackNumber,
         discNumber: tags.discNumber,
@@ -195,10 +264,14 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
         relPath: path.relative(lib.path, file.path).split(path.sep).join("/"),
         mtimeMs: file.mtimeMs,
       };
-      await db
-        .insert(track)
-        .values(values)
-        .onConflictDoUpdate({ target: track.path, set: { ...values, updatedAt: new Date() } });
+      await db.transaction(async (tx) => {
+        const [saved] = await tx
+          .insert(track)
+          .values(values)
+          .onConflictDoUpdate({ target: track.path, set: { ...values, updatedAt: new Date() } })
+          .returning({ id: track.id });
+        await setTrackArtists(tx, saved!.id, trackArtistIds);
+      });
       if (known) result.updated++;
       else result.added++;
     } catch (error) {
@@ -219,12 +292,10 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
   await db
     .delete(album)
     .where(and(eq(album.libraryId, lib.id), notExists(db.select({ one: sql`1` }).from(track).where(eq(track.albumId, album.id)))));
-  await db.delete(artist).where(
-    and(
-      notExists(db.select({ one: sql`1` }).from(album).where(eq(album.artistId, artist.id))),
-      notExists(db.select({ one: sql`1` }).from(track).where(eq(track.artistId, artist.id))),
-    ),
-  );
+  // Joint artists are split before unused ones are removed. A full rescan credits "A & B" whole
+  // again for a moment, and B, known only from that split, has to still be there to keep its id.
+  await splitJointArtists();
+  await removeUnusedArtists();
   await db.execute(sql`
     update ${album} set track_count = totals.tracks, duration = totals.duration
     from (select album_id, count(*)::int as tracks, coalesce(sum(duration), 0)::int as duration from ${track} where library_id = ${lib.id} group by album_id) as totals
@@ -241,33 +312,49 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
   return finish();
 }
 
-/** A ReplayGain number as stored: null when the tag is missing or isn't a usable number (a gain of "0" with no unit reads as minus infinity). */
-const gainValue = (value: number | undefined) => (value !== undefined && Number.isFinite(value) ? value : null);
+/**
+ * A number from a tag as stored: null when the tag is missing or isn't a usable
+ * number. A ReplayGain of "0" with no unit reads as minus infinity, and a year
+ * that isn't a date reads as NaN, which would fail the whole file.
+ */
+const tagNumber = (value: number | undefined) => (value !== undefined && Number.isFinite(value) ? value : null);
 
-/** The tags the library needs, with fallbacks for files that have none. */
+/** A credit to one artist. */
+const named = (name: string): Credit => ({ credit: name, names: [name] });
+
+/**
+ * The tags the library needs, with fallbacks for files that have none. Both
+ * credits come with everyone on them: from the tags' own list when a file has
+ * one, otherwise from splitting the one string (see artists.ts).
+ */
 async function readTags(file: string) {
   let { common, format } = await parseFile(file, { skipCovers: true });
   // Some files (VBR MP3 without a header, raw AAC) only give a length when read through.
   if (!format.duration) ({ common, format } = await parseFile(file, { skipCovers: true, duration: true }));
 
-  const artistName = common.artist?.trim() || common.albumartist?.trim() || "Unknown Artist";
+  // A file with no tags usually still says who and what it is in its name.
+  const fileName = fromFileName(path.basename(file, path.extname(file)));
+  const albumArtist = readCredit(common.albumartist, common.albumartists);
+  const artist = readCredit(common.artist, common.artists) ?? albumArtist ?? readCredit(fileName.artist) ?? named("Unknown Artist");
+  const album = common.album?.trim();
   return {
-    title: common.title?.trim() || path.basename(file, path.extname(file)),
-    artist: artistName,
-    albumArtist: common.albumartist?.trim() || (common.compilation ? "Various Artists" : artistName),
+    title: common.title?.trim() || fileName.title,
+    artist,
+    // With no album tag the folder is the album, and a folder of loose files is by whoever is in it.
+    albumArtist: albumArtist ?? (common.compilation || !album ? named("Various Artists") : artist),
     // Untagged files are usually already sorted into folders, so the folder is the album.
-    album: common.album?.trim() || path.basename(path.dirname(file)),
-    year: common.year ?? null,
+    album: album || path.basename(path.dirname(file)),
+    year: tagNumber(common.year),
     genre: common.genre?.[0]?.trim() || null,
     trackNumber: common.track.no ?? null,
     discNumber: common.disk.no ?? null,
     duration: Math.round(format.duration ?? 0),
     bitRate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
     // ReplayGain: gain in dB, peak as a ratio of full scale.
-    trackGain: gainValue(common.replaygain_track_gain?.dB),
-    albumGain: gainValue(common.replaygain_album_gain?.dB),
-    trackPeak: gainValue(common.replaygain_track_peak?.ratio),
-    albumPeak: gainValue(common.replaygain_album_peak?.ratio),
+    trackGain: tagNumber(common.replaygain_track_gain?.dB),
+    albumGain: tagNumber(common.replaygain_album_gain?.dB),
+    trackPeak: tagNumber(common.replaygain_track_peak?.ratio),
+    albumPeak: tagNumber(common.replaygain_album_peak?.ratio),
   };
 }
 

@@ -6,6 +6,7 @@ import { db } from "~/server/db";
 import { album, annotation, artist, library, playQueue, track } from "~/server/db/app-schema";
 import { coverFile } from "~/server/library/cover";
 import {
+  albumsWith,
   annotate,
   findTrackFile,
   getPlaylist,
@@ -124,7 +125,7 @@ async function albumList(ctx: Context) {
       orderBy = [byName];
       break;
     case "alphabeticalByArtist":
-      orderBy = [asc(sql`lower(${artist.name})`), byName];
+      orderBy = [asc(sql`lower(${album.artistCredit})`), byName];
       break;
     case "starred":
       where = isNotNull(annotation.starredAt);
@@ -233,7 +234,8 @@ export const handlers: Record<string, Handler> = {
     const id = idOf(params.required("id"), "artist");
     const [found] = await listArtists(scope, { where: eq(artist.id, id) });
     if (!found) throw new SubsonicError(70, "Artist not found.");
-    const albums = await listAlbums(scope, { where: eq(album.artistId, id), orderBy: [asc(album.year), asc(album.name)], limit: 2000 });
+    // Every album the artist is on, so someone only ever credited beside others still has albums.
+    const albums = await listAlbums(scope, { where: albumsWith(id), orderBy: [asc(album.year), asc(album.name)], limit: 2000 });
     return { artist: { ...toArtist(found), album: albums.map(toAlbum) } };
   },
 
@@ -257,7 +259,7 @@ export const handlers: Record<string, Handler> = {
     if (target.type === "artist") {
       const [found] = await listArtists(scope, { where: eq(artist.id, target.id) });
       if (!found) throw new SubsonicError(70, "Folder not found.");
-      const albums = await listAlbums(scope, { where: eq(album.artistId, target.id), orderBy: [asc(album.year), asc(album.name)], limit: 2000 });
+      const albums = await listAlbums(scope, { where: albumsWith(target.id), orderBy: [asc(album.year), asc(album.name)], limit: 2000 });
       return { directory: { id: `ar-${found.id}`, name: found.name, child: albums.map(toAlbumFolder) } };
     }
     if (target.type === "album") {
