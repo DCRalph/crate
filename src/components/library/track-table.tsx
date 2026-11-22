@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, ListEnd, ListPlus, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
@@ -25,7 +26,7 @@ import { cn } from "~/lib/utils";
 import type { WebTrack } from "~/server/api/routers/library";
 import { useTRPC } from "~/trpc/react";
 import { LikeButton } from "./like-button";
-import { NewPlaylistDialog } from "./new-playlist-dialog";
+import { usePendingTracks } from "./pending-tracks";
 
 /**
  * The list of tracks on an album, playlist or search page. Clicking a row's
@@ -139,8 +140,8 @@ function TrackMenu({ track, onRemove }: { track: WebTrack; onRemove?: () => void
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const enqueue = usePlayer((state) => state.enqueue);
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   // Only asked for once a menu is opened, not once per row.
   const playlists = useQuery(trpc.playlists.list.queryOptions(undefined, { enabled: open }));
   const add = useMutation(
@@ -152,7 +153,6 @@ function TrackMenu({ track, onRemove }: { track: WebTrack; onRemove?: () => void
   const editable = playlists.data?.filter((playlist) => playlist.isMine && !playlist.readOnly) ?? [];
 
   return (
-    <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -180,7 +180,13 @@ function TrackMenu({ track, onRemove }: { track: WebTrack; onRemove?: () => void
               Add to playlist
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-h-72 w-52 overflow-y-auto">
-              <DropdownMenuItem onSelect={() => setCreating(true)}>
+              {/* The track waits while the person names the playlist on its own page. */}
+              <DropdownMenuItem
+                onSelect={() => {
+                  usePendingTracks.getState().set([track.id], track.title);
+                  router.push("/playlists/new");
+                }}
+              >
                 <Plus />
                 New playlist
               </DropdownMenuItem>
@@ -216,8 +222,6 @@ function TrackMenu({ track, onRemove }: { track: WebTrack; onRemove?: () => void
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      <NewPlaylistDialog open={creating} onOpenChange={setCreating} trackIds={[track.id]} />
-    </>
   );
 }
 
