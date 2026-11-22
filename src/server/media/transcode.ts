@@ -1,18 +1,52 @@
-/** Formats the server can transcode to, with what ffmpeg needs for each. */
+/**
+ * Formats the server can transcode to, with what ffmpeg needs for each.
+ * `maxBitRate` is the most each is encoded at, in kbps: MP3's own ceiling,
+ * and what libopus takes for one channel (it refuses a mono file above that).
+ * MP3 and Opus bring a high sample rate down by themselves; AAC would keep
+ * 96 kHz, which not every browser's decoder takes, so it is held to 48.
+ */
 export const transcodeFormats = {
-  mp3: { contentType: "audio/mpeg", args: ["-c:a", "libmp3lame", "-f", "mp3"] },
-  opus: { contentType: "audio/ogg", args: ["-c:a", "libopus", "-f", "ogg"] },
-  aac: { contentType: "audio/aac", args: ["-c:a", "aac", "-f", "adts"] },
+  mp3: { contentType: "audio/mpeg", maxBitRate: 320, args: ["-c:a", "libmp3lame", "-f", "mp3"] },
+  opus: { contentType: "audio/ogg", maxBitRate: 256, args: ["-c:a", "libopus", "-f", "ogg"] },
+  aac: {
+    contentType: "audio/aac",
+    maxBitRate: 320,
+    args: ["-c:a", "aac", "-af", "aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000", "-f", "adts"],
+  },
 } as const;
 
 export type TranscodeFormat = keyof typeof transcodeFormats;
 
 const isTranscodeFormat = (format: string): format is TranscodeFormat => Object.hasOwn(transcodeFormats, format);
 
+/**
+ * The ffmpeg arguments that convert a file to `format` at `bitRate` kbps and
+ * write it to standard output, starting `offsetSeconds` in. Only the first
+ * audio stream is taken, so cover art in the file is left behind.
+ */
+export function transcodeArgs(filePath: string, options: { format: TranscodeFormat; bitRate: number; offsetSeconds?: number }) {
+  return [
+    "-v", "error", "-nostdin",
+    ...(options.offsetSeconds ? ["-ss", String(options.offsetSeconds)] : []),
+    "-i", filePath,
+    "-map", "0:a:0", "-vn",
+    "-b:a", `${options.bitRate}k`,
+    ...transcodeFormats[options.format].args,
+    "pipe:1",
+  ];
+}
+
 /** What a track is sent as: the file on disk, or a conversion to `format` at `bitRate` kbps. */
 export type StreamDecision = { transcode: false } | { transcode: true; format: TranscodeFormat; bitRate: number };
 
 type Source = { suffix: string; bitRate: number | null };
+
+/**
+ * The bitrate to convert at, in kbps: `target`, but never above the source (a
+ * 128k file limited to 320k stays at 128k) or the most the format is encoded at.
+ */
+const bitRateFor = (format: TranscodeFormat, target: number, source: Pick<Source, "bitRate">) =>
+  Math.min(target, source.bitRate ?? target, transcodeFormats[format].maxBitRate);
 
 /** The lowest of the limits that are set, in kbps, or null when none is. */
 function lowestLimit(...limits: (number | null | undefined)[]) {
@@ -40,36 +74,39 @@ export function decideStream(
   const otherFormat = wanted && isTranscodeFormat(wanted) && wanted !== source.suffix;
   if (!overCap && !otherFormat) return { transcode: false };
 
-  return {
-    transcode: true,
-    format: wanted && isTranscodeFormat(wanted) ? wanted : "mp3",
-    // Never transcode up: a 128k file capped at 320k stays at 128k.
-    bitRate: Math.min(cap ?? 192, source.bitRate ?? cap ?? 192),
-  };
+  const format = wanted && isTranscodeFormat(wanted) ? wanted : "mp3";
+  return { transcode: true, format, bitRate: bitRateFor(format, cap ?? 192, source) };
 }
 
-/** Formats browsers play natively. Anything else is transcoded for the web player. */
-export const browserPlayable: ReadonlySet<string> = new Set(["mp3", "flac", "m4a", "aac", "ogg", "oga", "opus", "wav"]);
-
-/** What the web player asks for: the most it wants in kbps (none is the original), and the format to convert to when it has to. */
-export type WebStreamPrefs = { maxBitRate?: number | null; format?: TranscodeFormat };
+/**
+ * What the web player asks for: the most it wants in kbps (none is the
+ * original), the format to convert to when it has to, and `convert` when the
+ * file has to be converted whatever its bitrate, because the browser can't
+ * play it as it is.
+ */
+export type WebStreamPrefs = { maxBitRate?: number | null; format?: TranscodeFormat; convert?: boolean };
 
 /**
  * `decideStream` for the web player, which unlike a Subsonic client only wants
- * another format when it has to have one. A file is sent as it is when the
- * browser plays its format and it is within the lower of `prefs.maxBitRate`
- * and the user's cap. Otherwise it is transcoded to `prefs.format` at that
- * limit, or at 320 when the only reason is a format the browser can't play.
- * The player runs this too, to know what it is being sent before it asks.
+ * another format when it has to have one. A file is sent as it is unless the
+ * player says the browser can't play it (`prefs.convert`), or it is above the
+ * lower of `prefs.maxBitRate` and the user's cap. Then it is transcoded to
+ * `prefs.format` at that limit, or at 320 when the only reason is that the
+ * browser can't play it.
+ *
+ * Only the browser knows what it plays, so the player decides and the server
+ * follows: the player runs this with what the browser told it, puts the
+ * outcome in the address (`webStreamUrl`), and the server runs it again on
+ * what the address says. The two agree, except that the server uses the cap
+ * as it is now.
  */
-export function decideWebStream(source: Source, prefs: WebStreamPrefs, userCap: number | null): StreamDecision {
+export function decideWebStream(source: Pick<Source, "bitRate">, prefs: WebStreamPrefs, userCap: number | null): StreamDecision {
   const limit = lowestLimit(prefs.maxBitRate, userCap);
   const withinLimit = limit === null || (source.bitRate !== null && source.bitRate <= limit);
-  if (browserPlayable.has(source.suffix) && withinLimit) return { transcode: false };
+  if (!prefs.convert && withinLimit) return { transcode: false };
 
-  const target = limit ?? 320;
-  // Never transcode up: a 128k file limited to 320k stays at 128k.
-  return { transcode: true, format: prefs.format ?? "mp3", bitRate: Math.min(target, source.bitRate ?? target) };
+  const format = prefs.format ?? "mp3";
+  return { transcode: true, format, bitRate: bitRateFor(format, limit ?? 320, source) };
 }
 
 /**
@@ -89,14 +126,20 @@ export function webStreamUrl(trackId: number, sent: StreamDecision, at = 0) {
   return `/api/stream/${trackId}${query ? `?${query}` : ""}`;
 }
 
-/** Reads `q`, `f` and `at` back out of a stream address. A value that makes no sense is left out. */
+/**
+ * Reads `q`, `f` and `at` back out of a stream address. A format in the
+ * address means the player decided on a conversion, so it is one. A value
+ * that makes no sense is left out.
+ */
 export function parseWebStreamParams(params: URLSearchParams): WebStreamPrefs & { offsetSeconds: number } {
   const maxBitRate = Number(params.get("q"));
-  const format = params.get("f");
+  const asked = params.get("f");
+  const format = asked !== null && isTranscodeFormat(asked) ? asked : undefined;
   const at = Number(params.get("at"));
   return {
     maxBitRate: Number.isInteger(maxBitRate) && maxBitRate > 0 ? maxBitRate : null,
-    format: format !== null && isTranscodeFormat(format) ? format : undefined,
+    format,
+    convert: format !== undefined,
     offsetSeconds: Number.isFinite(at) && at > 0 ? at : 0,
   };
 }

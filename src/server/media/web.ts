@@ -18,7 +18,10 @@ export async function webScope(request: Request): Promise<Scope | null> {
 /**
  * Streams or downloads a track for the website, with the same access rules
  * and logging as the Subsonic API. A stream takes the player's `q` (kbps), `f`
- * (format) and `at` (seconds in) from the address; the user's cap still wins.
+ * (format) and `at` (seconds in) from the address. The player knows what its
+ * browser plays, so a conversion it asks for is always made, and a file it
+ * asks for as it is goes out that way unless it is over the user's cap, which
+ * still wins.
  */
 export async function webTrackResponse(request: Request, idParam: string, mode: "stream" | "download") {
   const startedAt = Date.now();

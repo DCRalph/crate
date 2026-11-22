@@ -1,9 +1,12 @@
 import "server-only";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import path from "node:path";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import { folderRule, library, playlist, playlistFolder, playlistTrack, track, type FolderRuleMode } from "~/server/db/app-schema";
 import { planTree, type TreePlan } from "./plan-tree";
+import { decodePlaylistFile, parsePlaylistFile, playlistFilePattern, type PlaylistFile } from "./playlist-file";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Rule = typeof folderRule.$inferSelect;
@@ -19,23 +22,64 @@ export async function setPlaylistTracks(tx: Tx, playlistId: number, trackIds: nu
   await tx.update(playlist).set({ updatedAt: new Date() }).where(eq(playlist.id, playlistId));
 }
 
-/** What a rule on this folder would make right now, from what is already scanned. Also the preview shown before one is saved. */
+/**
+ * The `.m3u` and `.m3u8` files under a folder of a library, read and parsed.
+ * The scanner only records audio, so the folders are read here, the way the
+ * scanner reads them: hidden entries are skipped and symlinks are followed.
+ * A folder or file that can't be read is left out.
+ */
+async function findPlaylistFiles(libraryPath: string, folder: string): Promise<PlaylistFile[]> {
+  const found: PlaylistFile[] = [];
+  // Stops a link back up the tree looping forever.
+  const visited = new Set<string>();
+
+  async function walk(dir: string) {
+    const real = await realpath(path.join(libraryPath, dir)).catch(() => null);
+    if (!real || visited.has(real)) return;
+    visited.add(real);
+
+    for (const entry of await readdir(real, { withFileTypes: true }).catch(() => [])) {
+      if (entry.name.startsWith(".")) continue;
+      const relPath = dir ? `${dir}/${entry.name}` : entry.name;
+      const full = path.join(libraryPath, relPath);
+      // stat follows symlinks, so linked files and folders count as what they point to.
+      const info = entry.isSymbolicLink() ? await stat(full).catch(() => null) : entry;
+      if (info?.isDirectory()) await walk(relPath);
+      else if (info?.isFile() && playlistFilePattern.test(entry.name)) {
+        const bytes = await readFile(full).catch(() => null);
+        if (bytes) found.push({ relPath, entries: parsePlaylistFile(decodePlaylistFile(bytes), { dir, libraryPath }) });
+      }
+    }
+  }
+
+  await walk(folder);
+  return found;
+}
+
+/**
+ * What a rule on this folder would make right now, from what is already
+ * scanned and, in `tree` mode, the playlist files on disk. Also the preview
+ * shown before one is saved.
+ */
 export async function planRule(rule: { libraryId: number; path: string; mode: FolderRuleMode }): Promise<TreePlan> {
-  const [lib] = await db.select({ name: library.name }).from(library).where(eq(library.id, rule.libraryId));
+  const [lib] = await db.select({ name: library.name, path: library.path }).from(library).where(eq(library.id, rule.libraryId));
   if (!lib) return { folders: [], playlists: [] };
+  const playlistFiles = rule.mode === "tree" ? await findPlaylistFiles(lib.path, rule.path) : [];
   const prefix = rule.path ? `${rule.path}/` : "";
   const tracks = await db
     .select({ id: track.id, relPath: track.relPath })
     .from(track)
-    .where(and(eq(track.libraryId, rule.libraryId), sql`starts_with(${track.relPath}, ${prefix})`));
-  return planTree(tracks, { path: rule.path, mode: rule.mode, libraryName: lib.name });
+    // A playlist file can list any track in the library, so with one to read every track is a candidate.
+    .where(and(eq(track.libraryId, rule.libraryId), playlistFiles.length ? undefined : sql`starts_with(${track.relPath}, ${prefix})`));
+  return planTree(tracks, { path: rule.path, mode: rule.mode, libraryName: lib.name }, playlistFiles);
 }
 
 /**
  * Makes a library's folder rules (or just one rule) match the disk: folders
  * and playlists are created, renamed, moved, refilled and removed until they
  * are what `planTree` describes. Each keeps its id for as long as its folder
- * stays where it is. Runs after every scan and whenever a rule changes.
+ * (or, for one of several playlist files in a folder, its file) stays where
+ * it is. Runs after every scan and whenever a rule changes.
  */
 export async function syncFolderRules(libraryId: number, ruleId?: number) {
   const rules = await db
@@ -104,7 +148,7 @@ async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
     if (!same) await setPlaylistTracks(tx, current.id, item.trackIds);
   }
 
-  // Whatever no longer has a folder on disk goes. Playlists first: removing a folder takes the folders inside it too.
+  // Whatever no longer has a folder or playlist file on disk goes. Playlists first: removing a folder takes the folders inside it too.
   const keptPlaylists = new Set(plan.playlists.map((item) => item.sourcePath));
   const gonePlaylists = [...oldPlaylists].filter(([path]) => !keptPlaylists.has(path)).map(([, row]) => row.id);
   if (gonePlaylists.length) await tx.delete(playlist).where(inArray(playlist.id, gonePlaylists));

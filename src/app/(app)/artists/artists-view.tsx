@@ -10,7 +10,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
-/** Every album artist, alphabetically. */
+/** Everyone credited on a track or album, alphabetically. Joint credits are listed as their artists. */
 export function ArtistsView() {
   const trpc = useTRPC();
   const artists = useQuery(trpc.library.artists.queryOptions());

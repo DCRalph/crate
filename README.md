@@ -20,6 +20,11 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Logs.** Admin > Activity has three: sign-ins and every change (who, what, from where), every Subsonic and media request, and every play.
 - **Playlist folders.** Playlists sit in a tree. Folders hold folders and playlists; a playlist is always a leaf. Subsonic apps, which have no folders, see a playlist's folders in its name ("Mixes / 2025 / Summer").
 - **Folder playlists.** A rule follows a folder in a library and makes the playlists and folders that match it: a folder that holds folders becomes a folder, a folder that holds tracks becomes a playlist. Or the whole folder can be one playlist. What a rule makes is rebuilt after every scan and is read-only; anyone can make their own copy of a playlist to edit.
+- **Playlist files.** A `.m3u` or `.m3u8` file inside a followed folder sets that folder's playlist: its tracks and their order. Several files in one folder each become a playlist.
+- **Artists.** A joint credit ("A, B feat. C", "A/B", "A x B") is split into its artists, using a file's own multi-value tags when it has them. "A & B" is split only when one of the two also appears alone, so duos stay whole. Tracks keep showing the full credit. Files with no tags take artist and title from an "Artist - Title" file name.
+- **Tracks.** One table of every track, with search, sorting and filters. Any track or playlist has Get info.
+- **Any format in the browser.** The browser says what it can play; anything else (AIFF, for one) is converted on the way out, and a file that fails as it is gets retried as a conversion.
+- **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art.
 - **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
 
@@ -69,7 +74,7 @@ Sign-in works at the public address (`BETTER_AUTH_URL`) and, with nothing to con
 
 ## Not built yet
 
-Groups, share links, two-factor and passkeys, importing users and playlists from Navidrome, `.m3u` import, lyrics, a file watcher (scans are by hand or on `SCAN_INTERVAL_MINUTES`), a Dockerfile, and the iOS app.
+Groups, share links, two-factor and passkeys, importing users and playlists from Navidrome, lyrics, looking tracks up in an online database, a file watcher (scans are by hand or on `SCAN_INTERVAL_MINUTES`), a Dockerfile, and the iOS app.
 
 ## Checks
 

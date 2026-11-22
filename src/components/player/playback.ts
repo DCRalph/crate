@@ -1,14 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 
 import type { WebTrack } from "~/server/api/routers/library";
+import { audioTypes } from "~/server/library/audio";
 import { decideWebStream, type StreamDecision, type TranscodeFormat } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { qualities, useCurrentTrack, usePlayer, type Normalise } from "./store";
 
+const asked = new Map<string, boolean>();
+
+/**
+ * Whether this browser says it can play a file with this extension as it is.
+ * Each kind is asked about once. The browser answers for the kind of file and
+ * not for what is inside it, so it can say yes and be wrong (Apple Lossless
+ * in an .m4a, in Chrome). The player bar catches those when they fail.
+ */
+function browserPlays(suffix: string) {
+  // The server has no browser to ask, and no queue to play either.
+  if (typeof Audio === "undefined") return true;
+  let answer = asked.get(suffix);
+  if (answer === undefined) {
+    const type = audioTypes[suffix];
+    answer = !!type && new Audio().canPlayType(type) !== "";
+    asked.set(suffix, answer);
+  }
+  return answer;
+}
+
 /**
  * The playback preferences as they apply right now: the cap an admin put on
  * this account, the quality in force under it, and what the current track is
- * sent as. The player bar and every settings control read this one hook, so
+ * sent as. A track is converted when it is over the quality, when the browser
+ * says it can't play that kind of file, or when it already failed to play as
+ * it is. The player bar and every settings control read this one hook, so
  * what the bar plays and what the settings say can't drift apart.
  */
 export function usePlayback() {
@@ -16,10 +39,12 @@ export function usePlayback() {
   const cap = useQuery(trpc.account.playback.queryOptions()).data?.maxBitRate ?? null;
   const preferred = usePlayer((state) => state.quality);
   const format = usePlayer((state) => state.format);
+  const unplayable = usePlayer((state) => state.unplayable);
   const track = useCurrentTrack();
   // A preference above the cap is the cap in practice, so that is what the settings show as chosen.
   const quality = cap !== null && (preferred === null || preferred > cap) ? cap : preferred;
-  const sent = track ? decideWebStream(track, { maxBitRate: quality, format }, cap) : null;
+  const convert = !!track && (unplayable.has(track.id) || !browserPlays(track.suffix));
+  const sent = track ? decideWebStream(track, { maxBitRate: quality, format, convert }, cap) : null;
   return { cap, quality, format, track, sent };
 }
 

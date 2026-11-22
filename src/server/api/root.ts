@@ -1,5 +1,6 @@
 import { accountRouter } from "./routers/account";
 import { adminRouter } from "./routers/admin";
+import { infoRouter } from "./routers/info";
 import { libraryRouter } from "./routers/library";
 import { playlistsRouter } from "./routers/playlists";
 import { router } from "./trpc";
@@ -8,6 +9,7 @@ import { router } from "./trpc";
 export const appRouter = router({
   library: libraryRouter,
   playlists: playlistsRouter,
+  info: infoRouter,
   account: accountRouter,
   admin: adminRouter,
 });

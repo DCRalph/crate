@@ -8,6 +8,7 @@ import { ChevronRight, Folder, FolderPlus, ListMusic, MoreHorizontal, Plus, Sear
 import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
+import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Badge } from "~/components/ui/badge";
@@ -221,6 +222,7 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
     }),
   );
   const remove = useMutation(trpc.playlists.delete.mutationOptions({ onSuccess: refresh, onError }));
+  const [infoOpen, setInfoOpen] = useState(false);
 
   return (
     <div className={cn(columns, "hover:bg-accent min-h-10 border-b px-4 text-sm transition-colors")}>
@@ -252,6 +254,7 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
           <DropdownMenuItem disabled={copy.isPending} onSelect={() => copy.mutate({ id: playlist.id })}>
             Make a copy
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setInfoOpen(true)}>Get info</DropdownMenuItem>
           {playlist.canEdit ? (
             <>
               <DropdownMenuSeparator />
@@ -272,6 +275,8 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {/* Draws nothing in the row; the dialog opens over the page. */}
+      <PlaylistInfoDialog playlist={playlist} open={infoOpen} onOpenChange={setInfoOpen} />
     </div>
   );
 }

@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ListEnd, Pencil, Play } from "lucide-react";
+import { Copy, Info, ListEnd, Pencil, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
 import { Hero } from "~/components/library/hero";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
+import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
@@ -24,6 +26,7 @@ export function PlaylistView({ id }: { id: number }) {
   const queryClient = useQueryClient();
   const playlist = useQuery(trpc.playlists.byId.queryOptions({ id }));
   const { play, enqueue } = usePlayer.getState();
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const refresh = () => queryClient.invalidateQueries(trpc.playlists.pathFilter());
   const onError = (error: { message: string }) => toast.error(error.message);
@@ -100,12 +103,18 @@ export function PlaylistView({ id }: { id: number }) {
             Make a copy
           </Button>
         )}
+        <Button variant="outline" onClick={() => setInfoOpen(true)}>
+          <Info />
+          Get info
+        </Button>
       </Hero>
+      <PlaylistInfoDialog playlist={data} open={infoOpen} onOpenChange={setInfoOpen} />
 
       {data.tracks.length ? (
         <TrackTable
           tracks={data.tracks}
           showAlbum
+          showCover
           onRemove={data.canEdit ? (index) => removeTrack.mutate({ id, index }) : undefined}
         />
       ) : (

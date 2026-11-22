@@ -30,6 +30,11 @@ function toReplayGain({ trackGain, albumGain, trackPeak, albumPeak }: TrackRow) 
   return Object.values(tags).some((value) => value !== null) ? tags : undefined;
 }
 
+/**
+ * A song. `artist` is the whole credit as shown and `artistId` the first
+ * artist on it, which is all an older client reads. OpenSubsonic clients get
+ * everyone credited in `artists`.
+ */
 export const toSong = (row: TrackRow) => ({
   id: `tr-${row.id}`,
   parent: `al-${row.albumId}`,
@@ -37,6 +42,8 @@ export const toSong = (row: TrackRow) => ({
   title: row.title,
   album: row.albumName,
   artist: row.artistName,
+  displayArtist: row.artistName,
+  artists: row.artists.map((credited) => ({ id: `ar-${credited.id}`, name: credited.name })),
   track: row.trackNumber,
   year: row.year,
   genre: row.genre,
@@ -58,11 +65,12 @@ export const toSong = (row: TrackRow) => ({
   replayGain: toReplayGain(row),
 });
 
-/** An album in the tag-based (ID3) calls. */
+/** An album in the tag-based (ID3) calls. `artist` is the album artist credit as shown, `artistId` the first artist on it. */
 export const toAlbum = (row: AlbumRow) => ({
   id: `al-${row.id}`,
   name: row.name,
   artist: row.artistName,
+  displayArtist: row.artistName,
   artistId: `ar-${row.artistId}`,
   coverArt: `al-${row.id}`,
   songCount: row.trackCount,

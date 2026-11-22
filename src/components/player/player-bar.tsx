@@ -61,6 +61,9 @@ function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecisi
  * pauses, and the playback preferences decide what is asked for and how loud
  * it is. Media keys and lock-screen controls work through the Media Session API.
  *
+ * A file the browser turns out not to play is asked for again as a
+ * conversion, once, and only a conversion that fails is reported.
+ *
  * Phones get a slimmer bar (title, play, next); tapping it opens the Now
  * playing sheet, which has the scrubber, the full transport and the queue.
  */
@@ -72,7 +75,7 @@ export function PlayerBar() {
   const index = usePlayer((state) => state.index);
   const volume = usePlayer((state) => state.volume);
   const normalise = usePlayer((state) => state.normalise);
-  const { next, previous, setPlaying, setVolume, toggleMute } = usePlayer.getState();
+  const { next, previous, setPlaying, setVolume, toggleMute, markUnplayable } = usePlayer.getState();
   const [time, setTime] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const clock = useRef<Clock>({ offset: 0, seekOnLoad: null });
@@ -101,7 +104,7 @@ export function PlayerBar() {
       audio.load();
       return;
     }
-    // The same track from another address is a change of quality or format, not a new play: it carries on from where it was.
+    // The same track from another address is a change of quality or format, or a file that failed and is now converted. Not a new play: it carries on from where it was.
     const samePlay = loadedTrack.current === track.id;
     if (!samePlay) plays.current++;
     loadedTrack.current = track.id;
@@ -225,8 +228,16 @@ export function PlayerBar() {
         onPause={(event) => {
           if (event.currentTarget.readyState > 0 && !event.currentTarget.ended) setPlaying(false);
         }}
-        onError={() => {
-          if (!track) return;
+        onError={(event) => {
+          if (!track || !sent) return;
+          const code = event.currentTarget.error?.code;
+          // The browser said it plays this kind of file and then couldn't load or decode this one. Marking it
+          // changes what it is sent as, so it loads again as a conversion and carries on from where it was.
+          // That can happen once a track: a marked track is never sent as it is, so its next failure is reported.
+          if (!sent.transcode && (code === MediaError.MEDIA_ERR_DECODE || code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED)) {
+            markUnplayable(track.id);
+            return;
+          }
           setPlaying(false);
           toast.error(`Couldn't play ${track.title}.`);
         }}

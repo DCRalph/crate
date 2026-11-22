@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp, GripVertical, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
+import { Cover } from "~/components/library/cover";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
@@ -262,6 +263,7 @@ function Tracks({ playlist }: { playlist: Playlist }) {
             >
               <GripVertical aria-hidden className="text-muted-foreground size-4 shrink-0 cursor-grab" />
               <span className="text-muted-foreground w-7 shrink-0 text-right tabular-nums">{index + 1}</span>
+              <Cover type="album" id={track.albumId} size={64} className="size-8" />
               <div className="min-w-0 flex-1">
                 <p className="truncate">{track.title}</p>
                 <p className="text-muted-foreground truncate text-xs">{track.artistName}</p>

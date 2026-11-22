@@ -15,8 +15,17 @@ type Mode = RouterOutputs["admin"]["folderRules"]["list"][number]["mode"];
 
 /** The two things a folder rule can make, as people read them. */
 export const ruleModes: Record<Mode, { label: string; detail: string }> = {
-  tree: { label: "Match the folder tree", detail: "Folders that hold folders become folders. Folders that hold tracks become playlists." },
+  tree: {
+    label: "Match the folder tree",
+    detail: "Folders that hold folders become folders. Folders that hold tracks become playlists, in the order of a playlist file when the folder has one.",
+  },
   folder: { label: "One playlist", detail: "The folder and everything under it becomes a single playlist." },
+};
+
+/** How playlist files are used, for the pages that show what a rule makes. Only `tree` mode reads them. */
+export const playlistFileNote: Record<Mode, string | null> = {
+  tree: "A playlist file (.m3u or .m3u8) in a folder sets the order of that folder's playlist, and tracks it leaves out go at the end. Several in one folder each become a playlist.",
+  folder: null,
 };
 
 /** Picks one of the modes: a short radio list, each option saying what it makes. */
@@ -127,6 +136,13 @@ function PreviewLevel({ level, depth }: { level: PreviewTree; depth: number }) {
         <li key={`p${playlist.sourcePath}`} className="flex items-center gap-2 py-1 text-sm" style={indent}>
           <ListMusic className="text-muted-foreground size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{playlist.name}</span>
+          {/* The playlist file its order comes from, and any of the file's entries that aren't scanned tracks. */}
+          {playlist.playlistFile ? (
+            <span className="text-muted-foreground min-w-0 truncate text-xs max-sm:hidden">
+              {playlist.playlistFile.relPath.split("/").at(-1)}
+              {playlist.playlistFile.missing ? `, ${count(playlist.playlistFile.missing, "entry", "entries")} not found` : null}
+            </span>
+          ) : null}
           <span className="text-muted-foreground text-xs tabular-nums">{count(playlist.trackCount, "track")}</span>
         </li>
       ))}
@@ -134,7 +150,7 @@ function PreviewLevel({ level, depth }: { level: PreviewTree; depth: number }) {
   );
 }
 
-/** What a rule makes from what is scanned right now: totals, then the tree itself. */
+/** What a rule makes from what is scanned right now: totals, then the tree itself. A playlist ordered by a playlist file names the file. */
 export function RulePreview({ libraryId, path, mode }: { libraryId: number; path: string; mode: Mode }) {
   const trpc = useTRPC();
   const preview = useQuery(trpc.admin.folderRules.preview.queryOptions({ libraryId, path, mode }));

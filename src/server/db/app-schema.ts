@@ -68,7 +68,11 @@ export const artist = pgTable("artist", {
   createdAt: createdAt(),
 });
 
-/** An album lives in exactly one library, which is what makes access checks one filter. */
+/**
+ * An album lives in exactly one library, which is what makes access checks one
+ * filter. It is one album for as long as its tags agree on the album artist
+ * credit and the name.
+ */
 export const album = pgTable(
   "album",
   {
@@ -76,9 +80,12 @@ export const album = pgTable(
     libraryId: integer("library_id")
       .notNull()
       .references(() => library.id, { onDelete: "cascade" }),
+    /** The first artist on the album artist credit. */
     artistId: integer("artist_id")
       .notNull()
       .references(() => artist.id),
+    /** The album artist as shown: the tag as written, or its values joined ("Wilkinson, Kelli-Leigh"). */
+    artistCredit: text("artist_credit").notNull(),
     name: text("name").notNull(),
     year: integer("year"),
     genre: text("genre"),
@@ -90,7 +97,7 @@ export const album = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    uniqueIndex("album_identity_idx").on(t.libraryId, t.artistId, t.name),
+    uniqueIndex("album_identity_idx").on(t.libraryId, t.artistCredit, t.name),
     index("album_artist_idx").on(t.artistId),
   ],
 );
@@ -105,9 +112,12 @@ export const track = pgTable(
     albumId: integer("album_id")
       .notNull()
       .references(() => album.id, { onDelete: "cascade" }),
+    /** The first credited artist. Everyone credited is in `trackArtist`. */
     artistId: integer("artist_id")
       .notNull()
       .references(() => artist.id),
+    /** The artist line as shown: the tag as written, or its values joined ("Fred again.., Anderson .Paak, CHIKA"). */
+    artistCredit: text("artist_credit").notNull(),
     title: text("title").notNull(),
     trackNumber: integer("track_number"),
     discNumber: integer("disc_number"),
@@ -140,6 +150,24 @@ export const track = pgTable(
     index("track_library_idx").on(t.libraryId, t.relPath),
     index("track_genre_idx").on(t.genre),
   ],
+);
+
+/**
+ * Everyone credited on a track, in the order the credit names them. Position 0
+ * is `track.artistId`. A joint credit ("Total Science/FD") is one row each.
+ */
+export const trackArtist = pgTable(
+  "track_artist",
+  {
+    trackId: integer("track_id")
+      .notNull()
+      .references(() => track.id, { onDelete: "cascade" }),
+    artistId: integer("artist_id")
+      .notNull()
+      .references(() => artist.id),
+    position: integer("position").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.trackId, t.artistId] }), index("track_artist_artist_idx").on(t.artistId)],
 );
 
 export const annotationTypes = ["track", "album", "artist"] as const;

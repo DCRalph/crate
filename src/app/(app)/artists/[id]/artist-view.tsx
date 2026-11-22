@@ -9,7 +9,7 @@ import { LoadError } from "~/components/shell/states";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
-/** One artist's albums, newest first. */
+/** Every album one artist is on, newest first. Some are filed under someone else, so each tile names its artist. */
 export function ArtistView({ id }: { id: number }) {
   const trpc = useTRPC();
   const artist = useQuery(trpc.library.artist.queryOptions({ id }));
@@ -22,7 +22,7 @@ export function ArtistView({ id }: { id: number }) {
       ) : artist.isError ? (
         <LoadError message={artist.error.message} />
       ) : (
-        <AlbumGrid albums={artist.data.albums} showArtist={false} />
+        <AlbumGrid albums={artist.data.albums} />
       )}
     </Page>
   );

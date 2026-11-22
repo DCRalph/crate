@@ -76,7 +76,7 @@ export function SearchView() {
       {tracks.length ? (
         <section>
           <SectionHeading title="Tracks" />
-          <TrackTable tracks={tracks} showAlbum />
+          <TrackTable tracks={tracks} showAlbum showCover />
         </section>
       ) : null}
     </Page>
