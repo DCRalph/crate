@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
@@ -21,7 +22,7 @@ const sorts = {
 type Sort = keyof typeof sorts;
 
 /** Every album the user can reach, as a grid, a page at a time. */
-export function AlbumsView() {
+export function AlbumsView({ isAdmin }: { isAdmin: boolean }) {
   const trpc = useTRPC();
   const [sort, setSort] = useState<Sort>("added");
   const albums = useInfiniteQuery(
@@ -52,7 +53,21 @@ export function AlbumsView() {
       ) : albums.isError ? (
         <LoadError message={albums.error.message} />
       ) : items.length === 0 ? (
-        <Empty>{byPlays ? "Nothing played yet." : "No albums yet. Ask an admin for access to a library."}</Empty>
+        byPlays ? (
+          <Empty>Nothing played yet. This fills in as you listen.</Empty>
+        ) : isAdmin ? (
+          <Empty
+            action={
+              <Button asChild variant="brand">
+                <Link href="/admin/libraries">Add a library</Link>
+              </Button>
+            }
+          >
+            The crate is empty. Point it at a folder of music and it fills itself.
+          </Empty>
+        ) : (
+          <Empty>The crate is empty. Ask whoever runs this server for a library.</Empty>
+        )
       ) : (
         <>
           <AlbumGrid albums={items} />

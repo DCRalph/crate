@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -17,24 +17,11 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
-import { count } from "~/lib/format";
-import type { ScanResult } from "~/server/db/app-schema";
+import { count, scanSummary } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
 const head = "t-label text-muted-foreground text-[10px]";
 const number = new Intl.NumberFormat("en");
-
-/** "Added 12, removed 3 in 4.2s", or "No changes in 0.3s". */
-function scanSummary(scan: ScanResult) {
-  const parts = [
-    scan.added ? `added ${number.format(scan.added)}` : null,
-    scan.updated ? `updated ${number.format(scan.updated)}` : null,
-    scan.removed ? `removed ${number.format(scan.removed)}` : null,
-    scan.failed ? `${number.format(scan.failed)} unreadable` : null,
-  ].filter(Boolean);
-  const what = parts.length ? parts.join(", ") : "no changes";
-  return `${what.charAt(0).toUpperCase()}${what.slice(1)} in ${(scan.durationMs / 1000).toFixed(1)}s`;
-}
 
 /** The folders of music on the server. Adding one scans it; a scan's progress shows in its row. */
 export function LibrariesView() {
@@ -53,6 +40,20 @@ export function LibrariesView() {
   const scan = useMutation(trpc.admin.libraries.scan.mutationOptions({ onSuccess: refresh, onError }));
   const remove = useMutation(trpc.admin.libraries.delete.mutationOptions({ onSuccess: refresh, onError }));
   const running = libraries.data?.scan ?? null;
+
+  // Say so when a scan finishes, with what it did.
+  const runningId = running?.libraryId ?? null;
+  const wasScanning = useRef<number | null>(null);
+  const rows = libraries.data?.libraries;
+  useEffect(() => {
+    const previous = wasScanning.current;
+    wasScanning.current = runningId;
+    if (previous === null || previous === runningId) return;
+    const finished = rows?.find((library) => library.id === previous);
+    if (!finished?.lastScan) return;
+    if (finished.lastScan.error) toast.error(`${finished.name}: ${finished.lastScan.error}`);
+    else toast(`${finished.name} scanned. ${scanSummary(finished.lastScan)}.`);
+  }, [runningId, rows]);
 
   return (
     <Page>
@@ -96,11 +97,20 @@ export function LibrariesView() {
                 <TableCell className="text-muted-foreground text-right tabular-nums max-sm:hidden">{library.userCount}</TableCell>
                 <TableCell>
                   {running?.libraryId === library.id ? (
-                    <Status
-                      tone="warn"
-                      label="Scanning"
-                      reason={<span className="tabular-nums">{`${number.format(running.done)} of ${number.format(running.total)}`}</span>}
-                    />
+                    <div className="w-56 max-w-full">
+                      <Status
+                        tone="warn"
+                        label={running.phase === "listing" ? "Finding files" : running.phase === "cleaning" ? "Tidying up" : "Scanning"}
+                        reason={<span className="tabular-nums">{`${number.format(running.done)} of ${number.format(running.total)}`}</span>}
+                      />
+                      {/* How far through, for real: files read over files found. */}
+                      <div className="bg-secondary mt-1.5 h-0.5 overflow-hidden rounded-full">
+                        <div
+                          className="h-full origin-left bg-amber-400 transition-transform duration-700 ease-out"
+                          style={{ transform: `scaleX(${running.total ? running.done / running.total : 0})` }}
+                        />
+                      </div>
+                    </div>
                   ) : library.lastScan?.error ? (
                     <Status tone="bad" label="Failed" reason={library.lastScan.error} className="whitespace-normal" />
                   ) : library.lastScan && library.lastScanAt ? (

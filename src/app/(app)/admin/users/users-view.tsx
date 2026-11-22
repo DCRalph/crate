@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,7 +59,10 @@ export function UsersView() {
               <TableRow key={user.id} className="cursor-pointer" onClick={() => router.push(`/admin/users/${user.id}`)}>
                 <TableCell>
                   <span className="flex items-center gap-2">
-                    <span className="font-medium">{user.username ?? user.name}</span>
+                    {/* The row is clickable for the mouse; this link is the same destination for the keyboard. */}
+                    <Link href={`/admin/users/${user.id}`} className="font-medium outline-none hover:underline focus-visible:underline" onClick={(event) => event.stopPropagation()}>
+                      {user.username ?? user.name}
+                    </Link>
                     {user.name !== user.username ? <span className="text-muted-foreground text-xs">{user.name}</span> : null}
                     {user.role === "admin" ? <Badge variant="secondary">Admin</Badge> : null}
                   </span>

@@ -83,46 +83,84 @@ export function AppHeader({ user }: { user: HeaderUser }) {
   );
 }
 
-/** Searches as you type: results live at /search?q=. */
+/**
+ * Searches as you type: results live at /search?q=. Pressing "/" anywhere
+ * jumps to the box, Escape clears it, and it empties itself once you
+ * navigate away from the results.
+ */
 function SearchBox() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [value, setValue] = useState(pathname === "/search" ? (params.get("q") ?? "") : "");
+  const onSearch = pathname === "/search";
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [typed, setTyped] = useState(onSearch ? (params.get("q") ?? "") : "");
+  // The page the text was typed on. Anywhere else (bar the results page) the box
+  // shows empty, which is what clears it when you leave the results.
+  const [typedOn, setTypedOn] = useState(pathname);
+  if (onSearch && typedOn !== pathname) setTypedOn(pathname);
+  const value = typedOn === pathname || onSearch ? typed : "";
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || target.closest("input, textarea, select, [contenteditable]")) return;
+      event.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const go = (query: string, wait: number) => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const url = `/search?q=${encodeURIComponent(query.trim())}`;
       // Typing more shouldn't add a history entry per letter.
-      if (pathname === "/search") router.replace(url);
+      if (onSearch) router.replace(url);
       else if (query.trim()) router.push(url);
     }, wait);
+  };
+  const change = (query: string, wait: number) => {
+    setTyped(query);
+    setTypedOn(pathname);
+    go(query, wait);
   };
 
   return (
     <form
       role="search"
-      className="relative w-36 shrink-0 sm:w-56 lg:w-72"
+      className="group relative w-36 shrink-0 sm:w-56 lg:w-72"
       onSubmit={(event) => {
         event.preventDefault();
         go(value, 0);
       }}
     >
-      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+      <Search className="text-muted-foreground group-focus-within:text-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 transition-colors" />
       <Input
+        ref={inputRef}
         type="search"
         aria-label="Search"
+        aria-keyshortcuts="/"
         placeholder="Search"
-        className="h-8 pl-8"
+        className="h-8 pr-8 pl-8"
         value={value}
-        onChange={(event) => {
-          setValue(event.target.value);
-          go(event.target.value, 250);
+        onChange={(event) => change(event.target.value, 250)}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          if (value) change("", 0);
+          else event.currentTarget.blur();
         }}
       />
+      {/* The shortcut, shown until the box is in use. Hidden where there is no keyboard. */}
+      {value ? null : (
+        <kbd className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 grid size-5 -translate-y-1/2 place-items-center rounded-sm border font-sans text-[11px] group-focus-within:hidden max-sm:hidden pointer-coarse:hidden">
+          /
+        </kbd>
+      )}
     </form>
   );
 }

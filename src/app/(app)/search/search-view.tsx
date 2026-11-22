@@ -45,7 +45,7 @@ export function SearchView() {
   if (!artists.length && !albums.length && !tracks.length) {
     return (
       <Page>
-        <Empty>Nothing matches &quot;{query}&quot;.</Empty>
+        <Empty>Nothing in the crate for &quot;{query}&quot;. Try fewer words.</Empty>
       </Page>
     );
   }

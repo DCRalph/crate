@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -40,7 +41,7 @@ export function PlaylistsView() {
       ) : playlists.isError ? (
         <LoadError message={playlists.error.message} />
       ) : playlists.data.length === 0 ? (
-        <Empty>No playlists yet.</Empty>
+        <Empty action={newButton}>No playlists yet. Start one, or add tracks to a new one from any track&apos;s menu.</Empty>
       ) : (
         <Table>
           <TableHeader>
@@ -56,7 +57,10 @@ export function PlaylistsView() {
               <TableRow key={playlist.id} className="cursor-pointer" onClick={() => router.push(`/playlists/${playlist.id}`)}>
                 <TableCell>
                   <span className="flex items-center gap-2">
-                    <span className="truncate font-medium">{playlist.name}</span>
+                    {/* The row is clickable for the mouse; this link is the same destination for the keyboard. */}
+                    <Link href={`/playlists/${playlist.id}`} className="truncate font-medium outline-none hover:underline focus-visible:underline" onClick={(event) => event.stopPropagation()}>
+                      {playlist.name}
+                    </Link>
                     {/* A fixed fact about where it comes from, so a badge rather than a status. */}
                     {playlist.readOnly ? <Badge variant="outline">Folder</Badge> : null}
                     {playlist.isPublic && !playlist.readOnly ? <Badge variant="outline">Public</Badge> : null}

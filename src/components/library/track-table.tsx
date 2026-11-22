@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ListEnd, ListPlus, MoreHorizontal, Play, Plus, Trash2 } from "lucide-react";
+import { Download, ListEnd, ListPlus, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCurrentTrack, usePlayer } from "~/components/player/store";
@@ -24,11 +24,13 @@ import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import type { WebTrack } from "~/server/api/routers/library";
 import { useTRPC } from "~/trpc/react";
+import { LikeButton } from "./like-button";
 import { NewPlaylistDialog } from "./new-playlist-dialog";
 
 /**
  * The list of tracks on an album, playlist or search page. Clicking a row's
- * number plays from there; double-clicking the row does the same.
+ * number plays from there; double-clicking the row does the same. The playing
+ * row shows the level bars in place of its number, and its button pauses.
  *  - `numbering`: "track" shows tag track numbers (albums), "position" counts from 1.
  *  - `onRemove`: adds "Remove from playlist" to each row's menu.
  */
@@ -44,7 +46,8 @@ export function TrackTable({
   onRemove?: (index: number) => void;
 }) {
   const current = useCurrentTrack();
-  const play = usePlayer((state) => state.play);
+  const playing = usePlayer((state) => state.playing);
+  const { play, setPlaying } = usePlayer.getState();
 
   return (
     <Table>
@@ -54,6 +57,7 @@ export function TrackTable({
           <TableHead className="t-label text-muted-foreground text-[10px]">Title</TableHead>
           <TableHead className="t-label text-muted-foreground text-[10px] max-md:hidden">Artist</TableHead>
           {showAlbum ? <TableHead className="t-label text-muted-foreground text-[10px] max-lg:hidden">Album</TableHead> : null}
+          <TableHead className="w-10" />
           <TableHead className="t-label text-muted-foreground w-16 text-right text-[10px]">Time</TableHead>
           <TableHead className="w-10" />
         </TableRow>
@@ -61,19 +65,38 @@ export function TrackTable({
       <TableBody>
         {tracks.map((track, index) => {
           const isCurrent = current?.id === track.id;
+          // The playing row's button pauses and resumes; any other row starts the list from there.
+          const start = () => (isCurrent ? setPlaying(!playing) : play(tracks, index));
           return (
-            <TableRow key={`${track.id}-${index}`} className="group" onDoubleClick={() => play(tracks, index)}>
+            <TableRow key={`${track.id}-${index}`} className="group select-none" onDoubleClick={() => play(tracks, index)}>
               <TableCell className="text-right">
                 <button
                   type="button"
-                  aria-label={`Play ${track.title}`}
-                  onClick={() => play(tracks, index)}
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 inline-grid size-6 place-items-center rounded-sm tabular-nums outline-none focus-visible:ring-[3px]"
+                  aria-label={isCurrent && playing ? `Pause ${track.title}` : `Play ${track.title}`}
+                  onClick={start}
+                  className={cn(
+                    "focus-visible:ring-ring/50 inline-grid size-6 place-items-center rounded-sm tabular-nums outline-none focus-visible:ring-[3px]",
+                    isCurrent ? "text-brand-text" : "text-muted-foreground hover:text-foreground",
+                  )}
                 >
-                  <span className={cn("group-hover:hidden", isCurrent && "text-brand-text")}>
-                    {numbering === "track" ? (track.trackNumber ?? index + 1) : index + 1}
+                  <span className="group-hover:hidden">
+                    {isCurrent ? (
+                      <span className="eq-bars" data-playing={playing} aria-hidden>
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    ) : numbering === "track" ? (
+                      (track.trackNumber ?? index + 1)
+                    ) : (
+                      index + 1
+                    )}
                   </span>
-                  <Play className="hidden size-3.5 fill-current group-hover:block" />
+                  {isCurrent && playing ? (
+                    <Pause className="hidden size-3.5 fill-current group-hover:block" />
+                  ) : (
+                    <Play className="hidden size-3.5 fill-current group-hover:block" />
+                  )}
                 </button>
               </TableCell>
               <TableCell className="max-w-0 w-1/2">
@@ -92,6 +115,13 @@ export function TrackTable({
                   </Link>
                 </TableCell>
               ) : null}
+              <TableCell className="py-0">
+                {/* A liked heart always shows; an empty one waits for the row to be hovered or focused. */}
+                <LikeButton
+                  track={track}
+                  className={cn(!track.starred && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100")}
+                />
+              </TableCell>
               <TableCell className="text-muted-foreground text-right tabular-nums">{formatDuration(track.duration)}</TableCell>
               <TableCell className="py-0">
                 <TrackMenu track={track} onRemove={onRemove ? () => onRemove(index) : undefined} />

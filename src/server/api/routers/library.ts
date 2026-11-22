@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Scope } from "~/server/access";
-import { album, annotationTypes, artist, track } from "~/server/db/app-schema";
+import { album, annotation, annotationTypes, artist, track } from "~/server/db/app-schema";
 import { annotate, listAlbums, listAlbumsByPlays, listArtists, listTracks, search, type TrackRow } from "~/server/library/queries";
 import { recordPlay } from "~/server/logs";
 import { clientIp } from "~/server/request-origin";
@@ -77,6 +77,16 @@ export const libraryRouter = router({
   search: protectedProcedure.input(z.object({ query: z.string().trim().min(1).max(200) })).query(async ({ ctx, input }) => {
     const found = await search(ctx.scope, input.query, { tracks: { limit: 50 } });
     return { ...found, tracks: found.tracks.map((row) => toWebTrack(ctx.scope, row)) };
+  }),
+
+  /** The user's liked tracks, most recently liked first. */
+  liked: protectedProcedure.query(async ({ ctx }) => {
+    const tracks = await listTracks(ctx.scope, {
+      where: isNotNull(annotation.starredAt),
+      orderBy: [desc(annotation.starredAt), desc(track.id)],
+      limit: 5000,
+    });
+    return tracks.map((row) => toWebTrack(ctx.scope, row));
   }),
 
   star: protectedProcedure

@@ -62,3 +62,15 @@ const numberFormat = new Intl.NumberFormat("en");
 export function count(n: number, noun: string, plural = `${noun}s`) {
   return `${numberFormat.format(n)} ${n === 1 ? noun : plural}`;
 }
+
+/** What a library scan did: "Added 12, removed 3 in 4.2s", or "No changes in 0.3s". */
+export function scanSummary(scan: { added: number; updated: number; removed: number; failed: number; durationMs: number }) {
+  const parts = [
+    scan.added ? `added ${numberFormat.format(scan.added)}` : null,
+    scan.updated ? `updated ${numberFormat.format(scan.updated)}` : null,
+    scan.removed ? `removed ${numberFormat.format(scan.removed)}` : null,
+    scan.failed ? `${numberFormat.format(scan.failed)} unreadable` : null,
+  ].filter(Boolean);
+  const what = parts.length ? parts.join(", ") : "no changes";
+  return `${what.charAt(0).toUpperCase()}${what.slice(1)} in ${(scan.durationMs / 1000).toFixed(1)}s`;
+}

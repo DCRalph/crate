@@ -10,6 +10,8 @@ type PlayerState = {
   playing: boolean;
   /** 0 to 1. */
   volume: number;
+  /** What `volume` was before muting. */
+  volumeBeforeMute: number;
   /** Replaces the queue and starts playing at `startAt`. */
   play: (tracks: WebTrack[], startAt?: number) => void;
   /** Adds to the end of the queue. Starts playing if nothing was queued. */
@@ -20,6 +22,10 @@ type PlayerState = {
   previous: () => void;
   setPlaying: (playing: boolean) => void;
   setVolume: (volume: number) => void;
+  /** Mutes, or goes back to the volume it was muted from. */
+  toggleMute: () => void;
+  /** Keeps queued copies of a track in step when it is liked or unliked. */
+  setStarred: (trackId: number, starred: boolean) => void;
 };
 
 /**
@@ -34,6 +40,7 @@ export const usePlayer = create<PlayerState>()(
       index: 0,
       playing: false,
       volume: 1,
+      volumeBeforeMute: 1,
       play: (tracks, startAt = 0) => set({ queue: tracks, index: startAt, playing: tracks.length > 0 }),
       enqueue: (tracks) => {
         const { queue } = get();
@@ -58,6 +65,12 @@ export const usePlayer = create<PlayerState>()(
       previous: () => set({ index: Math.max(get().index - 1, 0), playing: true }),
       setPlaying: (playing) => set({ playing: playing && get().queue.length > 0 }),
       setVolume: (volume) => set({ volume }),
+      toggleMute: () => {
+        const { volume, volumeBeforeMute } = get();
+        set(volume ? { volume: 0, volumeBeforeMute: volume } : { volume: volumeBeforeMute || 1 });
+      },
+      setStarred: (trackId, starred) =>
+        set({ queue: get().queue.map((track) => (track.id === trackId ? { ...track, starred } : track)) }),
     }),
     {
       name: "crate-player",

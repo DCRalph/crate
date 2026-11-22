@@ -156,10 +156,11 @@
 <h2>Principles</h2>
 <ul>
   <li><b>The music is the colour.</b> The interface stays neutral grey on black. Album art is the only saturated thing on most screens.</li>
-  <li><b>Red means one thing at a time.</b> Brand red marks the current page, the one primary action on a screen, and what is playing. Nothing else.</li>
+  <li><b>Red means one thing at a time.</b> Brand red marks the current page, the one primary action on a screen, and what is playing or liked. Nothing else.</li>
   <li><b>Dense, not cramped.</b> 14px body, 36px controls, hairline rows. Show the table, not a summary of the table.</li>
   <li><b>No decoration.</b> Cards only where a group of settings needs a boundary. Lists and tables sit straight on the page.</li>
-  <li><b>Still unless asked.</b> No looping animation anywhere. Colour transitions of 150ms on hover and focus only.</li>
+  <li><b>Everything plays once.</b> Motion answers something that just happened, then stops. Nothing loops, so an idle page costs nothing.</li>
+  <li><b>Dry, a little knowing.</b> The voice is someone flipping through a crate of records. One line of character where a screen is empty or something went wrong. Never in the middle of a task.</li>
 </ul>
 
 <h2>Colour</h2>
@@ -274,12 +275,13 @@
 </div>
 <ul>
   <li>Player bar is 72px, always present (it says "Nothing playing" when the queue is empty), and never covers content: the content column ends above it.</li>
-  <li>Progress is the one red fill in the bar. Volume is white. Play is a white disc.</li>
-  <li>On phones the bar keeps art, title, play/pause and next. Tapping it opens the full queue as a sheet.</li>
+  <li>Progress is the one red fill in the bar. Volume is white. Play is a white disc, here and on an album tile when it is hovered.</li>
+  <li>On phones the bar keeps art, title, play/pause and next. Tapping the title opens Now playing: the cover, scrubber, full transport and the queue.</li>
+  <li>On a desktop the queue opens as a panel above the bar, and the bar stays usable while it is open.</li>
 </ul>
 
 <h2>Track list</h2>
-<p>The core pattern. A plain table straight on the page. The playing row turns its title <code>brand-text</code> red and nothing else changes. Double click or the row's play button starts it. Row actions sit in a menu on the right, visible on hover and always visible on touch.</p>
+<p>The core pattern. A plain table straight on the page. The playing row turns its title <code>brand-text</code> red and swaps its number for level bars. Double click or the row's play button starts it; on the playing row the same button pauses. A liked track keeps its heart showing; an empty heart waits for hover. Row actions sit in a menu on the right, visible on hover and always visible on touch.</p>
 <div class="scroll">
 <table style="min-width:640px">
   <thead><tr><th class="r" style="width:40px">#</th><th>Title</th><th>Artist</th><th class="r">Plays</th><th class="r">Time</th></tr></thead>
@@ -419,12 +421,49 @@
 </ul>
 
 <h2>Motion and feedback</h2>
+<p>The record is the one authored idea: when a track starts, the record in the mark gets a single turn. Everything else is feedback or arrival, and all of it ends.</p>
+<div class="scroll">
+<table style="min-width:640px">
+  <thead><tr><th>Moment</th><th>What moves</th><th>Utility</th><th class="r">Time</th></tr></thead>
+  <tbody>
+    <tr><td>A track starts</td><td class="dim">The record in the mark turns once</td><td><code>animate-spin-once</code></td><td class="r dim num">900 ms</td></tr>
+    <tr><td>A track starts</td><td class="dim">Level bars on its row bounce four times, then rest</td><td><code>eq-bars</code></td><td class="r dim num">2 s</td></tr>
+    <tr><td>A page or a new track arrives</td><td class="dim">Rises 6px and fades in. Album tiles follow each other, 28 ms apart, first twelve only</td><td><code>animate-rise</code></td><td class="r dim num">350 ms</td></tr>
+    <tr><td>A like, or play pressed</td><td class="dim">The heart or the play icon pops</td><td><code>animate-pop</code></td><td class="r dim num">350 ms</td></tr>
+    <tr><td>A wrong password</td><td class="dim">The form shakes</td><td><code>animate-shake</code></td><td class="r dim num">300 ms</td></tr>
+    <tr><td>The pointer finds the mark</td><td class="dim">The record scratches back and forth</td><td><code>animate-scratch</code></td><td class="r dim num">450 ms</td></tr>
+    <tr><td>Hover, press</td><td class="dim">Colour in 150 ms. Covers zoom 4%. Buttons press to 97%</td><td class="dim">transitions</td><td class="r dim num">150 ms</td></tr>
+  </tbody>
+</table>
+</div>
 <ul>
-  <li>150ms colour transitions on hover and focus. Dialogs, menus and sheets use the stock shadcn enter and exit.</li>
-  <li>No pulse, shimmer, spinner, blur or animated equaliser. Progress is a number that updates ("1,204 of 8,310").</li>
+  <li>One easing for arrivals: <code>--ease-out-expo</code>, a quick start and a long soft landing. No bounce, no elastic.</li>
+  <li>No pulse, shimmer, spinner or anything on <code>infinite</code>. Waiting is shown as a number and a real progress bar ("1,204 of 8,310").</li>
+  <li>Reduced motion keeps colour and fades and drops everything that moves. It is one rule in <code>globals.css</code>, so new motion gets it for free.</li>
   <li>Results of an action are a Sonner toast, bottom right, above the player bar.</li>
   <li>Focus ring is 3px at ring grey 50%, on every interactive element.</li>
+  <li>Text selection is brand red, the caret is <code>brand-text</code>, scrollbars are thin and grey.</li>
 </ul>
+
+<h2>Voice</h2>
+<div class="grid g2">
+  <div class="do">
+    <p><b>Where it has character</b></p>
+    <p>Idle player: "Nothing on the deck"</p>
+    <p>Empty library: "The crate is empty."</p>
+    <p>No results: "Nothing in the crate for ..."</p>
+    <p>A page crashed: "The needle skipped"</p>
+    <p>Not found: "Not in the crate"</p>
+  </div>
+  <div class="dont">
+    <p><b>Where it stays plain</b></p>
+    <p>Buttons, labels, column headings</p>
+    <p>Errors about access, passwords or data</p>
+    <p>Confirmations before deleting</p>
+    <p>Anything in Admin</p>
+    <p>Every line after the first in an empty state</p>
+  </div>
+</div>
 
 <h2>In code</h2>
 <ul>
