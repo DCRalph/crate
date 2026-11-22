@@ -126,6 +126,8 @@ function SearchBox() {
   useEffect(() => {
     const cancel = () => clearTimeout(timer.current);
     const onClick = (event: MouseEvent) => {
+      // A click that opens the link elsewhere (new tab, new window) leaves this page where it is.
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       if (event.target instanceof Element && event.target.closest("a[href]")) cancel();
     };
     window.addEventListener("popstate", cancel);
