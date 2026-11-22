@@ -14,17 +14,23 @@ export function Cover({
   type,
   id,
   size,
+  version,
+  seed,
   className,
   imageClassName,
 }: {
   type: "album" | "artist" | "track" | "playlist";
   id: number;
+  /** Anything that changes when the picture does, so a changed cover is fetched again. */
+  version?: string;
+  /** For a playlist: one particular generated cover, to show it before it is chosen. */
+  seed?: number;
   /** Pixels to request. Twice the displayed size keeps it sharp on dense screens. */
   size: number;
   className?: string;
   imageClassName?: string;
 }) {
-  const src = `/api/cover/${type}/${id}?size=${size}`;
+  const src = `/api/cover/${type}/${id}?size=${size}${seed === undefined ? "" : `&seed=${seed}`}${version ? `&v=${encodeURIComponent(version)}` : ""}`;
   // Tracked per source, so a cover that changes target starts hidden again.
   const [state, setState] = useState<{ src: string; status: "loaded" | "failed" } | null>(null);
   const status = state?.src === src ? state.status : "loading";

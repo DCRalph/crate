@@ -9,6 +9,7 @@ import {
   artist,
   playEvent,
   playlist,
+  playlistPin,
   playlistTrack,
   track,
   trackArtist,
@@ -313,6 +314,13 @@ export async function annotate(
 export const canEditPlaylist = (scope: Scope, row: { ownerId: string; readOnly: boolean }) =>
   !row.readOnly && (row.ownerId === scope.user.id || scope.isAdmin);
 
+/**
+ * Whether a scope may choose a playlist's cover. A cover is how the playlist
+ * looks, not what is in it, so its owner may change it even when the playlist
+ * follows a folder on disk.
+ */
+export const canSetPlaylistCover = (scope: Scope, row: { ownerId: string }) => row.ownerId === scope.user.id || scope.isAdmin;
+
 export type PlaylistRow = Awaited<ReturnType<typeof listPlaylists>>[number];
 
 /**
@@ -343,6 +351,13 @@ export async function listPlaylists(scope: Scope, where?: SQL) {
       readOnly: playlist.readOnly,
       comment: playlist.comment,
       folderId: playlist.folderId,
+      coverSeed: playlist.coverSeed,
+      coverAlbumId: playlist.coverAlbumId,
+      coverUpload: playlist.coverUpload,
+      /** Changes whenever the cover would, so a page can ask for the new picture. */
+      coverKey: sql<string>`concat_ws('-', ${playlist.coverSeed}, ${playlist.coverAlbumId}, ${playlist.coverUpload}, md5(${playlist.name}))`,
+      /** When this person pinned it to the top of their list, if they have. */
+      pinnedAt: playlistPin.pinnedAt,
       ruleId: playlist.ruleId,
       sourcePath: playlist.sourcePath,
       fromFolder: sql<boolean>`${playlist.ruleId} is not null`,
@@ -354,6 +369,7 @@ export async function listPlaylists(scope: Scope, where?: SQL) {
     .from(playlist)
     .innerJoin(user, eq(user.id, playlist.ownerId))
     .leftJoin(totals, eq(totals.playlistId, playlist.id))
+    .leftJoin(playlistPin, and(eq(playlistPin.playlistId, playlist.id), eq(playlistPin.userId, scope.user.id)))
     .where(
       and(
         scope.isAdmin

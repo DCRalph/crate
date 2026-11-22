@@ -6,6 +6,7 @@ import { db } from "~/server/db";
 import { playlist, playlistTrack } from "~/server/db/app-schema";
 import { canEditPlaylist, getPlaylist, listPlaylists, visibleTrackIds } from "~/server/library/queries";
 import { setPlaylistTracks } from "./folder-rules";
+import { forgetUpload } from "./covers";
 import { assertPlace } from "./folders";
 
 // Playlist writes, shared by the web API and the Subsonic API.
@@ -113,6 +114,7 @@ export async function duplicatePlaylist(scope: Scope, id: number) {
 }
 
 export async function deletePlaylist(scope: Scope, id: number) {
-  await editable(scope, id);
+  const row = await editable(scope, id);
   await db.delete(playlist).where(eq(playlist.id, id));
+  await forgetUpload(row.coverUpload);
 }

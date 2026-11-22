@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Info, ListEnd, Pencil, Play } from "lucide-react";
+import { Copy, Info, ListEnd, Pencil, Pin, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
+import { usePin } from "~/components/playlists/use-pin";
 import { Hero } from "~/components/library/hero";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
@@ -26,6 +27,7 @@ export function PlaylistView({ id }: { id: number }) {
   const queryClient = useQueryClient();
   const playlist = useQuery(trpc.playlists.byId.queryOptions({ id }));
   const { play, enqueue } = usePlayer.getState();
+  const togglePin = usePin();
   const [infoOpen, setInfoOpen] = useState(false);
 
   const refresh = () => queryClient.invalidateQueries(trpc.playlists.pathFilter());
@@ -103,6 +105,16 @@ export function PlaylistView({ id }: { id: number }) {
             Make a copy
           </Button>
         )}
+        <Button variant="outline" aria-pressed={!!data.pinnedAt} onClick={() => togglePin(data)}>
+          <Pin className={data.pinnedAt ? "fill-current" : undefined} />
+          {data.pinnedAt ? "Unpin" : "Pin"}
+        </Button>
+        {/* A playlist that follows the disk can't be edited, but its owner can still choose its cover. */}
+        {data.canSetCover && !data.canEdit ? (
+          <Button variant="outline" asChild>
+            <Link href={`/playlists/${id}/edit`}>Change cover</Link>
+          </Button>
+        ) : null}
         <Button variant="outline" onClick={() => setInfoOpen(true)}>
           <Info />
           Get info

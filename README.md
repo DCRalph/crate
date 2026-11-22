@@ -24,7 +24,8 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Artists.** A joint credit ("A, B feat. C", "A/B", "A x B") is split into its artists, using a file's own multi-value tags when it has them. "A & B" is split only when one of the two also appears alone, so duos stay whole. Tracks keep showing the full credit. Files with no tags take artist and title from an "Artist - Title" file name.
 - **Tracks.** One table of every track, with search, sorting and filters. Any track or playlist has Get info.
 - **Any format in the browser.** The browser says what it can play; anything else (AIFF, for one) is converted on the way out, and a file that fails as it is gets retried as a conversion.
-- **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art.
+- **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art. Its owner can pick another generated one, the art of an album in the playlist, or upload a picture.
+- **Playlists page.** A folder tree or a grid of covers, with any playlist pinned to the top of your own list.
 - **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
 

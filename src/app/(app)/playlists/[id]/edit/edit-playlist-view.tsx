@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
 import { Cover } from "~/components/library/cover";
+import { CoverPicker } from "~/components/playlists/cover-picker";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
@@ -92,6 +93,8 @@ export function EditPlaylistView({ id }: { id: number }) {
             </Button>
           </FormActions>
         </FormSection>
+        {/* How it looks is still the owner's to choose. */}
+        {data.canSetCover ? <CoverPicker playlist={data} /> : null}
       </Page>
     );
   }
@@ -102,6 +105,8 @@ export function EditPlaylistView({ id }: { id: number }) {
 
       {/* Keyed by what is saved, so the fields start from it again after each save. */}
       <Details key={`${data.name}\n${data.comment ?? ""}`} playlist={data} />
+
+      <CoverPicker playlist={data} />
 
       <FormSection title="Place and sharing">
         <div className="grid gap-4">
