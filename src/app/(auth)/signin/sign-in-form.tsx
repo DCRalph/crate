@@ -15,10 +15,13 @@ export function SignInForm({ next }: { next: string }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /** Counts failures, so each one replays the shake. */
+  const [failures, setFailures] = useState(0);
 
   return (
     <form
-      className="grid gap-4"
+      key={failures}
+      className={failures ? "animate-shake grid gap-4" : "grid gap-4"}
       onSubmit={async (event) => {
         event.preventDefault();
         setPending(true);
@@ -26,6 +29,8 @@ export function SignInForm({ next }: { next: string }) {
         const result = await authClient.signIn.username({ username: username.trim(), password });
         if (result.error) {
           setPending(false);
+          setFailures((count) => count + 1);
+          setPassword("");
           setError(
             result.error.status === 429
               ? "Too many tries. Wait a minute, then try again."
@@ -43,7 +48,7 @@ export function SignInForm({ next }: { next: string }) {
           id="username"
           autoComplete="username"
           autoCapitalize="none"
-          autoFocus
+          autoFocus={failures === 0}
           required
           value={username}
           onChange={(event) => setUsername(event.target.value)}
@@ -55,6 +60,8 @@ export function SignInForm({ next }: { next: string }) {
           id="password"
           type="password"
           autoComplete="current-password"
+          // After a miss the form is redrawn to shake, and the cursor belongs back here.
+          autoFocus={failures > 0}
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}

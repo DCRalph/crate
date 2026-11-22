@@ -36,7 +36,9 @@ Two APIs sit on one core, so access rules and logging apply to both without bein
 
 ## Design
 
-`design-previews/style-guide.html` is the style guide. Tokens and the `t-label`, `t-display` and `font-title` utilities are in `src/app/globals.css`. Dark only.
+`design-previews/style-guide.html` is the style guide. Tokens, the `t-label`, `t-display` and `font-title` utilities, and the motion (`animate-rise`, `animate-spin-once`, `animate-pop`, `eq-bars`) are in `src/app/globals.css`. Dark only. Every animation plays once and stops, and all of it yields to reduced motion.
+
+Keyboard: `/` jumps to search, `Space` plays and pauses.
 
 ## Security notes
 

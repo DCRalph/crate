@@ -11,6 +11,10 @@
  *  - `--brand-text` is red as text on black: the playing track.
  * Type: Montserrat for everything, Cabin (`font-title`) for the header title,
  * stretched Anybody for the wordmark (`t-display`) and small caps (`t-label`).
+ * Motion: everything plays once and stops. Nothing loops, so an idle page
+ * costs nothing. `animate-rise` is how content arrives, `animate-spin-once`
+ * is the record getting a spin when a track starts, `animate-pop` answers a
+ * like, `animate-shake` a wrong password. All of it yields to reduced motion.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -50,6 +54,57 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* A quick start and a long, soft landing. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-rise: rise 0.35s var(--ease-out-expo) backwards;
+  --animate-spin-once: spin-once 0.9s var(--ease-out-expo);
+  --animate-pop: pop 0.35s var(--ease-out-expo);
+  --animate-shake: shake 0.3s ease-in-out;
+  --animate-scratch: scratch 0.45s ease-in-out;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  @keyframes spin-once {
+    from {
+      transform: rotate(-360deg);
+    }
+  }
+  @keyframes pop {
+    40% {
+      transform: scale(1.3);
+    }
+  }
+  @keyframes shake {
+    25% {
+      transform: translateX(-5px);
+    }
+    75% {
+      transform: translateX(5px);
+    }
+  }
+  /* A record nudged back and forth under a finger. */
+  @keyframes scratch {
+    25% {
+      transform: rotate(-40deg);
+    }
+    55% {
+      transform: rotate(25deg);
+    }
+    80% {
+      transform: rotate(-10deg);
+    }
+  }
+  /* One bar of the playing indicator: a few bounces, then it rests where it started. */
+  @keyframes eq {
+    50% {
+      transform: scaleY(0.35);
+    }
+  }
 }
 
 :root {
@@ -93,10 +148,39 @@
   html {
     @apply font-sans;
     color-scheme: dark;
+    scrollbar-color: oklch(1 0 0 / 22%) transparent;
+    scrollbar-width: thin;
+    accent-color: var(--brand);
   }
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--brand);
+    color: #fff;
+  }
+  input,
+  textarea {
+    caret-color: var(--brand-text);
+  }
+  /* Search fields draw their own clear control, or none. */
+  input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  /* Reduced motion keeps fades and colour, and drops everything that moves. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+    * {
+      transition-property: color, background-color, border-color, opacity, box-shadow !important;
+    }
   }
 }
 
@@ -139,6 +223,41 @@
     margin-top: -8px;
     border-radius: 1px;
     background: var(--brand);
+  }
+}
+
+/* The playing indicator: three bars that bounce a few times when a track starts, then hold still. */
+@utility eq-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  & > i {
+    width: 2px;
+    height: 100%;
+    border-radius: 1px;
+    background: currentColor;
+    transform-origin: bottom;
+  }
+  & > i:nth-child(1) {
+    height: 60%;
+  }
+  & > i:nth-child(3) {
+    height: 80%;
+  }
+  &[data-playing="true"] > i {
+    animation: eq 0.5s ease-in-out 4;
+  }
+  &[data-playing="true"] > i:nth-child(2) {
+    animation-delay: 0.12s;
+  }
+  &[data-playing="true"] > i:nth-child(3) {
+    animation-delay: 0.24s;
+  }
+  /* Paused: the bars sit low. */
+  &[data-playing="false"] > i {
+    transform: scaleY(0.3);
+    transition: transform 0.2s var(--ease-out-expo);
   }
 }
 

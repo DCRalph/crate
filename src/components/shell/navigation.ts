@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Disc3, FolderTree, History, Library, ListMusic, MicVocal, UserRound, Users } from "lucide-react";
+import { Disc3, FolderTree, Heart, History, Library, ListMusic, MicVocal, UserRound, Users } from "lucide-react";
 
 export type NavItem = { title: string; url: string; icon: LucideIcon };
 export type NavGroup = { title: string; adminOnly: boolean; items: NavItem[] };
@@ -13,6 +13,7 @@ export const navigation: NavGroup[] = [
       { title: "Albums", url: "/albums", icon: Disc3 },
       { title: "Artists", url: "/artists", icon: MicVocal },
       { title: "Playlists", url: "/playlists", icon: ListMusic },
+      { title: "Liked", url: "/liked", icon: Heart },
     ],
   },
   {

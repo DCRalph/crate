@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import { z } from "zod";
 
 import { LocalTime } from "~/components/local-time";
 import { Page } from "~/components/shell/page";
@@ -15,18 +16,25 @@ import { Switch } from "~/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { activityActions, type ActivityAction } from "~/lib/activity-actions";
+import { scanSummary } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
 const head = "t-label text-muted-foreground text-[10px]";
 const options = { getNextPageParam: (last: { nextCursor: number | null }) => last.nextCursor, placeholderData: keepPreviousData };
 
+type Kind = "all" | "sign-ins" | "changes";
+
 /** The three logs: what people changed and who signed in, every request, and every play. */
 export function ActivityView() {
-  // One search box across the tabs: looking for a person usually means looking in all three.
+  const [tab, setTab] = useState("activity");
+  // One filter box across the tabs: looking for a person usually means looking in all three.
   const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<Kind>("all");
+  const [failedOnly, setFailedOnly] = useState(false);
+
   return (
     <Page>
-      <Tabs defaultValue="activity">
+      <Tabs value={tab} onValueChange={setTab}>
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <TabsList>
             <TabsTrigger value="activity">Activity</TabsTrigger>
@@ -41,12 +49,30 @@ export function ActivityView() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
+          {tab === "activity" ? (
+            <Select value={kind} onValueChange={(value) => setKind(value as Kind)}>
+              <SelectTrigger size="sm" aria-label="Kind of event" className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Everything</SelectItem>
+                <SelectItem value="sign-ins">Sign-ins</SelectItem>
+                <SelectItem value="changes">Changes</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
+          {tab === "requests" ? (
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={failedOnly} onCheckedChange={setFailedOnly} />
+              Failed only
+            </label>
+          ) : null}
         </div>
         <TabsContent value="activity">
-          <ActivityLog search={search} />
+          <ActivityLog search={search} kind={kind} />
         </TabsContent>
         <TabsContent value="requests">
-          <RequestLog search={search} />
+          <RequestLog search={search} failedOnly={failedOnly} />
         </TabsContent>
         <TabsContent value="plays">
           <PlayLog search={search} />
@@ -61,7 +87,6 @@ function LogTable<Row extends { id: number }>({
   query,
   columns,
   row,
-  toolbar,
 }: {
   query: {
     data?: { pages: { items: Row[] }[] };
@@ -71,14 +96,13 @@ function LogTable<Row extends { id: number }>({
     isFetchingNextPage: boolean;
     fetchNextPage: () => unknown;
   };
-  columns: string[];
+  /** Column headings. Ones ending in a number column pass `right` to line up with their cells. */
+  columns: (string | { label: string; right: true })[];
   row: (item: Row) => React.ReactNode;
-  toolbar?: React.ReactNode;
 }) {
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <>
-      {toolbar ? <div className="mb-2 flex items-center gap-3">{toolbar}</div> : null}
       {query.isPending ? (
         <Skeleton className="h-64" />
       ) : query.error ? (
@@ -90,11 +114,17 @@ function LogTable<Row extends { id: number }>({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {columns.map((column) => (
-                  <TableHead key={column} className={head}>
-                    {column}
-                  </TableHead>
-                ))}
+                {columns.map((column) =>
+                  typeof column === "string" ? (
+                    <TableHead key={column} className={head}>
+                      {column}
+                    </TableHead>
+                  ) : (
+                    <TableHead key={column.label} className={`${head} text-right`}>
+                      {column.label}
+                    </TableHead>
+                  ),
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>{items.map(row)}</TableBody>
@@ -119,35 +149,35 @@ const When = ({ at }: { at: Date }) => (
 );
 const Address = ({ ip }: { ip: string | null }) => <TableCell className="text-muted-foreground font-mono text-xs">{ip ?? ""}</TableCell>;
 
-/** A detail object as "key value · key value", for the log's Detail column. */
-function describeDetail(detail: Record<string, unknown> | null) {
+const scanResult = z.object({
+  added: z.number(),
+  updated: z.number(),
+  removed: z.number(),
+  failed: z.number(),
+  durationMs: z.number(),
+  error: z.string().optional(),
+});
+
+/** A detail object as "key value · key value", for the log's Detail column. Scans read as they do on the Libraries page. */
+function describeDetail(action: string, detail: Record<string, unknown> | null) {
   if (!detail) return "";
+  if (action === "library.scanned") {
+    const scan = scanResult.safeParse(detail);
+    if (scan.success) return scan.data.error ?? scanSummary(scan.data);
+  }
   return Object.entries(detail)
     .filter(([, value]) => value !== null && value !== undefined && typeof value !== "object")
     .map(([key, value]) => `${key} ${typeof value === "boolean" ? (value ? "on" : "off") : String(value)}`)
     .join(" · ");
 }
 
-function ActivityLog({ search }: { search: string }) {
+function ActivityLog({ search, kind }: { search: string; kind: Kind }) {
   const trpc = useTRPC();
-  const [kind, setKind] = useState<"all" | "sign-ins" | "changes">("all");
   const query = useInfiniteQuery(trpc.admin.logs.activity.infiniteQueryOptions({ search: search || undefined, kind }, options));
   return (
     <LogTable
       query={query}
       columns={["When", "Who", "Event", "Target", "Detail", "Address"]}
-      toolbar={
-        <Select value={kind} onValueChange={(value) => setKind(value as typeof kind)}>
-          <SelectTrigger size="sm" aria-label="Kind of event" className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Everything</SelectItem>
-            <SelectItem value="sign-ins">Sign-ins</SelectItem>
-            <SelectItem value="changes">Changes</SelectItem>
-          </SelectContent>
-        </Select>
-      }
       row={(item) => {
         const action = activityActions[item.action as ActivityAction] ?? { label: item.action, tone: "neutral" as const };
         return (
@@ -158,7 +188,7 @@ function ActivityLog({ search }: { search: string }) {
               <Status tone={action.tone} label={action.label} />
             </TableCell>
             <TableCell>{item.target ?? ""}</TableCell>
-            <TableCell className="text-muted-foreground max-w-72 truncate text-xs">{describeDetail(item.detail)}</TableCell>
+            <TableCell className="text-muted-foreground max-w-72 truncate text-xs">{describeDetail(item.action, item.detail)}</TableCell>
             <Address ip={item.ip} />
           </TableRow>
         );
@@ -167,20 +197,13 @@ function ActivityLog({ search }: { search: string }) {
   );
 }
 
-function RequestLog({ search }: { search: string }) {
+function RequestLog({ search, failedOnly }: { search: string; failedOnly: boolean }) {
   const trpc = useTRPC();
-  const [failedOnly, setFailedOnly] = useState(false);
   const query = useInfiniteQuery(trpc.admin.logs.requests.infiniteQueryOptions({ search: search || undefined, failedOnly }, options));
   return (
     <LogTable
       query={query}
-      columns={["When", "User", "Request", "Result", "App", "Address", "Time"]}
-      toolbar={
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={failedOnly} onCheckedChange={setFailedOnly} />
-          Failed only
-        </label>
-      }
+      columns={["When", "User", "Request", "Result", "App", "Address", { label: "Time", right: true }]}
       row={(item) => (
         <TableRow key={item.id}>
           <When at={item.at} />
