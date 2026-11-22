@@ -1,34 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { useConfirm } from "~/components/confirm-provider";
-import { LocalTime } from "~/components/local-time";
+import { ScanStatus, useScanAnnouncements } from "~/components/admin/scan";
+import { DataTable, useDataTable, type DataTableColumn } from "~/components/data-table";
 import { Page } from "~/components/shell/page";
-import { Empty, LoadError, SectionHeading } from "~/components/shell/states";
-import { Status } from "~/components/shell/status";
+import { LoadError, SectionHeading } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Skeleton } from "~/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
-import { count, scanSummary } from "~/lib/format";
-import { useTRPC } from "~/trpc/react";
+import { count } from "~/lib/format";
+import { useTRPC, type RouterOutputs } from "~/trpc/react";
 
-const head = "t-label text-muted-foreground text-[10px]";
-const number = new Intl.NumberFormat("en");
+type Listing = RouterOutputs["admin"]["libraries"]["list"];
+type Row = Listing["libraries"][number] & { running: Listing["scan"] };
 
-/** The folders of music on the server. Adding one scans it; a scan's progress shows in its row. */
+const columns: DataTableColumn<Row>[] = [
+  { id: "name", header: "Library", hideable: false, cell: (row) => <span className="font-medium">{row.name}</span> },
+  { id: "path", header: "Folder", showFrom: 860, cell: (row) => <span className="text-muted-foreground font-mono text-xs">{row.path}</span> },
+  { id: "albumCount", header: "Albums", type: "number", align: "right", showFrom: 620 },
+  { id: "trackCount", header: "Tracks", type: "number", align: "right" },
+  { id: "userCount", header: "Users", type: "number", align: "right", showFrom: 700 },
+  { id: "scan", header: "Last scan", hideable: false, cell: (row) => <ScanStatus library={row} running={row.running} /> },
+];
+
+/** The folders of media on the server. A row opens the library's own page; a scan's progress shows in its row. */
 export function LibrariesView() {
   const trpc = useTRPC();
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const confirm = useConfirm();
-  const [adding, setAdding] = useState(false);
   const libraries = useQuery(
     trpc.admin.libraries.list.queryOptions(undefined, {
       // While a scan runs, the row's count is the progress display.
@@ -36,196 +39,54 @@ export function LibrariesView() {
     }),
   );
   const refresh = () => queryClient.invalidateQueries(trpc.admin.libraries.pathFilter());
-  /** For after a scan is started: a quick one can finish before the page ever sees it running, so look again shortly. */
-  const refreshSoon = () => {
-    void refresh();
-    setTimeout(refresh, 1500);
-    setTimeout(refresh, 4000);
-  };
-  const onError = (error: { message: string }) => toast.error(error.message);
-  const scan = useMutation(trpc.admin.libraries.scan.mutationOptions({ onSuccess: refreshSoon, onError }));
-  const remove = useMutation(trpc.admin.libraries.delete.mutationOptions({ onSuccess: refresh, onError }));
-  const running = libraries.data?.scan ?? null;
+  const scan = useMutation(
+    trpc.admin.libraries.scan.mutationOptions({
+      // A quick scan can finish before the page ever sees it running, so look again shortly.
+      onSuccess: () => {
+        void refresh();
+        setTimeout(refresh, 1500);
+        setTimeout(refresh, 4000);
+      },
+      onError: (error) => toast.error(error.message),
+    }),
+  );
+  useScanAnnouncements(libraries.data?.libraries);
 
-  // Say so when a scan finishes, with what it did. Noticed by `lastScanAt` moving,
-  // since a quick scan can start and finish between two looks at the server.
-  const rows = libraries.data?.libraries;
-  const lastSeen = useRef<Map<number, number> | null>(null);
-  useEffect(() => {
-    if (!rows) return;
-    const before = lastSeen.current;
-    lastSeen.current = new Map(rows.map((library) => [library.id, library.lastScanAt?.getTime() ?? 0]));
-    // The first load only records where things stand.
-    if (!before) return;
-    for (const library of rows) {
-      // A library added since the last look counts as never scanned, so its first scan is announced too.
-      const previous = before.get(library.id) ?? 0;
-      if (!library.lastScan || previous === (library.lastScanAt?.getTime() ?? 0)) continue;
-      if (library.lastScan.error) toast.error(`${library.name}: ${library.lastScan.error}`);
-      else toast(`${library.name} scanned. ${scanSummary(library.lastScan)}.`);
-    }
-  }, [rows]);
+  const rows = useMemo<Row[]>(
+    () => (libraries.data?.libraries ?? []).map((library) => ({ ...library, running: libraries.data?.scan ?? null })),
+    [libraries.data],
+  );
+  const table = useDataTable({ columns, getRowId: (row) => String(row.id), storageKey: "libraries" });
 
   return (
     <Page>
-      <SectionHeading title="All libraries" detail={libraries.data ? count(libraries.data.libraries.length, "library", "libraries") : null}>
-        <Button variant="secondary" size="sm" disabled={!!running || !libraries.data?.libraries.length} onClick={() => scan.mutate({})}>
+      <SectionHeading title="All libraries" detail={libraries.data ? count(rows.length, "library", "libraries") : null}>
+        <Button variant="secondary" size="sm" disabled={!!libraries.data?.scan || !rows.length} onClick={() => scan.mutate({})}>
           <RefreshCw />
           Scan all
         </Button>
-        <Button variant="brand" size="sm" onClick={() => setAdding(true)}>
-          <Plus />
-          Add library
+        <Button variant="brand" size="sm" asChild>
+          <Link href="/admin/libraries/new">
+            <Plus />
+            Add library
+          </Link>
         </Button>
       </SectionHeading>
-
-      {libraries.isPending ? (
-        <Skeleton className="h-40" />
-      ) : libraries.isError ? (
+      {libraries.isError ? (
         <LoadError message={libraries.error.message} />
-      ) : libraries.data.libraries.length === 0 ? (
-        <Empty>No libraries yet. Add a folder of music to get started.</Empty>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className={head}>Library</TableHead>
-              <TableHead className={`${head} max-lg:hidden`}>Folder</TableHead>
-              <TableHead className={`${head} text-right max-sm:hidden`}>Albums</TableHead>
-              <TableHead className={`${head} text-right`}>Tracks</TableHead>
-              <TableHead className={`${head} text-right max-sm:hidden`}>Users</TableHead>
-              <TableHead className={head}>Last scan</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {libraries.data.libraries.map((library) => (
-              <TableRow key={library.id}>
-                <TableCell className="font-medium">{library.name}</TableCell>
-                <TableCell className="text-muted-foreground font-mono text-xs max-lg:hidden">{library.path}</TableCell>
-                <TableCell className="text-muted-foreground text-right tabular-nums max-sm:hidden">{number.format(library.albumCount)}</TableCell>
-                <TableCell className="text-muted-foreground text-right tabular-nums">{number.format(library.trackCount)}</TableCell>
-                <TableCell className="text-muted-foreground text-right tabular-nums max-sm:hidden">{library.userCount}</TableCell>
-                <TableCell>
-                  {running?.libraryId === library.id ? (
-                    <div className="w-56 max-w-full">
-                      <Status
-                        tone="warn"
-                        label={running.phase === "listing" ? "Finding files" : running.phase === "cleaning" ? "Tidying up" : "Scanning"}
-                        reason={<span className="tabular-nums">{`${number.format(running.done)} of ${number.format(running.total)}`}</span>}
-                      />
-                      {/* How far through, for real: files read over files found. */}
-                      <div className="bg-secondary mt-1.5 h-0.5 overflow-hidden rounded-full">
-                        <div
-                          className="h-full origin-left bg-amber-400 transition-transform duration-700 ease-out"
-                          style={{ transform: `scaleX(${running.total ? running.done / running.total : 0})` }}
-                        />
-                      </div>
-                    </div>
-                  ) : library.lastScan?.error ? (
-                    <Status tone="bad" label="Failed" reason={library.lastScan.error} className="whitespace-normal" />
-                  ) : library.lastScan && library.lastScanAt ? (
-                    <Status
-                      tone={library.lastScan.failed ? "warn" : "ok"}
-                      label={<LocalTime date={library.lastScanAt} format="relative" />}
-                      reason={<span className="tabular-nums">{scanSummary(library.lastScan)}</span>}
-                    />
-                  ) : (
-                    <Status tone="neutral" label="Not scanned" />
-                  )}
-                </TableCell>
-                <TableCell className="py-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" aria-label={`More for ${library.name}`} className="text-muted-foreground">
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled={!!running} onSelect={() => scan.mutate({ id: library.id })}>
-                        Scan now
-                      </DropdownMenuItem>
-                      {/* A normal scan skips files that haven't changed; this reads all of them again. */}
-                      <DropdownMenuItem disabled={!!running} onSelect={() => scan.mutate({ id: library.id, full: true })}>
-                        Rescan every file
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!!running}
-                        onSelect={async () => {
-                          const ok = await confirm({
-                            title: `Remove ${library.name}?`,
-                            description: "Its albums and tracks go from the server and from any playlists. The files on disk are not touched.",
-                            confirmLabel: "Remove",
-                            variant: "destructive",
-                          });
-                          if (ok) remove.mutate({ id: library.id }, { onSuccess: () => toast(`Removed ${library.name}`) });
-                        }}
-                      >
-                        Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable
+          api={table}
+          columns={columns}
+          data={rows}
+          total={rows.length}
+          isLoading={libraries.isPending}
+          enableToolbar={false}
+          enablePagination={false}
+          onRowClick={(row) => router.push(`/admin/libraries/${row.id}`)}
+          emptyMessage="No libraries yet. Add a folder of music to get started."
+        />
       )}
-      {adding ? <AddLibraryDialog onClose={() => setAdding(false)} onAdded={refreshSoon} /> : null}
     </Page>
-  );
-}
-
-function AddLibraryDialog({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const trpc = useTRPC();
-  const [name, setName] = useState("");
-  const [path, setPath] = useState("");
-  const create = useMutation(
-    trpc.admin.libraries.create.mutationOptions({
-      onSuccess: () => {
-        onAdded();
-        toast(`Added ${name.trim()}. Scanning now.`);
-        onClose();
-      },
-    }),
-  );
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <form
-          className="contents"
-          onSubmit={(event) => {
-            event.preventDefault();
-            create.mutate({ name, path });
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Add library</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="library-name">Name</Label>
-              <Input id="library-name" placeholder="Main" value={name} onChange={(event) => setName(event.target.value)} autoFocus maxLength={60} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="library-path">Folder</Label>
-              <Input id="library-path" placeholder="/music/library" className="font-mono" autoCapitalize="none" spellCheck={false} value={path} onChange={(event) => setPath(event.target.value)} />
-              <p className={create.error ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>
-                {create.error?.message ?? "A path on the server. Nobody but admins can reach it until you give them access."}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!name.trim() || !path.trim() || create.isPending}>
-              Add and scan
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
