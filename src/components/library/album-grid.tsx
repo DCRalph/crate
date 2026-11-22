@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Play } from "lucide-react";
 import { toast } from "sonner";
@@ -23,10 +24,13 @@ export function AlbumGrid({ albums, showArtist = true }: { albums: AlbumTile[]; 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  /** The album most recently asked for, so a slower earlier request can't start over it. */
+  const wanted = useRef<number | null>(null);
   const playAlbum = async (album: AlbumTile) => {
+    wanted.current = album.id;
     try {
       const { tracks } = await queryClient.fetchQuery(trpc.library.album.queryOptions({ id: album.id }));
-      usePlayer.getState().play(tracks);
+      if (wanted.current === album.id) usePlayer.getState().play(tracks);
     } catch {
       toast.error(`Couldn't play ${album.name}.`);
     }

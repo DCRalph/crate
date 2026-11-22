@@ -24,7 +24,8 @@ export function LikeButton({ track, className }: { track: { id: number; title: s
   const star = useMutation(
     trpc.library.star.mutationOptions({
       onSuccess: async (_, input) => {
-        usePlayer.getState().setStarred(track.id, input.starred);
+        // `input.id`, not `track.id`: by now this button may be showing a different track.
+        usePlayer.getState().setStarred(input.id, input.starred);
         await Promise.all([queryClient.invalidateQueries(trpc.library.pathFilter()), queryClient.invalidateQueries(trpc.playlists.pathFilter())]);
       },
       onError: (error) => toast.error(error.message),
@@ -38,6 +39,8 @@ export function LikeButton({ track, className }: { track: { id: number; title: s
       aria-label={liked ? `Unlike ${track.title}` : `Like ${track.title}`}
       aria-pressed={liked}
       onClick={() => {
+        // One write at a time, so a quick double click can't land out of order.
+        if (star.isPending) return;
         setPending(!liked);
         setJustLiked(!liked);
         star.mutate({ type: "track", id: track.id, starred: !liked });

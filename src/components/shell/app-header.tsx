@@ -93,13 +93,26 @@ function SearchBox() {
   const pathname = usePathname();
   const params = useSearchParams();
   const onSearch = pathname === "/search";
+  const query = onSearch ? (params.get("q") ?? "") : null;
   const inputRef = useRef<HTMLInputElement>(null);
-  const [typed, setTyped] = useState(onSearch ? (params.get("q") ?? "") : "");
-  // The page the text was typed on. Anywhere else (bar the results page) the box
-  // shows empty, which is what clears it when you leave the results.
-  const [typedOn, setTypedOn] = useState(pathname);
-  if (onSearch && typedOn !== pathname) setTypedOn(pathname);
-  const value = typedOn === pathname || onSearch ? typed : "";
+  const [value, setValue] = useState(query ?? "");
+  /** Searches this box sent itself, so their arrival in the URL isn't mistaken for Back or Forward. */
+  const [sent, setSent] = useState<string[]>([]);
+
+  // When the page changes under the box, follow it: Back to an older search
+  // shows that search's text, and leaving the results empties the box. Our own
+  // searches landing in the URL are left alone, or they'd undo newer typing.
+  const place = query === null ? pathname : `search:${query}`;
+  const [seen, setSeen] = useState(place);
+  if (place !== seen) {
+    setSeen(place);
+    if (query === null) {
+      setValue("");
+      // Forgotten on the way out, so coming Back to one of these searches counts as navigation.
+      setSent([]);
+    } else if (!sent.includes(query)) setValue(query);
+  }
+
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -115,19 +128,21 @@ function SearchBox() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const go = (query: string, wait: number) => {
+  const go = (text: string, wait: number) => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      const url = `/search?q=${encodeURIComponent(query.trim())}`;
+      const next = text.trim();
+      if (!onSearch && !next) return;
+      setSent((recent) => [...recent.slice(-4), next]);
+      const url = `/search?q=${encodeURIComponent(next)}`;
       // Typing more shouldn't add a history entry per letter.
       if (onSearch) router.replace(url);
-      else if (query.trim()) router.push(url);
+      else router.push(url);
     }, wait);
   };
-  const change = (query: string, wait: number) => {
-    setTyped(query);
-    setTypedOn(pathname);
-    go(query, wait);
+  const change = (text: string, wait: number) => {
+    setValue(text);
+    go(text, wait);
   };
 
   return (

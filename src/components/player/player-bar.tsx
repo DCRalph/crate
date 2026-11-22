@@ -168,7 +168,8 @@ export function PlayerBar() {
         ) : (
           <p className="text-muted-foreground text-sm">Nothing on the deck</p>
         )}
-        {track ? <LikeButton track={track} className="max-md:hidden" /> : null}
+        {/* Keyed by track, so a like still in flight stays with the track it was made on. */}
+        {track ? <LikeButton key={`like-${track.id}`} track={track} className="max-md:hidden" /> : null}
       </div>
 
       <div className="flex flex-col items-center gap-1 md:min-w-0 md:flex-1">
@@ -348,7 +349,7 @@ function NowPlaying({
                 <p className="truncate font-medium">{track.title}</p>
                 <p className="text-muted-foreground truncate text-sm">{track.artistName}</p>
               </div>
-              <LikeButton track={track} />
+              <LikeButton key={track.id} track={track} />
             </div>
             {children}
           </div>

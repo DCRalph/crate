@@ -36,24 +36,34 @@ export function LibrariesView() {
     }),
   );
   const refresh = () => queryClient.invalidateQueries(trpc.admin.libraries.pathFilter());
+  /** For after a scan is started: a quick one can finish before the page ever sees it running, so look again shortly. */
+  const refreshSoon = () => {
+    void refresh();
+    setTimeout(refresh, 1500);
+    setTimeout(refresh, 4000);
+  };
   const onError = (error: { message: string }) => toast.error(error.message);
-  const scan = useMutation(trpc.admin.libraries.scan.mutationOptions({ onSuccess: refresh, onError }));
+  const scan = useMutation(trpc.admin.libraries.scan.mutationOptions({ onSuccess: refreshSoon, onError }));
   const remove = useMutation(trpc.admin.libraries.delete.mutationOptions({ onSuccess: refresh, onError }));
   const running = libraries.data?.scan ?? null;
 
-  // Say so when a scan finishes, with what it did.
-  const runningId = running?.libraryId ?? null;
-  const wasScanning = useRef<number | null>(null);
+  // Say so when a scan finishes, with what it did. Noticed by `lastScanAt` moving,
+  // since a quick scan can start and finish between two looks at the server.
   const rows = libraries.data?.libraries;
+  const lastSeen = useRef<Map<number, number> | null>(null);
   useEffect(() => {
-    const previous = wasScanning.current;
-    wasScanning.current = runningId;
-    if (previous === null || previous === runningId) return;
-    const finished = rows?.find((library) => library.id === previous);
-    if (!finished?.lastScan) return;
-    if (finished.lastScan.error) toast.error(`${finished.name}: ${finished.lastScan.error}`);
-    else toast(`${finished.name} scanned. ${scanSummary(finished.lastScan)}.`);
-  }, [runningId, rows]);
+    if (!rows) return;
+    const before = lastSeen.current;
+    lastSeen.current = new Map(rows.map((library) => [library.id, library.lastScanAt?.getTime() ?? 0]));
+    // The first load only records where things stand.
+    if (!before) return;
+    for (const library of rows) {
+      const previous = before.get(library.id);
+      if (previous === undefined || !library.lastScan || previous === (library.lastScanAt?.getTime() ?? 0)) continue;
+      if (library.lastScan.error) toast.error(`${library.name}: ${library.lastScan.error}`);
+      else toast(`${library.name} scanned. ${scanSummary(library.lastScan)}.`);
+    }
+  }, [rows]);
 
   return (
     <Page>
@@ -160,7 +170,7 @@ export function LibrariesView() {
           </TableBody>
         </Table>
       )}
-      {adding ? <AddLibraryDialog onClose={() => setAdding(false)} onAdded={refresh} /> : null}
+      {adding ? <AddLibraryDialog onClose={() => setAdding(false)} onAdded={refreshSoon} /> : null}
     </Page>
   );
 }
