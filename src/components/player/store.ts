@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { WebTrack } from "~/server/api/routers/library";
+import type { TranscodeFormat } from "~/server/media/transcode";
+
+/** The bitrates offered as a quality, in kbps, best first. "Original" (no limit) sits above them. */
+export const qualities = [320, 256, 192, 128, 96];
+
+/** How volume is evened out: not at all, each track to the same level, or each album keeping its own quiet and loud tracks. */
+export type Normalise = "off" | "track" | "album";
 
 type PlayerState = {
   queue: WebTrack[];
@@ -12,6 +19,11 @@ type PlayerState = {
   volume: number;
   /** What `volume` was before muting. */
   volumeBeforeMute: number;
+  /** The most to stream at, in kbps. Null is the original file. */
+  quality: number | null;
+  /** What a track is converted to when it has to be. */
+  format: TranscodeFormat;
+  normalise: Normalise;
   /** Replaces the queue and starts playing at `startAt`. */
   play: (tracks: WebTrack[], startAt?: number) => void;
   /** Adds to the end of the queue. Starts playing if nothing was queued. */
@@ -24,13 +36,17 @@ type PlayerState = {
   setVolume: (volume: number) => void;
   /** Mutes, or goes back to the volume it was muted from. */
   toggleMute: () => void;
+  setQuality: (quality: number | null) => void;
+  setFormat: (format: TranscodeFormat) => void;
+  setNormalise: (normalise: Normalise) => void;
   /** Keeps queued copies of a track in step when it is liked or unliked. */
   setStarred: (trackId: number, starred: boolean) => void;
 };
 
 /**
- * The play queue. The audio element lives in PlayerBar and follows this store.
- * The queue and volume survive a reload; `playing` doesn't, because browsers
+ * The play queue and the playback preferences. The audio element lives in
+ * PlayerBar and follows this store. The queue, volume and preferences are kept
+ * in this browser and survive a reload; `playing` doesn't, because browsers
  * won't start audio without a click.
  */
 export const usePlayer = create<PlayerState>()(
@@ -41,6 +57,9 @@ export const usePlayer = create<PlayerState>()(
       playing: false,
       volume: 1,
       volumeBeforeMute: 1,
+      quality: null,
+      format: "mp3",
+      normalise: "off",
       play: (tracks, startAt = 0) => set({ queue: tracks, index: startAt, playing: tracks.length > 0 }),
       enqueue: (tracks) => {
         const { queue } = get();
@@ -69,12 +88,15 @@ export const usePlayer = create<PlayerState>()(
         const { volume, volumeBeforeMute } = get();
         set(volume ? { volume: 0, volumeBeforeMute: volume } : { volume: volumeBeforeMute || 1 });
       },
+      setQuality: (quality) => set({ quality }),
+      setFormat: (format) => set({ format }),
+      setNormalise: (normalise) => set({ normalise }),
       setStarred: (trackId, starred) =>
         set({ queue: get().queue.map((track) => (track.id === trackId ? { ...track, starred } : track)) }),
     }),
     {
       name: "crate-player",
-      partialize: ({ queue, index, volume }) => ({ queue, index, volume }),
+      partialize: ({ queue, index, volume, quality, format, normalise }) => ({ queue, index, volume, quality, format, normalise }),
       // Rehydrated by PlayerBar after mount, so the server and first client render agree.
       skipHydration: true,
     },

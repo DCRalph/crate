@@ -184,6 +184,10 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
         genre: tags.genre,
         duration: tags.duration,
         bitRate: tags.bitRate,
+        trackGain: tags.trackGain,
+        albumGain: tags.albumGain,
+        trackPeak: tags.trackPeak,
+        albumPeak: tags.albumPeak,
         size: file.size,
         suffix,
         contentType: audioTypes[suffix] ?? "application/octet-stream",
@@ -237,6 +241,9 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
   return finish();
 }
 
+/** A ReplayGain number as stored: null when the tag is missing or isn't a usable number (a gain of "0" with no unit reads as minus infinity). */
+const gainValue = (value: number | undefined) => (value !== undefined && Number.isFinite(value) ? value : null);
+
 /** The tags the library needs, with fallbacks for files that have none. */
 async function readTags(file: string) {
   let { common, format } = await parseFile(file, { skipCovers: true });
@@ -256,6 +263,11 @@ async function readTags(file: string) {
     discNumber: common.disk.no ?? null,
     duration: Math.round(format.duration ?? 0),
     bitRate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
+    // ReplayGain: gain in dB, peak as a ratio of full scale.
+    trackGain: gainValue(common.replaygain_track_gain?.dB),
+    albumGain: gainValue(common.replaygain_album_gain?.dB),
+    trackPeak: gainValue(common.replaygain_track_peak?.ratio),
+    albumPeak: gainValue(common.replaygain_album_peak?.ratio),
   };
 }
 

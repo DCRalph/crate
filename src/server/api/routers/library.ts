@@ -22,6 +22,9 @@ export const toWebTrack = (scope: Scope, row: TrackRow) => ({
   duration: row.duration,
   suffix: row.suffix,
   bitRate: row.bitRate,
+  // ReplayGain in dB, for the player's volume levelling.
+  trackGain: row.trackGain,
+  albumGain: row.albumGain,
   starred: !!row.starredAt,
   canDownload: scope.downloadLibraryIds.has(row.libraryId),
 });

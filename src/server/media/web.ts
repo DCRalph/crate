@@ -7,7 +7,7 @@ import { findTrackFile } from "~/server/library/queries";
 import { logAccess } from "~/server/logs";
 import { clientIp } from "~/server/request-origin";
 import { fileResponse, transcodeResponse } from "./stream";
-import { decideStream } from "./transcode";
+import { decideWebStream, parseWebStreamParams } from "./transcode";
 
 /** The signed-in user's scope for a media request from the website, or null. */
 export async function webScope(request: Request): Promise<Scope | null> {
@@ -15,15 +15,14 @@ export async function webScope(request: Request): Promise<Scope | null> {
   return session ? scopeFor(principalOf(session.user)) : null;
 }
 
-/** Formats browsers play natively. Anything else is transcoded for the web player. */
-const browserPlayable = new Set(["mp3", "flac", "m4a", "aac", "ogg", "oga", "opus", "wav"]);
-
 /**
  * Streams or downloads a track for the website, with the same access rules
- * and logging as the Subsonic API.
+ * and logging as the Subsonic API. A stream takes the player's `q` (kbps), `f`
+ * (format) and `at` (seconds in) from the address; the user's cap still wins.
  */
 export async function webTrackResponse(request: Request, idParam: string, mode: "stream" | "download") {
   const startedAt = Date.now();
+  const { offsetSeconds, ...prefs } = parseWebStreamParams(new URL(request.url).searchParams);
   const scope = await webScope(request);
   if (!scope) return new Response("Sign in first.", { status: 401 });
 
@@ -35,8 +34,10 @@ export async function webTrackResponse(request: Request, idParam: string, mode: 
       ? { status: 403, message: "Downloads are turned off for this library." }
       : null;
 
-  // A seek is a new ranged request for the same play, so only the first one is logged.
-  if (refused || !request.headers.get("range")?.match(/^bytes=[1-9]/)) {
+  // A seek is a new request for the same play (a range of the file, or the
+  // stream again from `at`), so only the first one is logged.
+  const carriesOn = !!request.headers.get("range")?.match(/^bytes=[1-9]/) || (mode === "stream" && offsetSeconds > 0);
+  if (refused || !carriesOn) {
     logAccess({
       api: "web",
       endpoint: mode,
@@ -56,6 +57,8 @@ export async function webTrackResponse(request: Request, idParam: string, mode: 
   if (mode === "download") {
     return fileResponse(request, file.path, file.contentType, { downloadName: `${file.artistName} - ${file.title}.${file.suffix}` });
   }
-  const decision = decideStream(file, browserPlayable.has(file.suffix) ? {} : { format: "mp3", maxBitRate: 320 }, scope.maxBitRate);
-  return decision.transcode ? transcodeResponse(request, file.path, decision) : fileResponse(request, file.path, file.contentType);
+  const decision = decideWebStream(file, prefs, scope.maxBitRate);
+  return decision.transcode
+    ? transcodeResponse(request, file.path, { ...decision, offsetSeconds })
+    : fileResponse(request, file.path, file.contentType);
 }
