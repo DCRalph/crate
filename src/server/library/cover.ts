@@ -24,10 +24,16 @@ const CANVAS = 512;
 /** Part of every generated cover's cache key. Raise it when the generator's look changes, and the old ones are left behind. */
 const GENERATOR = 1;
 
-export type CoverTarget = { type: "album" | "track" | "artist" | "playlist"; id: number };
+export type CoverTarget =
+  | { type: "album" | "track" | "artist"; id: number }
+  /** `seed` asks for one particular generated cover, to preview it before it is chosen. */
+  | { type: "playlist"; id: number; seed?: number };
+
+/** Where pictures people upload for their playlists are kept. */
+export const playlistCoverDir = path.resolve(env.DATA_DIR, "playlist-covers");
 
 /** The album whose art stands for an album, track or artist, if the scope can see one. */
-async function albumFor(type: Exclude<CoverTarget["type"], "playlist">, id: number, scope: Scope): Promise<number | null> {
+async function albumFor(type: "album" | "track" | "artist", id: number, scope: Scope): Promise<number | null> {
   const visible = inScope(album.libraryId, scope);
   if (type === "album") {
     const [row] = await db.select({ id: album.id }).from(album).where(and(eq(album.id, id), visible));
@@ -125,19 +131,43 @@ async function artColour(source: ArtSource): Promise<Rgb | null> {
 }
 
 /**
- * A playlist's cover: a grainy gradient made here, no two playlists alike.
- * The playlist's id and name are the seed, and the colours come from the
- * first few albums in it that the scope can see, or from the seed when none
- * of them has art. Null when the scope can't see the playlist.
+ * A playlist's cover. In order: a picture its owner uploaded, the art of an
+ * album they picked, or a grainy gradient made here. `preview` skips the
+ * first two and makes the gradient for that seed, so the choices can be shown
+ * before one is taken. Null when the scope can't see the playlist.
  *
- * The cache key holds everything the picture depends on: the name, the
- * sampled albums and their art files. Renaming the playlist, changing which
- * albums lead it, or replacing their art each gives a new cover; nothing else
- * does, and two people who see the same tracks share one file.
+ * A gradient's seed is the playlist's id, its name and its chosen number, and
+ * its colours come from the first few albums in it that the scope can see, or
+ * from the seed when none of them has art. The cache key holds everything the
+ * picture depends on, so renaming the playlist, picking another number,
+ * changing which albums lead it, or replacing their art each gives a new
+ * cover; nothing else does.
  */
-async function playlistCover(id: number, edge: number, scope: Scope): Promise<string | null> {
+async function playlistCover(id: number, edge: number, scope: Scope, preview?: number): Promise<string | null> {
   const [found] = await listPlaylists(scope, eq(playlist.id, id));
   if (!found) return null;
+
+  if (preview === undefined && found.coverUpload) {
+    // The stored name can only be one this server made, but it is checked anyway before it becomes a path.
+    const upload = path.join(playlistCoverDir, path.basename(found.coverUpload));
+    const info = await stat(upload).catch(() => null);
+    if (info) {
+      const cached = cachePath(["playlist-upload", upload, info.mtimeMs, edge].join("\0"), "jpg");
+      if (await exists(cached)) return cached;
+      await mkdir(cacheDir, { recursive: true });
+      return store(cached, await sharp(upload).resize(edge, edge, { fit: "cover" }).jpeg({ quality: 88 }).toBuffer());
+    }
+  }
+  if (preview === undefined && found.coverAlbumId !== null) {
+    const [visible] = await db
+      .select({ id: album.id })
+      .from(album)
+      .where(and(eq(album.id, found.coverAlbumId), inScope(album.libraryId, scope)));
+    const source = visible ? await artSource(visible.id) : null;
+    const art = source ? await albumArt(source, edge) : null;
+    if (art) return art;
+  }
+  const number = preview ?? found.coverSeed;
 
   const firstAt = min(playlistTrack.position);
   const albums = await db
@@ -150,13 +180,14 @@ async function playlistCover(id: number, edge: number, scope: Scope): Promise<st
     .limit(FIELDS);
   const sources = (await Promise.all(albums.map((row) => artSource(row.id)))).flatMap((source) => source ?? []);
 
-  const key = ["playlist", GENERATOR, id, found.name, edge, ...sources.flatMap((source) => [source.path, source.mtimeMs])].join("\0");
+  const key = ["playlist", GENERATOR, id, found.name, number, edge, ...sources.flatMap((source) => [source.path, source.mtimeMs])].join("\0");
   const cached = cachePath(key, "jpg");
   if (await exists(cached)) return cached;
 
   await mkdir(cacheDir, { recursive: true });
   const colours = (await Promise.all(sources.map(artColour))).flatMap((colour) => (colour ? [colour] : []));
-  const seed = seedOf(`${id}\0${found.name}`);
+  // Number 0 is the cover every playlist starts with, seeded as it always was.
+  const seed = seedOf(number ? `${id}\0${found.name}\0${number}` : `${id}\0${found.name}`);
   const pixels = paint(layoutFields(seed, paletteFor(seed, colours)), CANVAS);
   const image = await sharp(pixels, { raw: { width: CANVAS, height: CANVAS, channels: 3 } })
     .resize(edge, edge)
@@ -176,7 +207,7 @@ async function playlistCover(id: number, edge: number, scope: Scope): Promise<st
  */
 export async function coverFile(target: CoverTarget, size: number | null, scope: Scope): Promise<string | null> {
   const edge = Math.min(size && size > 0 ? size : MAX_SIZE, MAX_SIZE);
-  if (target.type === "playlist") return playlistCover(target.id, edge, scope);
+  if (target.type === "playlist") return playlistCover(target.id, edge, scope, target.seed);
 
   const albumId = await albumFor(target.type, target.id, scope);
   const source = albumId ? await artSource(albumId) : null;

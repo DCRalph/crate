@@ -255,6 +255,13 @@ export const playlist = pgTable(
     comment: text("comment"),
     /** Where it sits in its owner's tree. Null is the top level. */
     folderId: integer("folder_id").references(() => playlistFolder.id, { onDelete: "set null" }),
+    // The cover. An uploaded picture wins, then a chosen album's art, then a generated one.
+    /** Which generated cover: a different number is a different picture. */
+    coverSeed: integer("cover_seed").default(0).notNull(),
+    /** An album whose art stands for the playlist. */
+    coverAlbumId: integer("cover_album_id").references(() => album.id, { onDelete: "set null" }),
+    /** File name of an uploaded picture, under DATA_DIR/playlist-covers. */
+    coverUpload: text("cover_upload"),
     /** The folder rule that made this playlist, and the folder it came from. */
     ruleId: integer("rule_id").references(() => folderRule.id, { onDelete: "set null" }),
     sourcePath: text("source_path"),
@@ -268,6 +275,21 @@ export const playlist = pgTable(
     index("playlist_owner_idx").on(t.ownerId),
     index("playlist_folder_idx").on(t.folderId),
   ],
+);
+
+/** A playlist someone has pinned to the top of their own Playlists page. */
+export const playlistPin = pgTable(
+  "playlist_pin",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    playlistId: integer("playlist_id")
+      .notNull()
+      .references(() => playlist.id, { onDelete: "cascade" }),
+    pinnedAt: timestamp("pinned_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.playlistId] })],
 );
 
 export const playlistTrack = pgTable(

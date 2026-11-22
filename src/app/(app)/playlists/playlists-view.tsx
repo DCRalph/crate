@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Folder, FolderPlus, ListMusic, MoreHorizontal, Plus, Search } from "lucide-react";
+import { ChevronRight, Folder, FolderPlus, LayoutGrid, ListMusic, ListTree, MoreHorizontal, Pin, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
+import { PlaylistGrid } from "~/components/playlists/playlist-grid";
 import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
+import { usePin } from "~/components/playlists/use-pin";
+import { usePlaylistsLayout } from "~/components/playlists/view";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Badge } from "~/components/ui/badge";
@@ -42,14 +45,16 @@ function matching(level: Tree<FolderRow, PlaylistRow>, text: string): Tree<Folde
 }
 
 /**
- * Playlists as a tree. Folders hold folders and playlists, and a playlist is
- * always a leaf. Folders and playlists that follow a folder on disk are marked
- * and can't be changed here; everything else is the person's own to arrange.
+ * Playlists, as a tree or as big covers. Folders hold folders and playlists,
+ * and a playlist is always a leaf. Ones that follow a folder on disk are
+ * marked and can't be changed here; everything else is the person's own to
+ * arrange. Playlists a person has pinned come first in either layout.
  */
 export function PlaylistsView() {
   const trpc = useTRPC();
   const tree = useQuery(trpc.playlists.tree.queryOptions());
   const [filter, setFilter] = useState("");
+  const [layout, setLayout] = usePlaylistsLayout();
   // Folders start open at the top level and closed below; this holds the ones the person has flipped.
   const [flipped, setFlipped] = useState<ReadonlySet<number>>(new Set());
 
@@ -64,6 +69,7 @@ export function PlaylistsView() {
   );
   const text = filter.trim().toLowerCase();
   const shown = text ? matching(nested, text) : nested;
+  const pinned = text ? [] : (tree.data?.playlists ?? []).filter((playlist) => playlist.pinnedAt);
   const isOpen = (id: number, depth: number) => !!text || (depth === 0) !== flipped.has(id);
   const flip = (id: number) =>
     setFlipped((before) => {
@@ -99,10 +105,24 @@ export function PlaylistsView() {
         <Empty>No playlists yet. Start one here, or add tracks to a new one from any track&apos;s menu.</Empty>
       ) : (
         <>
-          <div className="relative mb-3 max-w-xs">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input aria-label="Find a playlist or folder" placeholder="Find a playlist or folder" className="pl-9" value={filter} onChange={(event) => setFilter(event.target.value)} />
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-xs">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input aria-label="Find a playlist or folder" placeholder="Find a playlist or folder" className="pl-9" value={filter} onChange={(event) => setFilter(event.target.value)} />
+            </div>
+            <div role="group" aria-label="Layout" className="ml-auto flex gap-1">
+              <Button variant={layout === "tree" ? "default" : "outline"} size="icon" aria-label="Show as a list" aria-pressed={layout === "tree"} onClick={() => setLayout("tree")}>
+                <ListTree />
+              </Button>
+              <Button variant={layout === "grid" ? "default" : "outline"} size="icon" aria-label="Show as covers" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")}>
+                <LayoutGrid />
+              </Button>
+            </div>
           </div>
+          {layout === "grid" ? (
+            // A search shows the playlists that match, wherever they sit.
+            <PlaylistGrid tree={nested} flat={text ? tree.data.playlists.filter((playlist) => playlist.name.toLowerCase().includes(text)) : undefined} />
+          ) : (
           <div className="print overflow-hidden rounded-lg pb-1 shadow-[0_1px_2px_rgb(0_0_0/0.14)]">
             <div className={cn(columns, "bg-brand h-8 px-4")} aria-hidden>
               <span className={head}>Name</span>
@@ -111,9 +131,15 @@ export function PlaylistsView() {
               <span className={cn(head, "max-sm:hidden")}>Owner</span>
               <span />
             </div>
-            <Level level={shown} depth={0} isOpen={isOpen} onFlip={flip} />
+            {/* Pinned playlists first. One inside a folder is still in its place below as well. */}
+            {pinned.map((playlist) => (
+              <PlaylistLine key={`pin${playlist.id}`} playlist={playlist} depth={0} />
+            ))}
+            {/* A pinned playlist that sits at the top level is already above, so it isn't listed twice. */}
+            <Level level={text ? shown : { ...shown, items: shown.items.filter((playlist) => !playlist.pinnedAt) }} depth={0} isOpen={isOpen} onFlip={flip} />
             {text && !shown.items.length && !shown.folders.length ? <p className="text-muted-foreground px-4 py-6 text-sm">Nothing called that.</p> : null}
           </div>
+          )}
         </>
       )}
     </Page>
@@ -223,6 +249,7 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
   );
   const remove = useMutation(trpc.playlists.delete.mutationOptions({ onSuccess: refresh, onError }));
   const [infoOpen, setInfoOpen] = useState(false);
+  const togglePin = usePin();
 
   return (
     <div className={cn(columns, "hover:bg-accent min-h-10 border-b px-4 text-sm transition-colors")}>
@@ -232,6 +259,7 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
         <Link href={`/playlists/${playlist.id}`} className="truncate outline-none hover:underline focus-visible:underline">
           {playlist.name}
         </Link>
+        {playlist.pinnedAt ? <Pin className="text-brand size-3.5 shrink-0 fill-current" aria-label="Pinned" /> : null}
         {playlist.readOnly ? <Badge variant="outline">From disk</Badge> : null}
         {playlist.isPublic && !playlist.readOnly ? <Badge variant="outline">Public</Badge> : null}
       </div>
@@ -254,6 +282,12 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
           <DropdownMenuItem disabled={copy.isPending} onSelect={() => copy.mutate({ id: playlist.id })}>
             Make a copy
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => togglePin(playlist)}>{playlist.pinnedAt ? "Unpin" : "Pin to the top"}</DropdownMenuItem>
+          {playlist.canSetCover && !playlist.canEdit ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/playlists/${playlist.id}/edit`}>Change cover</Link>
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => setInfoOpen(true)}>Get info</DropdownMenuItem>
           {playlist.canEdit ? (
             <>
