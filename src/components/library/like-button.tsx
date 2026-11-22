@@ -47,7 +47,8 @@ export function LikeButton({ track, className }: { track: { id: number; title: s
       }}
       className={cn(
         "focus-visible:ring-ring/50 grid size-8 place-items-center rounded-md outline-none transition-colors focus-visible:ring-[3px]",
-        liked ? "text-brand-text" : "text-muted-foreground hover:text-foreground",
+        // Coral, like the band: a like is the other mark a person leaves on a track.
+        liked ? "text-brand" : "text-muted-foreground hover:text-foreground",
         className,
       )}
     >

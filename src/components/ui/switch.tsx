@@ -22,8 +22,9 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         disabled={disabled}
         ref={ref}
         className={cn(
-          "peer focus-visible:ring-ring focus-visible:ring-offset-background inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-md border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-          checked ? "bg-primary" : "bg-input",
+          "peer focus-visible:ring-ring focus-visible:ring-offset-background inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-[5px] border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+          // On is an ink track with the lamp lit.
+          checked ? "bg-ink" : "bg-input",
           className,
         )}
         onClick={() => {
@@ -35,8 +36,8 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       >
         <span
           className={cn(
-            "bg-background pointer-events-none block h-5 w-5 rounded-sm shadow-lg ring-0 transition-transform",
-            checked ? "translate-x-4" : "translate-x-0",
+            "pointer-events-none block h-5 w-5 rounded-[3px] ring-0 transition-[translate,background-color]",
+            checked ? "bg-lamp translate-x-4" : "bg-background translate-x-0",
           )}
         />
       </button>

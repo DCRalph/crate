@@ -59,8 +59,8 @@ const columns: DataTableColumn<Row>[] = [
     type: "badge",
     filterable: true,
     options: [
-      { label: "Active", value: "active", dotClassName: "bg-emerald-400" },
-      { label: "Disabled", value: "disabled", dotClassName: "bg-red-400" },
+      { label: "Active", value: "active", dotClassName: "bg-ok" },
+      { label: "Disabled", value: "disabled", dotClassName: "bg-destructive" },
     ],
     cell: (row) => (row.banned ? <Status tone="bad" label="Disabled" /> : <Status tone="ok" label="Active" />),
   },

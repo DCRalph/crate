@@ -30,7 +30,7 @@ export function Cover({
   const status = state?.src === src ? state.status : "loading";
 
   return (
-    <span className={cn("bg-secondary text-foreground/20 relative grid aspect-square shrink-0 place-items-center overflow-hidden rounded-md", className)}>
+    <span className={cn("bg-secondary text-foreground/20 relative grid aspect-square shrink-0 place-items-center overflow-hidden rounded-[3px]", className)}>
       <Disc3 className="size-1/3" />
       {status === "failed" ? null : (
         // Served by our own resizing route behind the session cookie, so next/image would add nothing.

@@ -2,478 +2,651 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Crate Style Guide</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crate style guide: Wallbox</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Cabin:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&display=swap">
 <style>
-  :root {
-    --background: #000;
-    --surface: #171717;
-    --raised: #262626;
-    --foreground: #fafafa;
-    --muted-foreground: #a1a1a1;
-    --faint: rgb(255 255 255 / 0.3);
-    --border: rgb(255 255 255 / 0.10);
-    --input: rgb(255 255 255 / 0.15);
-    --ring: #737373;
-    --brand: #e7000b;
-    --brand-hover: #c90009;
-    --brand-text: #ff4d4d;
-    --ok: #34d399;
-    --warn: #fbbf24;
-    --bad: #f87171;
-    --radius: 10px;
-    --body: "Montserrat", ui-sans-serif, system-ui, sans-serif;
-    --title: "Cabin", ui-sans-serif, system-ui, sans-serif;
-    --display: "Anybody", ui-sans-serif, sans-serif;
-    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--background); color: var(--foreground); font: 14px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
-  main { max-width: 1120px; margin: 0 auto; padding: 40px 16px 96px; }
-  h1 { font: 800 28px/0.92 var(--display); font-stretch: 135%; text-transform: uppercase; letter-spacing: -0.01em; margin: 0 0 10px; }
-  h2 { font: 600 24px/1.2 var(--title); margin: 56px 0 14px; padding-top: 20px; border-top: 1px solid var(--border); }
-  h3 { font: 600 14px/1.3 var(--body); margin: 28px 0 10px; }
-  p { margin: 6px 0; max-width: 72ch; }
-  ul { margin: 6px 0; padding-left: 18px; max-width: 76ch; }
-  li { margin: 3px 0; }
-  code { font: 12px var(--mono); color: #d4d4d4; background: var(--surface); padding: 1px 5px; border-radius: 4px; }
-  .dim { color: var(--muted-foreground); }
-  .t-label { font: 700 10px/1 var(--display); font-stretch: 135%; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); }
-  .num { font-variant-numeric: tabular-nums; }
-  .mono { font: 12px var(--mono); }
-  .grid { display: grid; gap: 12px; }
-  .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-  .g4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .scroll { overflow-x: auto; }
+/* Stand-in artwork, drawn in CSS. The albums and films are made up. */
+.cv,.po{display:block;width:100%;background-color:#222;background-size:cover}
+.cv{aspect-ratio:1}
+.po{aspect-ratio:2/3}
+.cv1{background-image:radial-gradient(circle at 32% 68%,#f6c453 0 9%,rgba(246,196,83,.35) 9.5% 17%,transparent 17.5%),linear-gradient(#0b1d33 0 62%,#12355b 62% 64%,#0e2a47 64%)}
+.cv2{background-image:radial-gradient(circle at 70% 55%,#e4572e 0 15%,transparent 15.5%),linear-gradient(#ecdfc8 0 55%,#2f6f8f 55% 78%,#255a75 78%)}
+.cv3{background-image:conic-gradient(from 210deg at 50% 62%,#2b2d42,#8d99ae,#edf2f4,#8d99ae,#2b2d42)}
+.cv4{background-image:linear-gradient(135deg,#ff9f1c 0 33%,#fff 33% 36%,#2ec4b6 36% 66%,#fff 66% 69%,#e71d36 69%)}
+.cv5{background-image:radial-gradient(circle at 50% 118%,#0a1128 0 58%,transparent 58.500%),linear-gradient(#17255a,#3a5ba0 55%,#e8a87c)}
+.cv6{background-image:radial-gradient(circle at 75% 30%,#f4f1de 0 10%,transparent 10.500%),linear-gradient(90deg,#3d5a40 0 50%,#a3b18a 50%)}
+.cv7{background-image:radial-gradient(circle at 50% 50%,#111 0 20%,#f2e9e4 20.500% 22%,#111 22.500% 42%,#c9ada7 42.500% 44%,#22223b 44.500%)}
+.cv8{background-image:linear-gradient(170deg,#bc6c25 0 38%,#dda15e 38% 58%,#283618 58%)}
+.po1{background-image:radial-gradient(ellipse at 50% 100%,#f2cc8f 0 22%,transparent 22.500%),linear-gradient(#1d3557 0 60%,#457b9d 60% 80%,#14213d 80%)}
+.po2{background-image:linear-gradient(180deg,#e63946 0 30%,#f1faee 30% 33%,#1d3557 33%)}
+.po3{background-image:radial-gradient(circle at 50% 38%,#ffd166 0 16%,transparent 16.500%),linear-gradient(#073b4c,#118ab2)}
+.po4{background-image:conic-gradient(from 0deg at 50% 100%,#2a9d8f,#e9c46a,#f4a261,#e76f51,#2a9d8f)}
+.po5{background-image:linear-gradient(120deg,#22223b 0 45%,#9a8c98 45% 55%,#f2e9e4 55%)}
 
-  /* swatches */
-  .sw { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .sw i { display: block; height: 56px; border-bottom: 1px solid var(--border); }
-  .sw div { padding: 8px 10px; }
-  .sw b { display: block; font-weight: 600; font-size: 13px; }
-  .sw span { display: block; font: 11px var(--mono); color: var(--muted-foreground); }
+:root{
+  --cab:#0e2b2f; --cab-2:#12363b; --cab-3:#1a4449; --cab-line:#2b565b; --glass:#071a1d;
+  --chrome:#e3ebe8; --chrome-2:#93adab;
+  --strip:#f3ead4; --strip-2:#e7dbbd; --strip-line:#cdbf9b; --ink:#1b1a16; --ink-2:#5b5545;
+  --band:#ef5b34; --lamp:#ffc44d;
+  --ok:#74d3a0; --ok-ink:#1e7a4a; --bad:#ff8272; --bad-ink:#b3261e;
+  --field:var(--glass); --focus:var(--lamp); --glass-ink:#e3ebe8;
+  --r:6px;
+}
+/* Day: the cabinet turns to seafoam enamel and its lettering to petrol. Print is a shade brighter. */
+.day{--cab:#bcdcd5; --cab-2:#a9d0c8; --cab-3:#97c4bb; --cab-line:#7fb0a7; --chrome:#0e2b2f; --chrome-2:#35595d;
+  --strip:#fbf6e7; --strip-2:#f0e6cc; --strip-line:#d6c9a6; --field:#fbf6e7; --focus:#0e2b2f; --ok:#1e7a4a; --bad:#b3261e;
+  background:var(--cab);color:var(--chrome)}
+/* The deck and its window are the same by day and by night. */
+.night{--cab:#0e2b2f; --cab-2:#12363b; --cab-3:#1a4449; --cab-line:#2b565b; --chrome:#e3ebe8; --chrome-2:#93adab;
+  --strip:#f3ead4; --strip-2:#e7dbbd; --strip-line:#cdbf9b; --field:var(--glass); --focus:var(--lamp); color:var(--chrome)}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--cab);color:var(--chrome);font:14.500px/1.45 Jost,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+::selection{background:var(--lamp);color:var(--ink)}
+a{color:inherit}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.num{font-family:"Big Shoulders Display",Jost,sans-serif;font-weight:700;letter-spacing:.02em}
+.caps{text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.guide-head{padding:30px 0 26px;border-bottom:3px solid var(--strip)}
+.guide-head h1{font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:54px;line-height:1;margin:0 0 10px;letter-spacing:.01em;text-transform:uppercase}
+.guide-head p{max-width:68ch;margin:0;color:var(--chrome-2);font-size:15.500px}
+.switcher{display:flex;gap:4px;margin-top:22px;flex-wrap:wrap}
+.switcher a{text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:13px;text-decoration:none;padding:7px 14px;border-radius:var(--r);background:var(--cab-2);color:var(--chrome-2)}
+.switcher a:hover{background:var(--cab-3);color:var(--chrome)}
+.switcher a[aria-current]{background:var(--strip);color:var(--ink)}
+main section{padding:46px 0 8px}
+h2{font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:30px;line-height:1.1;letter-spacing:.02em;text-transform:uppercase;margin:0 0 6px}
+h3{font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:26px 0 10px}
+.lede{color:var(--chrome-2);max-width:70ch;margin:0 0 20px;font-size:15px}
+.note{color:var(--chrome-2);max-width:70ch;margin:0}
+code{font-size:.92em}
+.principles{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.principles li{background:var(--strip);color:var(--ink);border-radius:3px;overflow:hidden}
+.principles b{display:block;padding:7px 12px 5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:13.500px}
+.principles span{display:block;background:var(--strip-2);padding:8px 12px 10px;font-size:13.500px;color:var(--ink-2);min-height:78px}
 
-  /* tables */
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; height: 36px; padding: 0 8px; border-bottom: 1px solid var(--border); font: 700 10px/1 var(--display); font-stretch: 135%; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); white-space: nowrap; }
-  td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
-  tr:last-child td { border-bottom: 0; }
-  tbody tr:hover td { background: rgb(38 38 38 / 0.5); }
-  .r { text-align: right; }
-  .c { text-align: center; }
+/* a title strip: line, band, line */
+.strip{display:block;background:var(--strip);color:var(--ink);border-radius:3px;overflow:hidden;text-decoration:none}
+.strip b,.strip span,.strip em{display:block;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal}
+.strip b{font-weight:600;font-size:12.500px;text-transform:uppercase;letter-spacing:.04em;line-height:24px}
+.strip span{background:var(--band);font-size:12px;font-weight:500;line-height:20px}
+.plate{display:inline-grid;place-items:center;background:var(--glass);color:var(--glass-ink);font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;min-width:28px;height:22px;padding:0 5px;border-radius:3px}
+.lampd{display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;flex:none;opacity:.55}
+.lampd.on{background:var(--lamp);border-color:var(--ink);opacity:1}
+.cab .lampd.on,.deck .lampd.on{border-color:var(--lamp)}
 
-  /* controls */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; font: 500 14px var(--body); white-space: nowrap; }
-  .btn.sm { height: 32px; padding: 0 12px; }
-  .btn.icon { width: 36px; padding: 0; }
-  .btn.brand { background: var(--brand); color: #fff; }
-  .btn.default { background: #e5e5e5; color: #171717; }
-  .btn.secondary { background: var(--raised); color: var(--foreground); }
-  .btn.outline { background: rgb(255 255 255 / 0.045); border-color: var(--input); color: var(--foreground); }
-  .btn.ghost { color: var(--foreground); }
-  .btn.destructive { background: rgb(248 113 113 / 0.6); color: #fff; }
-  .field { height: 36px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--input); background: rgb(255 255 255 / 0.045); color: var(--foreground); font: 14px var(--body); display: flex; align-items: center; }
-  .field.ph { color: var(--muted-foreground); }
-  .lbl { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-  .hint { font-size: 12px; color: var(--muted-foreground); margin-top: 6px; }
-  .switch { width: 32px; height: 18px; border-radius: 99px; background: var(--input); position: relative; display: inline-block; vertical-align: middle; }
-  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fafafa; }
-  .switch.on { background: #e5e5e5; }
-  .switch.on::after { left: 16px; background: #171717; }
-  .check { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--input); display: inline-grid; place-items: center; vertical-align: middle; font-size: 11px; line-height: 1; }
-  .check.on { background: #e5e5e5; border-color: #e5e5e5; color: #171717; }
-  .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 500; background: var(--raised); }
-  .badge.outline { background: none; border: 1px solid var(--border); }
-  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
-  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); } .dot.neutral { background: var(--faint); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; min-width: 0; }
-  .card > h3:first-child { margin-top: 0; }
-  .art { aspect-ratio: 1; border-radius: 6px; background: linear-gradient(135deg, #3a3a3a, #1c1c1c); display: block; }
-  .art.b { background: linear-gradient(135deg, #4a2a2a, #1a1212); }
-  .art.c { background: linear-gradient(135deg, #2a3a4a, #12181e); }
-  .art.d { background: linear-gradient(135deg, #3a3a2a, #1a1a12); }
-  .art.e { background: linear-gradient(135deg, #2e2a4a, #14121e); }
+/* swatches */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sw{background:var(--cab-2);border-radius:var(--r);overflow:hidden}
+.sw i{display:block;height:54px}
+.sw div{padding:8px 10px 10px;font-size:12.500px;line-height:1.35}
+.sw b{display:block;font-size:13.500px;font-weight:600}
+.sw span{color:var(--chrome-2)}
 
-  /* shell mock */
-  .shell { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; min-width: 860px; }
-  .shell-top { display: grid; grid-template-columns: 208px 1fr; }
-  .side { padding: 0 8px 12px; }
-  .side-head { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 6px; border-bottom: 1px solid var(--border); margin: 0 -8px 8px; padding-left: 14px; }
-  .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--brand); display: grid; place-items: center; }
-  .word { font: 800 13px/0.92 var(--display); font-stretch: 135%; text-transform: uppercase; }
-  .side .t-label { padding: 12px 8px 6px; display: block; color: rgb(250 250 250 / 0.5); }
-  .nav { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border-radius: 8px; font-size: 14px; position: relative; }
-  .nav.on { background: var(--raised); font-weight: 500; }
-  .nav.on::before { content: ""; position: absolute; left: -8px; top: 9px; width: 2px; height: 16px; border-radius: 1px; background: var(--brand); }
-  .nav svg, .ic { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .content { background: var(--background); border-top-left-radius: 12px; margin-top: 8px; min-width: 0; }
-  .head { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--border); }
-  .head .crumb { font: 500 20px var(--title); }
-  .head .crumb .dim { margin-right: 6px; }
-  .page { padding: 20px; }
-  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-  .tile b { display: block; font-size: 13px; font-weight: 500; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tile span { display: block; font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .player { height: 72px; border-top: 1px solid var(--border); background: var(--surface); display: grid; grid-template-columns: 1fr 1.4fr 1fr; align-items: center; gap: 16px; padding: 0 16px; }
-  .now { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .now .art { width: 44px; flex: none; }
-  .now b { display: block; font-size: 13px; font-weight: 500; }
-  .now span { font-size: 12px; color: var(--muted-foreground); }
-  .transport { display: flex; flex-direction: column; gap: 6px; align-items: center; }
-  .transport .row { gap: 14px; }
-  .playbtn { width: 32px; height: 32px; border-radius: 50%; background: #fafafa; color: #000; display: grid; place-items: center; }
-  .playbtn svg { fill: currentColor; stroke: none; width: 14px; height: 14px; }
-  .scrub { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 11px; color: var(--muted-foreground); }
-  .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--raised); position: relative; }
-  .bar i { position: absolute; inset: 0 62% 0 0; border-radius: 2px; background: var(--brand); }
-  .right { display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: var(--muted-foreground); }
-  .right .bar { flex: none; width: 84px; }
-  .right .bar i { background: #fafafa; inset: 0 30% 0 0; }
-  .playing td:nth-child(2) { color: var(--brand-text); }
-  .listrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .listrow:last-child { border-bottom: 0; padding-bottom: 0; }
-  .listrow:first-of-type { padding-top: 0; }
-  .tileic { width: 36px; height: 36px; border-radius: 8px; background: var(--raised); display: grid; place-items: center; flex: none; }
-  .listrow b { display: block; font-size: 14px; font-weight: 500; }
-  .listrow span.d { font-size: 12px; color: var(--muted-foreground); }
-  .grow { flex: 1; min-width: 0; }
-  .do, .dont { border-left: 2px solid var(--ok); padding: 2px 0 2px 12px; }
-  .dont { border-color: var(--bad); }
-  @media (max-width: 640px) { h1 { font-size: 22px; } h2 { font-size: 20px; } }
+/* card: printed matter set into the cabinet */
+.card{background:var(--strip);color:var(--ink);border-radius:var(--r)}
+.pad{padding:18px 20px}
+
+/* fields */
+.fl{display:block}
+.fl>span:first-child{display:block;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:11.500px;color:var(--ink-2);margin-bottom:4px}
+.in{display:flex;align-items:center;justify-content:space-between;gap:8px;height:36px;padding:0 11px;border-radius:5px;background:#fbf5e6;border:1px solid #b5a680;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden}
+.in.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.in.focus{outline:2.500px solid var(--band);outline-offset:1px}
+.in.err{border-color:var(--bad-ink)}
+.in.dis{background:var(--strip-2);color:var(--ink-2);border-color:var(--strip-line)}
+.hint{font-size:12.500px;color:var(--ink-2);margin:5px 2px 0}
+.hint.err{color:var(--bad-ink)}
+.cab .in,.in.dark{background:var(--field);border-color:var(--cab-line);color:var(--chrome-2);font-weight:400}
+
+/* keys */
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px 2px;border-radius:var(--r);border:0;background:var(--strip);color:var(--ink);font:600 12.500px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.06em;text-decoration:none;cursor:pointer;white-space:nowrap;box-shadow:inset 0 -3px 0 rgba(0,0,0,.2)}
+.btn:hover{filter:brightness(1.04)}
+.btn:active{box-shadow:inset 0 -1px 0 rgba(0,0,0,.2);transform:translateY(1px)}
+.btn.pri{background:var(--band)}
+.btn.ink{background:var(--ink);color:var(--strip);box-shadow:inset 0 -3px 0 rgba(255,255,255,.14)}
+.btn.quiet{background:transparent;box-shadow:inset 0 0 0 1px var(--strip-line);padding-bottom:0}
+.cab .btn.quiet,.btn.quiet.dark{box-shadow:inset 0 0 0 1px var(--cab-line);color:var(--chrome)}
+.btn.bad{background:transparent;box-shadow:inset 0 0 0 1px var(--bad-ink);color:var(--bad-ink);padding-bottom:0}
+.btn.sm{height:28px;padding:0 10px 2px;font-size:11.500px}
+.btn.dis{background:var(--strip-2);color:#8c8571;box-shadow:none;cursor:not-allowed;padding-bottom:0}
+.btn.focus{outline:2.500px solid var(--focus);outline-offset:2px}
+
+/* tick, radio, switch */
+.tick{display:inline-grid;place-items:center;width:17px;height:17px;border:1.5px solid var(--ink);border-radius:4px;background:#fbf5e6;flex:none}
+.tick.on{background:var(--ink);color:var(--lamp)}
+.tick.on svg{width:12px;height:12px;stroke-width:2.8}
+.tick.rad{border-radius:50%}
+.tick.rad.on{background:#fbf5e6}
+.tick.rad.on::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--ink)}
+.sw2{display:inline-flex;align-items:center;width:38px;height:20px;border-radius:5px;background:var(--strip-2);box-shadow:inset 0 0 0 1px #b5a680;padding:2px;flex:none}
+.sw2 i{width:16px;height:16px;border-radius:3px;background:var(--ink-2)}
+.sw2.on{background:var(--ink);box-shadow:none;justify-content:flex-end}
+.sw2.on i{background:var(--lamp)}
+.opt{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--strip-line)}
+.opt:last-child{border-bottom:0}
+.opt small{color:var(--ink-2);margin-left:auto;font-size:12.500px}
+.tag{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:4px;background:var(--strip);color:var(--ink);text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:11.500px}
+.state{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.state small{color:var(--ink-2);font-size:12.500px}
+.state.bad{color:var(--bad-ink)}
+
+/* app frame */
+.frame{border-radius:10px;overflow:hidden;background:var(--cab);box-shadow:0 0 0 1px var(--cab-line),0 24px 44px -24px rgba(0,0,0,.7)}
+.app{display:flex;flex-direction:column;height:670px}
+.top{display:flex;align-items:flex-end;gap:16px;padding:12px 18px 0;background:var(--cab-2);border-bottom:3px solid var(--strip)}
+.brand{display:flex;align-items:center;gap:8px;padding-bottom:9px;text-decoration:none}
+.brand b{background:var(--strip);color:var(--ink);font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:19px;letter-spacing:.08em;padding:1px 9px 0;border-radius:3px;line-height:26px}
+.tabs{display:flex;gap:3px;align-items:flex-end;flex:1;min-width:0}
+.tabs a{text-decoration:none;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:12.500px;padding:8px 13px 7px;border-radius:6px 6px 0 0;background:var(--cab-3);color:var(--chrome-2);white-space:nowrap}
+.tabs a:hover{color:var(--chrome)}
+.tabs a.cur{background:var(--strip);color:var(--ink);padding-bottom:9px}
+.tabs a.soon{background:transparent;box-shadow:inset 0 0 0 1px var(--cab-line);opacity:.8}
+.tabs .gap{flex:1}
+/* A second row, for the pages inside Admin and inside your own settings. */
+.subtabs{display:flex;gap:18px;align-items:center;padding:0 18px;height:38px;background:var(--strip);color:var(--ink-2);overflow-x:auto;scrollbar-width:none}
+.subtabs a{text-decoration:none;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:12px;white-space:nowrap;height:100%;display:flex;align-items:center}
+.subtabs a.cur{color:var(--ink);box-shadow:inset 0 -3px 0 var(--band)}
+.mode{display:flex;align-items:center;gap:8px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:12px;color:var(--chrome-2)}
+.mode:not(:first-of-type){margin-top:22px}
+.block{border-radius:10px;padding:18px;box-shadow:0 0 0 1px var(--cab-line)}
+.topr{display:flex;align-items:center;gap:10px;padding-bottom:8px}
+.topr .in{height:30px;width:210px;font-size:13px}
+.who{display:flex;align-items:center;gap:7px;font-weight:500;font-size:13.500px}
+.who i{width:26px;height:26px;border-radius:5px;background:var(--strip);color:var(--ink);display:grid;place-items:center;font-style:normal;font-weight:700;font-size:12.500px}
+.body{padding:18px 18px 0;overflow:hidden;flex:1}
+.title{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.title h5{font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:30px;line-height:1;margin:0;letter-spacing:.02em;text-transform:uppercase}
+.title small{color:var(--chrome-2);font-size:13.500px}
+.card .title small{color:var(--ink-2)}
+.title .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px 14px}
+.alb{position:relative;display:block;text-decoration:none}
+.alb .cv,.alb .po{border-radius:3px 3px 0 0}
+.alb .plate{position:absolute;top:6px;left:6px}
+.alb .strip{border-radius:0 0 3px 3px}
+
+/* selection window */
+.deck{background:var(--cab-2);border-top:1px solid var(--cab-line);display:flex;align-items:center;gap:14px;padding:0 16px;height:70px}
+.sel{background:var(--glass);border-radius:5px;padding:4px 10px 3px;text-align:center;flex:none;box-shadow:inset 0 0 0 1px var(--cab-line)}
+.sel small{display:block;text-transform:uppercase;letter-spacing:.1em;font-size:9.500px;font-weight:600;color:#93adab}
+.sel b{display:block;font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:26px;line-height:1;color:var(--lamp);letter-spacing:.06em}
+.deck .cv{width:44px;border-radius:3px}
+.deck .strip{width:210px}
+.keys{display:flex;align-items:center;gap:5px}
+.key{display:grid;place-items:center;width:34px;height:32px;border-radius:5px;background:var(--strip);color:var(--ink);box-shadow:inset 0 -3px 0 rgba(0,0,0,.2);padding-bottom:2px}
+.key.big{background:var(--band);width:42px;height:36px}
+.key.flat{background:transparent;color:var(--chrome);box-shadow:none;padding:0}
+.key.flat:hover{background:var(--cab-3)}
+.scrub{flex:1;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--chrome-2);min-width:0}
+.scrub .track{flex:1;height:4px;background:var(--cab-line);border-radius:2px;position:relative}
+.scrub .track i{position:absolute;inset:0 62% 0 0;background:var(--lamp);border-radius:2px}
+.scrub .track b{position:absolute;left:38%;top:-4px;width:4px;height:12px;background:var(--strip);border-radius:2px}
+.chip{text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:11.500px;box-shadow:inset 0 0 0 1px var(--cab-line);border-radius:4px;padding:4px 7px;color:var(--chrome);display:inline-flex;gap:5px;align-items:center}
+
+/* album page */
+.album{display:grid;grid-template-columns:224px 1fr;gap:22px}
+.album h4{font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:38px;line-height:1;margin:0;text-transform:uppercase;letter-spacing:.015em}
+.bandline{background:var(--band);margin:8px -20px 0;padding:4px 20px;font-weight:500;display:flex;gap:16px;flex-wrap:wrap}
+.line{display:grid;grid-template-columns:14px 30px 1fr auto auto;gap:9px;align-items:center;height:35px;border-bottom:1px solid var(--strip-line);font-size:14px}
+.line .n{font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:15px;color:var(--ink-2);letter-spacing:.04em}
+.line .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.line .d{color:var(--ink-2);font-size:13px}
+.line svg{color:#9a906f}
+.line:hover{background:var(--strip-2)}
+.line.on{background:var(--strip-2);font-weight:600}
+.line.on .n{color:var(--ink)}
+.line.liked svg{color:var(--band);fill:var(--band)}
+.discs{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;margin-top:6px}
+.discs h6{text-transform:uppercase;letter-spacing:.07em;font-size:11.500px;font-weight:600;color:var(--ink-2);margin:14px 0 0;padding-bottom:5px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between}
+
+/* tree and tables: printed on the card */
+.tr{display:grid;grid-template-columns:1fr 70px 96px 200px 28px;align-items:center;gap:10px;height:37px;border-bottom:1px solid var(--strip-line);font-size:14px}
+.tr.head{height:30px;background:var(--band);margin:0 -20px;padding:0 20px;border:0;text-transform:uppercase;letter-spacing:.07em;font-size:11.500px;font-weight:600}
+.tr .nm{display:flex;align-items:center;gap:8px;min-width:0;height:100%}
+.tr .nm b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr .nm .ind{align-self:stretch;width:18px;border-left:1.5px solid var(--strip-line);margin-left:7px;flex:none}
+.tr .r{text-align:right;color:var(--ink-2)}
+.tr:not(.head) .src{color:var(--ink-2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr.folder .nm b{text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:13.500px}
+.mini{width:22px;height:13px;border-radius:2px;background:#fbf5e6;box-shadow:inset 0 0 0 1px var(--ink);position:relative;flex:none}
+.mini::after{content:"";position:absolute;left:1px;right:1px;top:4.500px;height:4px;background:var(--ink)}
+.mini.disk::after{background:var(--band)}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.tools .in{flex:0 1 260px;height:32px;font-size:13.500px}
+.tools .sp{margin-left:auto;display:flex;gap:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-transform:uppercase;letter-spacing:.07em;font-size:11.500px;font-weight:600;text-align:left;padding:7px 10px;background:var(--band);white-space:nowrap}
+th:first-child{border-radius:var(--r) 0 0 0}th:last-child{border-radius:0 var(--r) 0 0}
+td{padding:0 10px;height:38px;border-bottom:1px solid var(--strip-line);white-space:nowrap}
+tbody tr:hover{background:var(--strip-2)}
+tr.picked{background:var(--strip-2)}
+td.r,th.r{text-align:right}
+td .sub{color:var(--ink-2)}
+.foot{display:flex;align-items:center;gap:12px;padding:10px 12px;font-size:13px;color:var(--ink-2)}
+.foot .sp{margin-left:auto;display:flex;gap:4px}
+
+/* edit page */
+.edit{display:grid;grid-template-columns:1.25fr 1fr;gap:0 32px}
+.sect{border-top:2px solid var(--ink);padding:12px 0 22px}
+.sect>b{display:block;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:12.500px;margin-bottom:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stack{display:grid;gap:12px}
+.savebar{display:flex;gap:8px;align-items:center;border-top:1px solid var(--strip-line);padding-top:14px}
+.savebar span{color:var(--ink-2);font-size:13px;margin-left:6px}
+
+.pop{width:300px;padding:12px 14px;box-shadow:0 18px 30px -16px rgba(0,0,0,.8)}
+.pop h6{text-transform:uppercase;letter-spacing:.08em;font-size:11.500px;font-weight:600;color:var(--ink-2);margin:10px 0 2px}
+.pop h6:first-child{margin-top:0}
+.pop .now{margin-top:10px;padding-top:9px;border-top:2px solid var(--ink);font-size:13px;color:var(--ink-2)}
+.pop .now b{color:var(--ink)}
+.keypad{display:grid;grid-template-columns:repeat(5,34px);gap:5px}
+.keypad .key{width:34px;font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:16px}
+.keypad .key.lit{background:var(--lamp)}
+.posters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.phone{width:290px;border-radius:26px;overflow:hidden;background:var(--cab);box-shadow:0 0 0 1px var(--cab-line),0 24px 44px -24px rgba(0,0,0,.7);padding:16px 16px 0}
+.phone .strip b{font-size:14px;line-height:30px}.phone .strip span{font-size:13px;line-height:24px}
+.phone .deck{flex-direction:column;height:auto;align-items:stretch;gap:12px;padding:14px 16px 18px;margin:14px -16px 0}
+.phone .keys{justify-content:center;gap:12px}
+.phone .key.big{width:60px;height:48px}
+.phone .key{width:42px;height:40px}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.spec{display:grid;grid-template-columns:170px 1fr;gap:6px 18px;align-items:baseline;border-top:1px solid var(--cab-line);padding:10px 0}
+.spec small{color:var(--chrome-2);font-size:12.500px}
+footer{margin-top:44px;padding:22px 0 44px;border-top:3px solid var(--strip);color:var(--chrome-2);font-size:13.500px}
+@media (max-width:900px){
+  table{display:block;overflow-x:auto}.alb{min-width:0}
+  .app{height:auto}.tabs a:not(.cur),.topr .in{display:none}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .album,.edit,.discs{grid-template-columns:1fr}.deck .scrub,.deck .chip,.deck .cv{display:none}.deck .strip{width:auto;flex:1;min-width:0}
+  .tr{grid-template-columns:1fr 50px 28px}.tr .src,.tr .len{display:none}
+  .posters{grid-template-columns:repeat(3,minmax(0,1fr))}.hide-s{display:none!important}
+  .guide-head h1{font-size:40px}.body{padding-bottom:18px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .sel b{animation:roll .5s cubic-bezier(.16,1,.3,1) backwards}
+  @keyframes roll{from{clip-path:inset(0 0 100% 0);transform:translateY(40%)}to{clip-path:inset(0);transform:none}}
+}
 </style>
 </head>
 <body>
-<main>
+<!--
+THESIS: Crate is the selector panel of the house jukebox: you pick from printed strips and the machine lights up. Refuses the cover wall on flat black.
+OWN-WORLD: a petrol-green cabinet holding ivory printed cards; every title is a strip with a coral band; amber lamps mark what is live; controls are keys with travel.
+STORY: you read the strips, press a key or type a number, and the selection window shows what the machine is playing.
+FIRST VIEWPORT: page tabs along the top on an ivory hinge line, covers with number plates and title strips beneath, the selection window across the bottom with its amber code.
+FORM: jukebox wallbox title strips, grounded candidate 7 of 7, seed 845bf5a3.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="i-play"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></g>
+    <g id="i-pause"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none"/></g>
+    <g id="i-next"><path d="M5 5v14l10-7zM17 5h2.5v14H17z" fill="currentColor" stroke="none"/></g>
+    <g id="i-prev"><path d="M19 5v14L9 12zM4.5 5H7v14H4.5z" fill="currentColor" stroke="none"/></g>
+    <g id="i-heart"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.600-7 10-7 10z"/></g>
+    <g id="i-folder"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.500h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></g>
+    <g id="i-list"><path d="M4 6h11M4 12h11M4 18h7M19 6v9.500"/><circle cx="17" cy="17" r="2.200"/></g>
+    <g id="i-disc"><circle cx="12" cy="12" r="8.500"/><circle cx="12" cy="12" r="2.200"/></g>
+    <g id="i-mic"><rect x="9" y="3.500" width="6" height="10" rx="3"/><path d="M5.500 11a6.500 6.500 0 0 0 13 0M12 17.500V21"/></g>
+    <g id="i-users"><circle cx="9" cy="8.500" r="3.200"/><path d="M3 19.500c0-3.300 2.700-5.500 6-5.500s6 2.200 6 5.500M16 5.700a3.200 3.200 0 0 1 0 5.600M17.500 14.300c2.100.600 3.500 2.400 3.500 5.200"/></g>
+    <g id="i-search"><circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/></g>
+    <g id="i-chev"><path d="M9 5.500l6.500 6.500L9 18.500"/></g>
+    <g id="i-down"><path d="M5.500 9l6.500 6.500L18.500 9"/></g>
+    <g id="i-sliders"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></g>
+    <g id="i-vol"><path d="M4 9.500h3.500L12 6v12l-4.500-3.500H4zM15.500 9a4.200 4.200 0 0 1 0 6M18 6.500a8 8 0 0 1 0 11"/></g>
+    <g id="i-more"><circle cx="6" cy="12" r="1.300" fill="currentColor"/><circle cx="12" cy="12" r="1.300" fill="currentColor"/><circle cx="18" cy="12" r="1.300" fill="currentColor"/></g>
+    <g id="i-arrow"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+    <g id="i-up"><path d="M12 19V5M6 11l6-6 6 6"/></g>
+    <g id="i-check"><path d="M5 12.500l4.500 4.500L19 7.500"/></g>
+    <g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+    <g id="i-film"><rect x="3.500" y="4.500" width="17" height="15" rx="1.500"/><path d="M8 4.500v15M16 4.500v15M3.500 9.500H8M3.500 14.500H8M16 9.500h4.500M16 14.500h4.500"/></g>
+    <g id="i-tv"><rect x="3" y="6" width="18" height="12" rx="1.500"/><path d="M9 21h6M8.500 3L12 6l3.500-3"/></g>
+    <g id="i-key"><circle cx="8" cy="15" r="4"/><path d="M11 12l8.500-8.500M16 7l2.500 2.500M13.500 9.500l2 2"/></g>
+    <g id="i-history"><path d="M4 12a8 8 0 1 0 2.600-5.900M4 4.500V9h4.500M12 8v4.500l3 2"/></g>
+    <g id="i-library"><path d="M5 4v16M9.500 4v16M14 5l4.500 14.500"/></g>
+    <g id="i-filter"><path d="M4 6h16M7 12h10M10 18h4"/></g>
+    <g id="i-queue"><path d="M4 6h16M4 11h16M4 16h9"/><path d="M16.500 14.500v5l4-2.500z" fill="currentColor" stroke="none"/></g>
+    <g id="i-drive"><rect x="3.500" y="6" width="17" height="12" rx="2"/><path d="M7 14.500h.010M10.500 14.500h6"/></g>
+  </defs>
+</svg>
 
-<h1>Crate style guide</h1>
-<p class="dim">Self-hosted music server. Web app and admin console. Dark only. "Crate" is a working name and lives in one constant.</p>
-<p>This is your WMGX console system carried over: same shadcn tokens, same type roles, same shell. The changes are true black behind content, a player bar, and patterns for music lists.</p>
-
-<h2>Principles</h2>
-<ul>
-  <li><b>The music is the colour.</b> The interface stays neutral grey on black. Album art is the only saturated thing on most screens.</li>
-  <li><b>Red means one thing at a time.</b> Brand red marks the current page, the one primary action on a screen, and what is playing or liked. Nothing else.</li>
-  <li><b>Dense, not cramped.</b> 14px body, 36px controls, hairline rows. Show the table, not a summary of the table.</li>
-  <li><b>No decoration.</b> Cards only where a group of settings needs a boundary. Lists and tables sit straight on the page.</li>
-  <li><b>Everything plays once.</b> Motion answers something that just happened, then stops. Nothing loops, so an idle page costs nothing.</li>
-  <li><b>Dry, a little knowing.</b> The voice is someone flipping through a crate of records. One line of character where a screen is empty or something went wrong. Never in the middle of a task.</li>
-</ul>
-
-<h2>Colour</h2>
-<div class="grid g4">
-  <div class="sw"><i style="background:#000"></i><div><b>background</b><span>#000 · page</span></div></div>
-  <div class="sw"><i style="background:#171717"></i><div><b>card / sidebar</b><span>oklch(0.205 0 0)</span></div></div>
-  <div class="sw"><i style="background:#262626"></i><div><b>secondary / muted</b><span>oklch(0.269 0 0)</span></div></div>
-  <div class="sw"><i style="background:#fafafa"></i><div><b>foreground</b><span>oklch(0.985 0 0)</span></div></div>
-  <div class="sw"><i style="background:#a1a1a1"></i><div><b>muted-foreground</b><span>oklch(0.708 0 0)</span></div></div>
-  <div class="sw"><i style="background:rgb(255 255 255 / 0.10)"></i><div><b>border</b><span>white 10%</span></div></div>
-  <div class="sw"><i style="background:#e5e5e5"></i><div><b>primary</b><span>oklch(0.922 0 0)</span></div></div>
-  <div class="sw"><i style="background:#e7000b"></i><div><b>brand</b><span>#e7000b · fills</span></div></div>
-  <div class="sw"><i style="background:#ff4d4d"></i><div><b>brand-text</b><span>#ff4d4d · red as text</span></div></div>
-  <div class="sw"><i style="background:#34d399"></i><div><b>ok</b><span>emerald-400</span></div></div>
-  <div class="sw"><i style="background:#fbbf24"></i><div><b>warn</b><span>amber-400</span></div></div>
-  <div class="sw"><i style="background:#f87171"></i><div><b>bad</b><span>red-400</span></div></div>
-</div>
-<ul>
-  <li>Tokens are the stock shadcn neutral set, so every shadcn component works unstyled. Only <code>--background</code> (true black) and <code>--brand</code> differ from the console.</li>
-  <li><code>--brand</code> is for fills. Red text on black uses <code>--brand-text</code>, which passes contrast at small sizes.</li>
-  <li>Status colours appear as a 6px dot beside a word. Never as a filled badge, never as coloured body text.</li>
-</ul>
-
-<h2>Type</h2>
-<div class="grid g2">
-  <div>
-    <p style="font:800 22px/0.92 var(--display);font-stretch:135%;text-transform:uppercase;letter-spacing:-0.01em;margin:0 0 4px">Crate</p>
-    <p class="dim">Wordmark. Anybody 800, stretch 135%, caps. <code>t-display</code></p>
-    <p style="font:500 24px/1.2 var(--title);margin:18px 0 4px">Albums / Homework</p>
-    <p class="dim">Page title in the header breadcrumb. Cabin 500, 20 to 24px. <code>font-title</code></p>
-    <p style="font-size:14px;font-weight:600;margin:18px 0 4px">Recently added</p>
-    <p class="dim">Section heading. Montserrat 600, 14px.</p>
+<header class="guide-head">
+  <div class="wrap">
+    <h1>Wallbox</h1>
+    <p>Crate as the selector panel of the house jukebox. A cabinet that is petrol green by night and seafoam enamel by day, ivory printed strips with a coral band, amber lamps for what is live, and keys you can feel go down.</p>
   </div>
-  <div>
-    <p style="margin:0 0 4px">Around the World <span class="dim">· Daft Punk</span></p>
-    <p class="dim">Body. Montserrat 400/500, 14px. Detail lines are 12px muted.</p>
-    <p class="t-label" style="margin:18px 0 4px">Library · Title · Last played</p>
-    <p class="dim">Group labels and column headers. Anybody 700, stretch 135%, 10px caps. <code>t-label</code></p>
-    <p class="num" style="margin:18px 0 4px">7:09 · 1,204 tracks · 22 Nov 2026, 14:03</p>
-    <p class="dim">Durations, counts and times use <code>tabular-nums</code> so columns line up.</p>
-    <p class="mono" style="margin:18px 0 4px">192.168.1.24 · /music/Mixes/2024</p>
-    <p class="dim">IPs, paths, IDs and secrets are monospace, 12px.</p>
-  </div>
-</div>
+</header>
 
-<h2>Shape and spacing</h2>
-<ul>
-  <li>Radius: 8px controls, 10 to 14px cards and dialogs, 6px album art, full for avatars and status dots.</li>
-  <li>Controls are 36px tall, 32px in toolbars and table rows. Icon buttons are square at the same heights.</li>
-  <li>Page padding 16 / 24 / 32px by breakpoint. Sections are 32px apart, a heading sits 12px above its content.</li>
-  <li>Hairlines are 1px at white 10%. Rows divide with a hairline, not zebra stripes or gaps.</li>
-  <li>Icons are Lucide, 16px, 2px stroke, in the text colour.</li>
-</ul>
+<main class="wrap">
 
-<h2>Shell</h2>
-<p>Sidebar on the sidebar grey, content on black with a rounded top-left corner, sticky header that carries the page title as a breadcrumb, player bar across the bottom. The sidebar collapses to icons on desktop and becomes a sheet on phones. Admin group only shows for admins.</p>
-<div class="scroll" style="margin-top:14px">
-<div class="shell">
-  <div class="shell-top">
-    <div class="side">
-      <div class="side-head">
-        <span class="mark"><svg class="ic" viewBox="0 0 24 24" style="stroke:#fff"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg></span>
-        <span class="word">Crate</span>
-      </div>
-      <span class="t-label">Library</span>
-      <span class="nav on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Albums</span>
-      <span class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Artists</span>
-      <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Tracks</span>
-      <span class="nav"><svg viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h8"/><path d="M19 12v7"/><circle cx="17" cy="19" r="2"/></svg>Playlists</span>
-      <span class="t-label">Admin</span>
-      <span class="nav"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6"/></svg>Users</span>
-      <span class="nav"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Libraries</span>
-      <span class="nav"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Activity</span>
+<section>
+  <h2>The idea</h2>
+  <p class="lede">A jukebox is a shared machine with one printed list everybody reads and one window that says what is on. That is what a home media server is, so the interface borrows its parts.</p>
+  <ul class="principles">
+    <li><b>Titles are strips</b><span>Name on ivory, artist on the coral band. The same strip labels an album, the track playing, and a film.</span></li>
+    <li><b>Printed matter is ivory</b><span>Lists, tables and forms are cards set into the cabinet. The cabinet itself holds only art, tabs and the deck.</span></li>
+    <li><b>Lamps mean live</b><span>Amber is lit only for what is playing or switched on. A hollow ring is off. Nothing else is amber.</span></li>
+    <li><b>Every row has a number</b><span>Type it to play. The selection window rolls to the new number once.</span></li>
+    <li><b>Night and day</b><span>The cabinet is petrol by night, seafoam by day. Print is ivory in both, and the deck is always night.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Shell</h2>
+  <p class="lede">No sidebar. The library is a row of tabs standing on an ivory hinge line, the way a wallbox turns its pages. Admin is one tab that opens a second row; your own settings live under your initial. Only the cabinet changes between night and day. The deck along the bottom is always night, so the lamp and its number read the same at any hour.</p>
+  <p class="mode">Night</p>
+  <div class="frame"><div class="app cab">
+    <div class="top">
+      <a class="brand" href="#"><b>CRATE</b></a>
+      <nav class="tabs"><a class="cur" href="#">Albums</a><a href="#">Artists</a><a href="#">Playlists</a><a href="#">Liked</a><a class="soon" href="#">Films</a><a class="soon" href="#">TV</a><span class="gap"></span><a href="#">Admin</a></nav>
+      <div class="topr"><span class="in">Find <svg viewBox="0 0 24 24" class="i"><use href="#i-search"/></svg></span><span class="who"><i>R</i></span></div>
     </div>
-    <div class="content">
-      <div class="head">
-        <span class="crumb">Albums</span>
-        <span class="field ph" style="width:260px;margin-left:auto;height:32px">Search</span>
+    <div class="body">
+      <div class="title"><h5>Albums</h5><small>1,204</small><div class="right hide-s"><a class="btn sm quiet" href="#">All libraries <svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg></a><a class="btn sm quiet" href="#">Recently added <svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg></a></div></div>
+      <div class="grid">
+        <a class="alb" href="#"><span class="cv cv1"></span><span class="plate">01</span><span class="strip"><b>Harbour Lights</b><span>Night Ferry</span></span></a>
+        <a class="alb" href="#"><span class="cv cv2"></span><span class="plate">02</span><span class="strip"><b>Low Tide Radio</b><span>Kowhai Lane</span></span></a>
+        <a class="alb" href="#"><span class="cv cv3"></span><span class="plate">03</span><span class="strip"><b>Southerly</b><span>The Long Paddock</span></span></a>
+        <a class="alb" href="#"><span class="cv cv4"></span><span class="plate">04</span><span class="strip"><b>Paper Planes Club</b><span>Mina Okafor</span></span></a>
+        <a class="alb" href="#"><span class="cv cv5"></span><span class="plate">05</span><span class="strip"><b>Blue Hour</b><span>Tessellate</span></span></a>
+        <a class="alb" href="#"><span class="cv cv6"></span><span class="plate">06</span><span class="strip"><b>Field Notes Vol. 2</b><span>Ridgeline</span></span></a>
+        <a class="alb" href="#"><span class="cv cv7"></span><span class="plate">07</span><span class="strip"><b>Small Hours</b><span>Ada Wren</span></span></a>
+        <a class="alb" href="#"><span class="cv cv8"></span><span class="plate">08</span><span class="strip"><b>Gravel Roads</b><span>Southbound Three</span></span></a>
+        <a class="alb" href="#"><span class="cv cv5"></span><span class="plate">09</span><span class="strip"><b>Second Light</b><span>Tessellate</span></span></a>
+        <a class="alb" href="#"><span class="cv cv3"></span><span class="plate">10</span><span class="strip"><b>Nor'wester</b><span>The Long Paddock</span></span></a>
+        <a class="alb" href="#"><span class="cv cv1"></span><span class="plate">11</span><span class="strip"><b>Wharf Sessions</b><span>Night Ferry</span></span></a>
+        <a class="alb" href="#"><span class="cv cv6"></span><span class="plate">12</span><span class="strip"><b>Field Notes Vol. 1</b><span>Ridgeline</span></span></a>
       </div>
-      <div class="page">
-        <div class="row" style="margin-bottom:12px">
-          <b style="font-size:14px;font-weight:600">Recently added</b>
-          <span class="dim num" style="font-size:12px">412 albums</span>
+    </div>
+    <div class="deck night">
+      <div class="sel"><small>Playing</small><b>0103</b></div>
+      <span class="cv cv1"></span>
+      <span class="strip"><b>Night Ferry</b><span>Night Ferry</span></span>
+      <div class="keys"><span class="key"><svg viewBox="0 0 24 24" class="i"><use href="#i-prev"/></svg></span><span class="key big"><svg viewBox="0 0 24 24" class="i"><use href="#i-pause"/></svg></span><span class="key"><svg viewBox="0 0 24 24" class="i"><use href="#i-next"/></svg></span></div>
+      <div class="scrub"><span>1:54</span><span class="track"><i></i><b></b></span><span>5:01</span></div>
+      <span class="chip">FLAC <svg viewBox="0 0 24 24" class="i" style="width:12px;height:12px"><use href="#i-sliders"/></svg></span>
+      <span class="key flat"><svg viewBox="0 0 24 24" class="i"><use href="#i-queue"/></svg></span>
+      <span class="key flat hide-s"><svg viewBox="0 0 24 24" class="i"><use href="#i-vol"/></svg></span>
+    </div>
+  </div></div>
+  <p class="mode">Day</p>
+  <div class="frame"><div class="app cab day">
+    <div class="top">
+      <a class="brand" href="#"><b>CRATE</b></a>
+      <nav class="tabs"><a class="cur" href="#">Albums</a><a href="#">Artists</a><a href="#">Playlists</a><a href="#">Liked</a><a class="soon" href="#">Films</a><a class="soon" href="#">TV</a><span class="gap"></span><a href="#">Admin</a></nav>
+      <div class="topr"><span class="in">Find <svg viewBox="0 0 24 24" class="i"><use href="#i-search"/></svg></span><span class="who"><i>R</i></span></div>
+    </div>
+    <div class="body">
+      <div class="title"><h5>Albums</h5><small>1,204</small><div class="right hide-s"><a class="btn sm quiet" href="#">All libraries <svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg></a><a class="btn sm quiet" href="#">Recently added <svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg></a></div></div>
+      <div class="grid">
+        <a class="alb" href="#"><span class="cv cv1"></span><span class="plate">01</span><span class="strip"><b>Harbour Lights</b><span>Night Ferry</span></span></a>
+        <a class="alb" href="#"><span class="cv cv2"></span><span class="plate">02</span><span class="strip"><b>Low Tide Radio</b><span>Kowhai Lane</span></span></a>
+        <a class="alb" href="#"><span class="cv cv3"></span><span class="plate">03</span><span class="strip"><b>Southerly</b><span>The Long Paddock</span></span></a>
+        <a class="alb" href="#"><span class="cv cv4"></span><span class="plate">04</span><span class="strip"><b>Paper Planes Club</b><span>Mina Okafor</span></span></a>
+        <a class="alb" href="#"><span class="cv cv5"></span><span class="plate">05</span><span class="strip"><b>Blue Hour</b><span>Tessellate</span></span></a>
+        <a class="alb" href="#"><span class="cv cv6"></span><span class="plate">06</span><span class="strip"><b>Field Notes Vol. 2</b><span>Ridgeline</span></span></a>
+        <a class="alb" href="#"><span class="cv cv7"></span><span class="plate">07</span><span class="strip"><b>Small Hours</b><span>Ada Wren</span></span></a>
+        <a class="alb" href="#"><span class="cv cv8"></span><span class="plate">08</span><span class="strip"><b>Gravel Roads</b><span>Southbound Three</span></span></a>
+        <a class="alb" href="#"><span class="cv cv5"></span><span class="plate">09</span><span class="strip"><b>Second Light</b><span>Tessellate</span></span></a>
+        <a class="alb" href="#"><span class="cv cv3"></span><span class="plate">10</span><span class="strip"><b>Nor'wester</b><span>The Long Paddock</span></span></a>
+        <a class="alb" href="#"><span class="cv cv1"></span><span class="plate">11</span><span class="strip"><b>Wharf Sessions</b><span>Night Ferry</span></span></a>
+        <a class="alb" href="#"><span class="cv cv6"></span><span class="plate">12</span><span class="strip"><b>Field Notes Vol. 1</b><span>Ridgeline</span></span></a>
+      </div>
+    </div>
+    <div class="deck night">
+      <div class="sel"><small>Playing</small><b>0103</b></div>
+      <span class="cv cv1"></span>
+      <span class="strip"><b>Night Ferry</b><span>Night Ferry</span></span>
+      <div class="keys"><span class="key"><svg viewBox="0 0 24 24" class="i"><use href="#i-prev"/></svg></span><span class="key big"><svg viewBox="0 0 24 24" class="i"><use href="#i-pause"/></svg></span><span class="key"><svg viewBox="0 0 24 24" class="i"><use href="#i-next"/></svg></span></div>
+      <div class="scrub"><span>1:54</span><span class="track"><i></i><b></b></span><span>5:01</span></div>
+      <span class="chip">FLAC <svg viewBox="0 0 24 24" class="i" style="width:12px;height:12px"><use href="#i-sliders"/></svg></span>
+      <span class="key flat"><svg viewBox="0 0 24 24" class="i"><use href="#i-queue"/></svg></span>
+      <span class="key flat hide-s"><svg viewBox="0 0 24 24" class="i"><use href="#i-vol"/></svg></span>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Colour</h2>
+  <p class="lede">Two grounds, cabinet and print. Print is the same ink on ivory in both modes; the cabinet is what turns. Coral is for bands and the one main key, amber is kept for lamps.</p>
+  <h3>Cabinet by night</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#0e2b2f;box-shadow:inset 0 0 0 1px var(--cab-line)"></i><div><b>Cabinet</b><span>#0e2b2f · ground</span></div></div>
+    <div class="sw"><i style="background:#12363b"></i><div><b>Panel</b><span>#12363b · tab bar, deck</span></div></div>
+    <div class="sw"><i style="background:#1a4449"></i><div><b>Raised</b><span>#1a4449 · tabs, hover</span></div></div>
+    <div class="sw"><i style="background:#2b565b"></i><div><b>Line</b><span>#2b565b · hairlines</span></div></div>
+    <div class="sw"><i style="background:#e3ebe8"></i><div><b>Chrome</b><span>#e3ebe8 · text</span></div></div>
+    <div class="sw"><i style="background:#93adab"></i><div><b>Chrome 2</b><span>#93adab · quiet text</span></div></div>
+  </div>
+  <h3>Cabinet by day</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#bcdcd5"></i><div><b>Cabinet</b><span>#bcdcd5 · ground</span></div></div>
+    <div class="sw"><i style="background:#a9d0c8"></i><div><b>Panel</b><span>#a9d0c8 · tab bar</span></div></div>
+    <div class="sw"><i style="background:#97c4bb"></i><div><b>Raised</b><span>#97c4bb · tabs, hover</span></div></div>
+    <div class="sw"><i style="background:#7fb0a7"></i><div><b>Line</b><span>#7fb0a7 · hairlines</span></div></div>
+    <div class="sw"><i style="background:#0e2b2f"></i><div><b>Petrol</b><span>#0e2b2f · text</span></div></div>
+    <div class="sw"><i style="background:#35595d"></i><div><b>Petrol 2</b><span>#35595d · quiet text</span></div></div>
+  </div>
+  <h3>Print, in both</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#f3ead4"></i><div><b>Strip</b><span>#f3ead4 night · #fbf6e7 day</span></div></div>
+    <div class="sw"><i style="background:#e7dbbd"></i><div><b>Strip 2</b><span>#e7dbbd night · #f0e6cc day</span></div></div>
+    <div class="sw"><i style="background:#cdbf9b"></i><div><b>Rule</b><span>#cdbf9b night · #d6c9a6 day</span></div></div>
+    <div class="sw"><i style="background:#1b1a16"></i><div><b>Ink</b><span>#1b1a16 · text</span></div></div>
+    <div class="sw"><i style="background:#5b5545"></i><div><b>Ink 2</b><span>#5b5545 · quiet text</span></div></div>
+    <div class="sw"><i style="background:#ef5b34"></i><div><b>Band</b><span>#ef5b34 · bands, main key</span></div></div>
+  </div>
+  <h3>Lamps and signals</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#ffc44d"></i><div><b>Lamp</b><span>#ffc44d · playing, on</span></div></div>
+    <div class="sw"><i style="background:#071a1d"></i><div><b>Glass</b><span>#071a1d · windows, plates</span></div></div>
+    <div class="sw"><i style="background:#1e7a4a"></i><div><b>Green</b><span>#1e7a4a print · #74d3a0 night</span></div></div>
+    <div class="sw"><i style="background:#b3261e"></i><div><b>Red</b><span>#b3261e print · #ff8272 night</span></div></div>
+    <div class="sw"><i style="background:#b93a17"></i><div><b>Band ink</b><span>#b93a17 · coral as text</span></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Type</h2>
+  <p class="lede">Jost for everything you read, in capitals on strips and keys. Big Shoulders Display for numbers and page titles, the way selection numbers are lettered.</p>
+  <div class="spec"><small>Page title · Big Shoulders 700 · 30</small><span class="num" style="font-size:30px;text-transform:uppercase">Harbour Lights</span></div>
+  <div class="spec"><small>Selection · Big Shoulders 700 · 26</small><span class="num" style="font-size:26px;color:var(--lamp);letter-spacing:.06em">0103</span></div>
+  <div class="spec"><small>Strip · Jost 600 caps · 12.5</small><span class="caps" style="font-size:12.500px">Summer roadtrip</span></div>
+  <div class="spec"><small>Body · Jost 400 · 14.5</small><span>Access lets them browse and play. Download adds saving the original files.</span></div>
+  <div class="spec"><small>Label · Jost 600 caps · 11.5</small><span class="caps" style="font-size:11.500px;color:var(--chrome-2)">Library · Length · Format · Last scan</span></div>
+</section>
+
+<section>
+  <h2>Album</h2>
+  <p class="lede">An album opens as its printed card. Every track has its number and a lamp; the lamp is lit on the one playing.</p>
+  <div class="card pad">
+    <div class="album">
+      <div class="alb"><span class="cv cv1" style="border-radius:3px"></span><span class="plate">01</span>
+        <div style="display:flex;gap:6px;margin-top:12px"><a class="btn pri" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-play"/></svg>Play</a><a class="btn quiet" href="#">Shuffle</a><a class="btn quiet" href="#" aria-label="More"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></a></div>
+      </div>
+      <div>
+        <h4>Harbour Lights</h4>
+        <div class="bandline"><span>Night Ferry</span><span>2019</span><span>10 tracks</span><span>38 min</span><span>Main</span></div>
+        <div class="discs">
+          <div><h6>Disc 1 <span>25:30</span></h6>
+            <div class="line"><span class="lampd"></span><span class="n">01</span><span class="t">Slack Water</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">3:42</span></div>
+            <div class="line liked"><span class="lampd"></span><span class="n">02</span><span class="t">Breakwater</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">4:10</span></div>
+            <div class="line on"><span class="lampd on"></span><span class="n">03</span><span class="t">Night Ferry</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">5:01</span></div>
+            <div class="line"><span class="lampd"></span><span class="n">04</span><span class="t">Sodium Lamps</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">3:27</span></div>
+            <div class="line"><span class="lampd"></span><span class="n">05</span><span class="t">Gulls at Five</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">2:58</span></div>
+            <div class="line"><span class="lampd"></span><span class="n">06</span><span class="t">Last Sailing</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">6:12</span></div>
+          </div>
+          <div><h6>Disc 2 <span>12:44</span></h6>
+            <div class="line"><span class="lampd"></span><span class="n">07</span><span class="t">Slack Water (demo)</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">3:12</span></div>
+            <div class="line"><span class="lampd"></span><span class="n">08</span><span class="t">Breakwater (live at the wharf)</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">4:41</span></div>
+            <div class="line"><span class="lampd"></span><span class="n">09</span><span class="t">Tide Tables</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">2:20</span></div>
+            <div class="line"><span class="lampd"></span><span class="n">10</span><span class="t">Radio Edit</span><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg><span class="d">2:31</span></div>
+          </div>
         </div>
-        <div class="tiles">
-          <div class="tile"><i class="art"></i><b>Homework</b><span>Daft Punk · 1997</span></div>
-          <div class="tile"><i class="art b"></i><b>Since I Left You</b><span>The Avalanches · 2000</span></div>
-          <div class="tile"><i class="art c"></i><b>Selected Ambient Works 85-92</b><span>Aphex Twin · 1992</span></div>
-          <div class="tile"><i class="art d"></i><b>Discovery</b><span>Daft Punk · 2001</span></div>
-          <div class="tile"><i class="art e"></i><b>Untrue</b><span>Burial · 2007</span></div>
-        </div>
       </div>
     </div>
   </div>
-  <div class="player">
-    <div class="now"><i class="art"></i><div><b>Around the World</b><span>Daft Punk</span></div></div>
-    <div class="transport">
-      <div class="row">
-        <svg class="ic" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8zM5 5v14"/></svg>
-        <span class="playbtn"><svg viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></svg></span>
-        <svg class="ic" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8zM19 5v14"/></svg>
-      </div>
-      <div class="scrub num"><span>2:42</span><span class="bar"><i></i></span><span>7:09</span></div>
-    </div>
-    <div class="right">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h8"/></svg>
-      <svg class="ic" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM16 9a4 4 0 0 1 0 6"/></svg>
-      <span class="bar"><i></i></span>
-    </div>
-  </div>
-</div>
-</div>
-<ul>
-  <li>Player bar is 72px, always present (it says "Nothing playing" when the queue is empty), and never covers content: the content column ends above it.</li>
-  <li>Progress is the one red fill in the bar. Volume is white. Play is a white disc, here and on an album tile when it is hovered.</li>
-  <li>On phones the bar keeps art, title, play/pause and next. Tapping the title opens Now playing: the cover, scrubber, full transport and the queue.</li>
-  <li>On a desktop the queue opens as a panel above the bar, and the bar stays usable while it is open.</li>
-</ul>
+</section>
 
-<h2>Track list</h2>
-<p>The core pattern. A plain table straight on the page. The playing row turns its title <code>brand-text</code> red and swaps its number for level bars. Double click or the row's play button starts it; on the playing row the same button pauses. A liked track keeps its heart showing; an empty heart waits for hover. Row actions sit in a menu on the right, visible on hover and always visible on touch.</p>
-<div class="scroll">
-<table style="min-width:640px">
-  <thead><tr><th class="r" style="width:40px">#</th><th>Title</th><th>Artist</th><th class="r">Plays</th><th class="r">Time</th></tr></thead>
-  <tbody>
-    <tr><td class="r dim num">1</td><td>Daftendirekt</td><td class="dim">Daft Punk</td><td class="r dim num">12</td><td class="r dim num">2:44</td></tr>
-    <tr><td class="r dim num">2</td><td>WDPK 83.7 FM</td><td class="dim">Daft Punk</td><td class="r dim num">9</td><td class="r dim num">0:28</td></tr>
-    <tr class="playing"><td class="r num" style="color:var(--brand-text)">3</td><td>Around the World</td><td class="dim">Daft Punk</td><td class="r dim num">48</td><td class="r dim num">7:09</td></tr>
-    <tr><td class="r dim num">4</td><td>Da Funk</td><td class="dim">Daft Punk</td><td class="r dim num">31</td><td class="r dim num">5:28</td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2>Controls</h2>
-<div class="grid g2">
-  <div>
-    <h3 style="margin-top:0">Buttons</h3>
-    <div class="row">
-      <span class="btn brand">Add user</span>
-      <span class="btn default">Save</span>
-      <span class="btn secondary">Scan now</span>
-      <span class="btn outline">Cancel</span>
-      <span class="btn ghost">Details</span>
-      <span class="btn destructive">Revoke</span>
-    </div>
-    <ul>
-      <li><b>brand</b>: one per screen at most, the thing the page is for.</li>
-      <li><b>default</b>: confirm inside dialogs and forms.</li>
-      <li><b>outline</b> and <b>ghost</b>: everything else. <b>destructive</b> only inside a confirm dialog.</li>
-      <li>Labels are a verb or verb and noun. Sentence case.</li>
-    </ul>
-    <h3>Status</h3>
-    <div class="row" style="gap:20px">
-      <span><i class="dot ok"></i>Active</span>
-      <span><i class="dot warn"></i>Scanning <span class="dim" style="font-size:12px">· 1,204 of 8,310</span></span>
-      <span><i class="dot bad"></i>Disabled</span>
-      <span><i class="dot neutral"></i>Never used</span>
-    </div>
-    <div class="row" style="margin-top:12px">
-      <span class="badge">Admin</span><span class="badge outline">Mirror</span><span class="badge outline">FLAC</span>
-    </div>
-    <p class="dim" style="font-size:12px">Badges are for fixed facts (role, format, mode). State is always a dot and a word.</p>
+<section>
+  <h2>Folders and playlists</h2>
+  <p class="lede">Folders nest; playlists are always the leaves. A playlist that follows a folder on disk has a coral band, one made here has an ink band.</p>
+  <div class="card pad" style="padding-top:0">
+    <div class="tr head"><span>Name</span><span class="r" style="color:inherit">Tracks</span><span class="r len" style="color:inherit">Length</span><span class="src" style="color:inherit">Source</span><span></span></div>
+    <div class="tr folder"><span class="nm"><svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg><svg viewBox="0 0 24 24" class="i"><use href="#i-folder"/></svg><b>Mixes</b></span><span class="r">108</span><span class="r len">7 hr 12 min</span><span class="src">Follows Mixes/ on disk</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr folder"><span class="nm"><span class="ind"></span><svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg><svg viewBox="0 0 24 24" class="i"><use href="#i-folder"/></svg><b>2025</b></span><span class="r">73</span><span class="r len">4 hr 50 min</span><span class="src">Mixes/2025</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr"><span class="nm"><span class="ind"></span><span class="ind"></span><span class="mini disk"></span><b>Summer Roadtrip</b></span><span class="r">42</span><span class="r len">2 hr 48 min</span><span class="src">Mixes/2025/Summer Roadtrip</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr"><span class="nm"><span class="ind"></span><span class="ind"></span><span class="mini disk"></span><b>Winter Kitchen</b></span><span class="r">31</span><span class="r len">2 hr 02 min</span><span class="src">Mixes/2025/Winter Kitchen</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr folder"><span class="nm"><span class="ind"></span><svg viewBox="0 0 24 24" class="i"><use href="#i-chev"/></svg><svg viewBox="0 0 24 24" class="i"><use href="#i-folder"/></svg><b>2026</b></span><span class="r">28</span><span class="r len">1 hr 54 min</span><span class="src">Mixes/2026</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr"><span class="nm"><span class="ind"></span><span class="mini disk"></span><b>Mixes</b></span><span class="r">7</span><span class="r len">28 min</span><span class="src">Loose tracks in Mixes/</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr folder"><span class="nm"><svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg><svg viewBox="0 0 24 24" class="i"><use href="#i-folder"/></svg><b>Mine</b></span><span class="r">86</span><span class="r len">5 hr 31 min</span><span class="src">Made here</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr"><span class="nm"><span class="ind"></span><span class="mini"></span><b>Cooking</b></span><span class="r">55</span><span class="r len">3 hr 20 min</span><span class="src">Made here · Public</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
+    <div class="tr" style="border-bottom:0"><span class="nm"><span class="ind"></span><span class="mini"></span><b>Friday Garage</b></span><span class="r">31</span><span class="r len">2 hr 11 min</span><span class="src">Made here</span><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></div>
   </div>
-  <div>
-    <h3 style="margin-top:0">Fields</h3>
-    <span class="lbl">Folder</span>
-    <span class="field mono">/music/Mixes</span>
-    <p class="hint">A path on the server. Each subfolder becomes a playlist.</p>
-    <div class="row" style="margin-top:16px;gap:24px">
-      <span><i class="switch on"></i>&nbsp; Can download</span>
-      <span><i class="switch"></i>&nbsp; Can share</span>
-      <span><i class="check on">&#10003;</i>&nbsp; Selected</span>
-    </div>
-    <ul>
-      <li>Label above, help text below in 12px muted. Errors replace the help text in <code>bad</code> red.</li>
-      <li>Switches save on change with a toast. Text fields save with a button.</li>
-      <li>Secrets (app passwords, API keys) are shown once, monospace, with a copy button.</li>
-    </ul>
-  </div>
-</div>
+</section>
 
-<h2>Lists and cards</h2>
-<div class="grid g2">
+<section class="cab">
+  <h2>Tables</h2>
+  <p class="lede">Search and filters sit on the cabinet. The table is a printed card whose header is the band. Above it is the second row of tabs that Admin opens.</p>
+  <p class="mode">Night</p>
+  <div class="block">
+<div class="subtabs" style="margin:-18px -18px 16px;border-radius:10px 10px 0 0"><a class="cur" href="#">Users</a><a href="#">Libraries</a><a href="#">Folder playlists</a><a href="#">All playlists</a><a href="#">Activity</a></div>
+  <div class="tools">
+    <span class="in dark">Name or username <svg viewBox="0 0 24 24" class="i"><use href="#i-search"/></svg></span>
+    <span class="tag">Role: user <svg viewBox="0 0 24 24" class="i" style="width:12px;height:12px"><use href="#i-plus" transform="rotate(45 12 12)"/></svg></span>
+    <div class="sp"><a class="btn sm quiet" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-filter"/></svg>Filter</a><a class="btn sm quiet" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-sliders"/></svg>Columns</a><a class="btn sm pri" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-plus"/></svg>New user</a></div>
+  </div>
   <div class="card">
-    <h3>App passwords</h3>
-    <div class="listrow">
-      <span class="tileic"><svg class="ic" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
-      <div class="grow"><b>Symfonium</b><span class="d num">Last used 2 hours ago · 192.168.1.24</span></div>
-      <span class="btn ghost sm">Revoke</span>
+    <table>
+      <thead><tr><th style="width:28px"><span class="tick"></span></th><th>User <svg viewBox="0 0 24 24" class="i" style="width:11px;height:11px;vertical-align:-1px"><use href="#i-up"/></svg></th><th>Role</th><th class="hide-s">Libraries</th><th class="r hide-s">Apps</th><th class="hide-s">Quality</th><th>Last seen</th><th>State</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><span class="tick"></span></td><td><b>mere</b> <span class="sub hide-s">Mere Tane</span></td><td>User</td><td class="hide-s">Main</td><td class="r hide-s">1</td><td class="hide-s">192 kbps</td><td>3 weeks ago</td><td><span class="state"><span class="lampd"></span>Disabled</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+        <tr class="picked"><td><span class="tick on"><svg viewBox="0 0 24 24" class="i"><use href="#i-check"/></svg></span></td><td><b>sam</b> <span class="sub hide-s">Sam Okafor</span></td><td>User</td><td class="hide-s">Main, Mixes</td><td class="r hide-s">3</td><td class="hide-s">Original</td><td>Yesterday</td><td><span class="state"><span class="lampd on"></span>Active</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+        <tr><td><span class="tick"></span></td><td><b>tv-lounge</b> <span class="sub hide-s">Lounge TV</span></td><td>User</td><td class="hide-s">Main</td><td class="r hide-s">1</td><td class="hide-s">320 kbps</td><td>Never</td><td><span class="state"><span class="lampd"></span>Not signed in yet</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+        <tr><td><span class="tick"></span></td><td><b>robin</b> <span class="sub hide-s">Robin Hale</span></td><td>Admin</td><td class="hide-s">All</td><td class="r hide-s">2</td><td class="hide-s">Original</td><td>2 min ago</td><td><span class="state"><span class="lampd on"></span>Active</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+      </tbody>
+    </table>
+    <div class="foot"><span>1 to 4 of 4</span><span>25 per page</span><div class="sp"><a class="btn sm dis" href="#">Previous</a><a class="btn sm dis" href="#">Next</a></div></div>
+  </div>
+  </div>
+  <p class="mode">Day</p>
+  <div class="block day cab">
+<div class="subtabs" style="margin:-18px -18px 16px;border-radius:10px 10px 0 0"><a class="cur" href="#">Users</a><a href="#">Libraries</a><a href="#">Folder playlists</a><a href="#">All playlists</a><a href="#">Activity</a></div>
+  <div class="tools">
+    <span class="in dark">Name or username <svg viewBox="0 0 24 24" class="i"><use href="#i-search"/></svg></span>
+    <span class="tag">Role: user <svg viewBox="0 0 24 24" class="i" style="width:12px;height:12px"><use href="#i-plus" transform="rotate(45 12 12)"/></svg></span>
+    <div class="sp"><a class="btn sm quiet" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-filter"/></svg>Filter</a><a class="btn sm quiet" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-sliders"/></svg>Columns</a><a class="btn sm pri" href="#"><svg viewBox="0 0 24 24" class="i"><use href="#i-plus"/></svg>New user</a></div>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr><th style="width:28px"><span class="tick"></span></th><th>User <svg viewBox="0 0 24 24" class="i" style="width:11px;height:11px;vertical-align:-1px"><use href="#i-up"/></svg></th><th>Role</th><th class="hide-s">Libraries</th><th class="r hide-s">Apps</th><th class="hide-s">Quality</th><th>Last seen</th><th>State</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><span class="tick"></span></td><td><b>mere</b> <span class="sub hide-s">Mere Tane</span></td><td>User</td><td class="hide-s">Main</td><td class="r hide-s">1</td><td class="hide-s">192 kbps</td><td>3 weeks ago</td><td><span class="state"><span class="lampd"></span>Disabled</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+        <tr class="picked"><td><span class="tick on"><svg viewBox="0 0 24 24" class="i"><use href="#i-check"/></svg></span></td><td><b>sam</b> <span class="sub hide-s">Sam Okafor</span></td><td>User</td><td class="hide-s">Main, Mixes</td><td class="r hide-s">3</td><td class="hide-s">Original</td><td>Yesterday</td><td><span class="state"><span class="lampd on"></span>Active</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+        <tr><td><span class="tick"></span></td><td><b>tv-lounge</b> <span class="sub hide-s">Lounge TV</span></td><td>User</td><td class="hide-s">Main</td><td class="r hide-s">1</td><td class="hide-s">320 kbps</td><td>Never</td><td><span class="state"><span class="lampd"></span>Not signed in yet</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+        <tr><td><span class="tick"></span></td><td><b>robin</b> <span class="sub hide-s">Robin Hale</span></td><td>Admin</td><td class="hide-s">All</td><td class="r hide-s">2</td><td class="hide-s">Original</td><td>2 min ago</td><td><span class="state"><span class="lampd on"></span>Active</span></td><td class="r"><svg viewBox="0 0 24 24" class="i"><use href="#i-more"/></svg></td></tr>
+      </tbody>
+    </table>
+    <div class="foot"><span>1 to 4 of 4</span><span>25 per page</span><div class="sp"><a class="btn sm dis" href="#">Previous</a><a class="btn sm dis" href="#">Next</a></div></div>
+  </div>
+  </div>
+</section>
+
+<section>
+  <h2>Editing</h2>
+  <p class="lede">Every record gets its own page: a card of sections, saved together, with removal apart at the end.</p>
+  <div class="card pad">
+    <div class="title"><h5>Mixes</h5><small>Library</small><div class="right"><span class="state"><span class="lampd on"></span>Scanned 12 min ago <small>· added 4</small></span><a class="btn sm quiet" href="#">Scan now</a></div></div>
+    <div class="edit">
+      <div>
+        <div class="sect"><b>Details</b>
+          <div class="stack">
+            <label class="fl"><span>Name</span><span class="in focus">Mixes</span></label>
+            <div><label class="fl"><span>Folder on the server</span><span class="in mono err">/srv/media/mixs</span></label><p class="hint err">The server can't find a folder at that path.</p></div>
+          </div>
+        </div>
+        <div class="sect"><b>Scanning</b>
+          <div class="stack">
+            <div class="two"><label class="fl"><span>Scan every</span><span class="in">6 hours <svg viewBox="0 0 24 24" class="i"><use href="#i-down"/></svg></span></label><label class="fl"><span>Next scan</span><span class="in dis">In 5 hr 48 min</span></label></div>
+            <div><div class="opt"><span class="sw2 on"><i></i></span>Folders become playlists<small>Matches the folder tree</small></div><div class="opt"><span class="sw2"><i></i></span>Let people download originals<small>Per person</small></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="sect"><b>Who can reach it</b>
+          <div class="opt"><span class="tick on"><svg viewBox="0 0 24 24" class="i"><use href="#i-check"/></svg></span>robin<small>Admin, always</small></div>
+          <div class="opt"><span class="tick on"><svg viewBox="0 0 24 24" class="i"><use href="#i-check"/></svg></span>sam<small>Play and download</small></div>
+          <div class="opt"><span class="tick"></span>mere<small>No access</small></div>
+          <div class="opt"><span class="tick"></span>tv-lounge<small>No access</small></div>
+        </div>
+        <div class="sect"><b>Remove</b><p style="margin:0 0 10px;color:var(--ink-2);font-size:13.500px">Its albums and tracks go from the server and from playlists. Files on disk are not touched.</p><a class="btn bad sm" href="#">Remove library</a></div>
+      </div>
     </div>
-    <div class="listrow">
-      <span class="tileic"><svg class="ic" viewBox="0 0 24 24"><path d="M5 17h14M6 17l1.5-6h9L18 17M7 17v2M17 17v2"/></svg></span>
-      <div class="grow"><b>Car</b><span class="d">Never used</span></div>
-      <span class="btn ghost sm">Revoke</span>
+    <div class="savebar"><a class="btn pri" href="#">Save changes</a><a class="btn quiet" href="#">Discard</a><span>2 unsaved changes</span></div>
+  </div>
+  <h3>Keys</h3>
+  <div class="card pad" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><a class="btn pri" href="#">Primary</a><a class="btn ink" href="#">Secondary</a><a class="btn quiet" href="#">Quiet</a><a class="btn bad" href="#">Remove</a><a class="btn dis" href="#">Disabled</a><a class="btn pri focus" href="#">Focused</a><a class="btn sm ink" href="#">Small</a></div>
+</section>
+
+<section>
+  <h2>Audio settings</h2>
+  <p class="lede">The format chip on the deck opens this card. The same choices live on a full Playback page.</p>
+  <div class="row">
+    <div class="card pop">
+      <h6>Quality</h6>
+      <div class="opt"><span class="tick rad on"></span>Original<small>As on disk</small></div>
+      <div class="opt"><span class="tick rad"></span>High<small>320 kbps</small></div>
+      <div class="opt"><span class="tick rad"></span>Data saver<small>128 kbps</small></div>
+      <h6>Volume</h6>
+      <div class="opt"><span class="sw2 on"><i></i></span>Even out loudness<small>Per album</small></div>
+      <div class="now"><b>FLAC 1,411 kbps</b>, sent as it is on disk.</div>
+    </div>
+    <div style="flex:1;min-width:280px">
+      <h3 style="margin-top:0">Type a number</h3>
+      <div class="row" style="gap:18px;align-items:center">
+        <div class="keypad"><span class="key">1</span><span class="key">2</span><span class="key lit">3</span><span class="key">4</span><span class="key">5</span><span class="key">6</span><span class="key">7</span><span class="key">8</span><span class="key">9</span><span class="key">0</span></div>
+        <div class="sel"><small>Playing</small><b>0103</b></div>
+      </div>
+      <p class="note" style="margin-top:12px">On any list, typing a row's number and Enter plays it. It is the one piece of theatre: the window rolls to the new number once, and the row's lamp lights.</p>
     </div>
   </div>
-  <div>
-    <ul style="margin-top:0">
-      <li>A card is a 14px radius panel on the card grey with a hairline border. Use it to bound a group of settings or a short list. Never nest cards.</li>
-      <li>List rows: 36px icon tile, title, one muted detail line, actions on the right. Hairline between rows.</li>
-      <li>Big data (tracks, users, logs) is a table on the page, not a card.</li>
-      <li>Empty state is one muted sentence and, if there is an obvious next step, one button. No illustration.</li>
-      <li>Loading is a static skeleton block in the secondary grey. No shimmer, no spinner.</li>
-    </ul>
+</section>
+
+<section>
+  <h2>Films, TV and phones</h2>
+  <p class="lede">Planned, not built. A poster takes the same plate and strip as a cover, and the phone is the selection window with bigger keys.</p>
+  <div class="row">
+    <div style="flex:1;min-width:300px">
+      <div class="posters">
+        <div class="alb"><span class="po po1"></span><span class="plate">F01</span><span class="strip"><b>The Long Way Down</b><span>2021 · 1 hr 52</span></span></div>
+        <div class="alb"><span class="po po2"></span><span class="plate">F02</span><span class="strip"><b>Red Line</b><span>2018 · 2 hr 04</span></span></div>
+        <div class="alb"><span class="po po3"></span><span class="plate">T01</span><span class="strip"><b>Saltwater</b><span>2 seasons</span></span></div>
+        <div class="alb"><span class="po po4"></span><span class="plate">T02</span><span class="strip"><b>Night Bus</b><span>1 season</span></span></div>
+        <div class="alb"><span class="po po5"></span><span class="plate">F03</span><span class="strip"><b>Quiet Hours</b><span>2024 · 1 hr 37</span></span></div>
+      </div>
+      <h3>Motion</h3>
+      <p class="note">Everything plays once and stops. Keys go down 1px when pressed. The selection number rolls in when a track starts. A page turns with one short slide. Nothing loops, and all of it yields to reduced motion.</p>
+      <h3>In code</h3>
+      <p class="note">Tokens live in <code>globals.css</code> under the shadcn names, so components need no colour of their own. The root holds the cabinet (<code>background</code>, <code>foreground</code>, <code>muted</code>, <code>border</code>) for night under <code>.dark</code> and day without it. Anything printed (cards, tables, menus, dialogs, sheets) carries <code>.print</code>, which re-declares the same names in ivory and ink, so a muted label is right on either ground. <code>.night</code> does the same for the deck. Capitals come from CSS, never from stored text.</p>
+      <h3>Honest risk</h3>
+      <p class="note">It is a themed look, and themes can tire. Ivory cards are bright for a dark room, which is why browsing pages keep covers on the cabinet and save print for lists and forms. On a phone the tab row scrolls sideways.</p>
+    </div>
+    <div class="phone">
+      <div class="alb"><span class="cv cv1"></span><span class="plate">01</span><span class="strip"><b>Night Ferry</b><span>Night Ferry · Harbour Lights</span></span></div>
+      <div class="deck night">
+        <div class="scrub" style="display:flex"><span>1:54</span><span class="track"><i></i><b></b></span><span>5:01</span></div>
+        <div class="keys"><span class="key flat"><svg viewBox="0 0 24 24" class="i"><use href="#i-heart"/></svg></span><span class="key"><svg viewBox="0 0 24 24" class="i"><use href="#i-prev"/></svg></span><span class="key big"><svg viewBox="0 0 24 24" class="i" style="width:20px;height:20px"><use href="#i-pause"/></svg></span><span class="key"><svg viewBox="0 0 24 24" class="i"><use href="#i-next"/></svg></span><span class="key flat"><svg viewBox="0 0 24 24" class="i"><use href="#i-queue"/></svg></span></div>
+      </div>
+    </div>
   </div>
-</div>
+</section>
 
-<h2>Admin patterns</h2>
-<h3>Access matrix</h3>
-<p>Who can reach which library, and what they can do there. One row per library, one column per capability. Changes save on click.</p>
-<div class="scroll">
-<table style="min-width:620px">
-  <thead><tr><th>Library</th><th>Path</th><th class="c">Access</th><th class="c">Download</th><th class="c">Share</th></tr></thead>
-  <tbody>
-    <tr><td>Main</td><td class="mono dim">/music/library</td><td class="c"><i class="check on">&#10003;</i></td><td class="c"><i class="check on">&#10003;</i></td><td class="c"><i class="check"></i></td></tr>
-    <tr><td>Mixes</td><td class="mono dim">/music/Mixes</td><td class="c"><i class="check on">&#10003;</i></td><td class="c"><i class="check"></i></td><td class="c"><i class="check"></i></td></tr>
-    <tr><td>Unreleased</td><td class="mono dim">/music/private</td><td class="c"><i class="check"></i></td><td class="c"><i class="check"></i></td><td class="c"><i class="check"></i></td></tr>
-  </tbody>
-</table>
-</div>
-
-<h3>Activity log</h3>
-<p>Newest first. Filters sit in a toolbar above (user, kind, client, date). Every row answers who, what, from where, when.</p>
-<div class="scroll">
-<table style="min-width:760px">
-  <thead><tr><th>When</th><th>User</th><th>Event</th><th>Detail</th><th>Client</th><th>IP</th></tr></thead>
-  <tbody>
-    <tr><td class="dim num">22 Nov, 14:03:11</td><td>william</td><td><i class="dot ok"></i>Played</td><td>Around the World <span class="dim">· Daft Punk</span></td><td class="dim">Symfonium</td><td class="mono dim">192.168.1.24</td></tr>
-    <tr><td class="dim num">22 Nov, 13:58:40</td><td>sam</td><td><i class="dot bad"></i>Sign-in failed</td><td class="dim">Wrong app password</td><td class="dim">Amperfy</td><td class="mono dim">203.0.113.9</td></tr>
-    <tr><td class="dim num">22 Nov, 13:41:02</td><td>william</td><td><i class="dot neutral"></i>Access changed</td><td>sam <span class="dim">· Mixes · download off</span></td><td class="dim">Web</td><td class="mono dim">192.168.1.10</td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2>Copy</h2>
-<div class="grid g2">
-  <div class="do">
-    <p><b>Do</b></p>
-    <p>"Add user", "Scan now", "Revoke"</p>
-    <p>"No playlists yet."</p>
-    <p>"Scanned 8,310 tracks in 42s"</p>
-    <p>"22 Nov 2026, 14:03" and "2 hours ago"</p>
-    <p>"Daft Punk · 1997" (middle dot between facts)</p>
-  </div>
-  <div class="dont">
-    <p><b>Don't</b></p>
-    <p>"Create a New User Account"</p>
-    <p>"Looks like you don't have any playlists yet!"</p>
-    <p>"Scan completed successfully"</p>
-    <p>"11/22/26 2:03 PM"</p>
-    <p>Em dashes, exclamation marks, emoji</p>
-  </div>
-</div>
-<ul>
-  <li>Sentence case everywhere except <code>t-label</code> and the wordmark.</li>
-  <li>Say what happened, with the number. Errors say what to do next.</li>
-  <li>Destructive confirms name the thing: "Revoke Symfonium? It will stop working straight away."</li>
-</ul>
-
-<h2>Motion and feedback</h2>
-<p>The record is the one authored idea: when a track starts, the record in the mark gets a single turn. Everything else is feedback or arrival, and all of it ends.</p>
-<div class="scroll">
-<table style="min-width:640px">
-  <thead><tr><th>Moment</th><th>What moves</th><th>Utility</th><th class="r">Time</th></tr></thead>
-  <tbody>
-    <tr><td>A track starts</td><td class="dim">The record in the mark turns once</td><td><code>animate-spin-once</code></td><td class="r dim num">900 ms</td></tr>
-    <tr><td>A track starts</td><td class="dim">Level bars on its row bounce four times, then rest</td><td><code>eq-bars</code></td><td class="r dim num">2 s</td></tr>
-    <tr><td>A page or a new track arrives</td><td class="dim">Rises 6px and fades in. Album tiles follow each other, 28 ms apart, first twelve only</td><td><code>animate-rise</code></td><td class="r dim num">350 ms</td></tr>
-    <tr><td>A like, or play pressed</td><td class="dim">The heart or the play icon pops</td><td><code>animate-pop</code></td><td class="r dim num">350 ms</td></tr>
-    <tr><td>A wrong password</td><td class="dim">The form shakes</td><td><code>animate-shake</code></td><td class="r dim num">300 ms</td></tr>
-    <tr><td>The pointer finds the mark</td><td class="dim">The record scratches back and forth</td><td><code>animate-scratch</code></td><td class="r dim num">450 ms</td></tr>
-    <tr><td>Hover, press</td><td class="dim">Colour in 150 ms. Covers zoom 4%. Buttons press to 97%</td><td class="dim">transitions</td><td class="r dim num">150 ms</td></tr>
-  </tbody>
-</table>
-</div>
-<ul>
-  <li>One easing for arrivals: <code>--ease-out-expo</code>, a quick start and a long soft landing. No bounce, no elastic.</li>
-  <li>No pulse, shimmer, spinner or anything on <code>infinite</code>. Waiting is shown as a number and a real progress bar ("1,204 of 8,310").</li>
-  <li>Reduced motion keeps colour and fades and drops everything that moves. It is one rule in <code>globals.css</code>, so new motion gets it for free.</li>
-  <li>Results of an action are a Sonner toast, bottom right, above the player bar.</li>
-  <li>Focus ring is 3px at ring grey 50%, on every interactive element.</li>
-  <li>Text selection is brand red, the caret is <code>brand-text</code>, scrollbars are thin and grey.</li>
-</ul>
-
-<h2>Voice</h2>
-<div class="grid g2">
-  <div class="do">
-    <p><b>Where it has character</b></p>
-    <p>Idle player: "Nothing on the deck"</p>
-    <p>Empty library: "The crate is empty."</p>
-    <p>No results: "Nothing in the crate for ..."</p>
-    <p>A page crashed: "The needle skipped"</p>
-    <p>Not found: "Not in the crate"</p>
-  </div>
-  <div class="dont">
-    <p><b>Where it stays plain</b></p>
-    <p>Buttons, labels, column headings</p>
-    <p>Errors about access, passwords or data</p>
-    <p>Confirmations before deleting</p>
-    <p>Anything in Admin</p>
-    <p>Every line after the first in an empty state</p>
-  </div>
-</div>
-
-<h2>In code</h2>
-<ul>
-  <li>Tokens in <code>src/app/globals.css</code> (shadcn variables plus <code>--brand</code> and <code>--brand-text</code>). Utilities <code>t-label</code>, <code>t-display</code>, <code>font-title</code>.</li>
-  <li>shadcn components in <code>src/components/ui</code>, unmodified apart from the <code>brand</code> button variant.</li>
-  <li>Fonts through <code>next/font</code>: Montserrat, Cabin, Anybody (width axis).</li>
-  <li>Dark only. <code>class="dark"</code> is fixed on <code>html</code>; there is no light theme to maintain.</li>
-</ul>
-
-<p class="dim" style="margin-top:48px;font-size:12px">Prepared by Claude Fable 5.2 in Claude Code.</p>
+<footer>Albums, films and people shown here are made up for the guide. Artwork is drawn in CSS.</footer>
 </main>
 </body>
 </html>

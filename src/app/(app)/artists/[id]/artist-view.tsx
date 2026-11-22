@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlbumGrid, AlbumGridSkeleton } from "~/components/library/album-grid";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
-import { LoadError, SectionHeading } from "~/components/shell/states";
+import { LoadError } from "~/components/shell/states";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
@@ -15,9 +15,8 @@ export function ArtistView({ id }: { id: number }) {
   const artist = useQuery(trpc.library.artist.queryOptions({ id }));
 
   return (
-    <Page>
+    <Page detail={artist.data ? count(artist.data.albums.length, "album") : null}>
       {artist.data ? <PageCrumb label={artist.data.name} /> : null}
-      <SectionHeading title="Albums" detail={artist.data ? count(artist.data.albums.length, "album") : null} />
       {artist.isPending ? (
         <AlbumGridSkeleton count={6} />
       ) : artist.isError ? (

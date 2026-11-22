@@ -30,7 +30,7 @@ function TabsList({
       <TabsPrimitive.List
         data-slot="tabs-list"
         className={cn(
-          "bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]",
+          "border-strip inline-flex w-fit items-end gap-1 border-b-[3px]",
           className,
         )}
         {...props}
@@ -50,7 +50,7 @@ function TabsTrigger({
         // `min-w-fit` keeps a trigger at its content width: rather than
         // shrinking to fit a narrow screen, the list grows and the wrapper
         // scrolls. `flex-1` still spreads triggers when there is room to spare.
-        "data-[state=active]:bg-background dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] min-w-fit flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2.5 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] select-none focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "t-label bg-secondary text-muted-foreground hover:text-foreground data-[state=active]:bg-strip data-[state=active]:text-ink focus-visible:ring-ring/60 inline-flex min-w-fit flex-1 items-center justify-center gap-1.5 rounded-t-md px-3.5 pt-2 pb-[7px] text-[12.5px] whitespace-nowrap transition-colors select-none outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:pb-[9px] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

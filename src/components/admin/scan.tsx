@@ -26,7 +26,7 @@ export function ScanStatus({ library, running }: { library: Pick<Library, "id" |
         {/* How far through, for real: files read over files found. */}
         <div className="bg-secondary mt-1.5 h-0.5 overflow-hidden rounded-full">
           <div
-            className="h-full origin-left bg-amber-400 transition-transform duration-700 ease-out"
+            className="bg-brand h-full origin-left transition-transform duration-700 ease-out"
             style={{ transform: `scaleX(${running.total ? running.done / running.total : 0})` }}
           />
         </div>

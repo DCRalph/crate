@@ -17,6 +17,7 @@ import type { WebTrack } from "~/server/api/routers/library";
 import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { levelFor, usePlayback } from "./playback";
+import { rowNumber, useSelection } from "./selection";
 import { usePlayer } from "./store";
 import { StreamControl } from "./stream-control";
 
@@ -68,6 +69,7 @@ export function PlayerBar() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { track, sent } = usePlayback();
   const playing = usePlayer((state) => state.playing);
+  const index = usePlayer((state) => state.index);
   const volume = usePlayer((state) => state.volume);
   const normalise = usePlayer((state) => state.normalise);
   const { next, previous, setPlaying, setVolume, toggleMute } = usePlayer.getState();
@@ -135,17 +137,38 @@ export function PlayerBar() {
     navigator.mediaSession.setActionHandler("previoustrack", () => usePlayer.getState().previous());
   }, [track]);
 
-  // Space plays and pauses, unless the key belongs to a control or a text field.
+  // Space plays and pauses, and digits then Enter pick a numbered row, unless
+  // the key belongs to a control or a text field.
   useEffect(() => {
+    let idle: ReturnType<typeof setTimeout> | undefined;
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (event.code !== "Space" || target.closest("input, textarea, select, button, a, [role], [contenteditable]")) return;
-      event.preventDefault();
-      const state = usePlayer.getState();
-      state.setPlaying(!state.playing);
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (target.closest("input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=dialog], [role=slider]")) return;
+      const selection = useSelection.getState();
+
+      if (/^[0-9]$/.test(event.key)) {
+        selection.type(event.key);
+        // A number left half typed is forgotten after a few seconds.
+        clearTimeout(idle);
+        idle = setTimeout(selection.clear, 4000);
+      } else if (selection.typed && event.key === "Enter") {
+        // Enter belongs to the selection while one is being typed, even with a button focused.
+        event.preventDefault();
+        selection.commit();
+      } else if (selection.typed && event.key === "Backspace") selection.back();
+      else if (selection.typed && event.key === "Escape") selection.clear();
+      else if (event.code === "Space" && !target.closest("button, a, [role]")) {
+        event.preventDefault();
+        const state = usePlayer.getState();
+        state.setPlaying(!state.playing);
+      }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      clearTimeout(idle);
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const duration = track?.duration ?? 0;
@@ -162,7 +185,8 @@ export function PlayerBar() {
   const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: previous };
 
   return (
-    <footer id="player-bar" className="bg-sidebar relative z-50 flex h-(--player-height) shrink-0 items-center gap-3 border-t px-3 sm:px-4">
+    // Always the night cabinet, so the lamp and the selection number read the same at any hour.
+    <footer id="player-bar" className="night bg-muted relative z-50 flex h-(--player-height) shrink-0 items-center gap-2.5 border-t px-3 sm:gap-3.5 sm:px-4">
       <audio
         ref={audioRef}
         preload="auto"
@@ -210,27 +234,30 @@ export function PlayerBar() {
 
       {/* Phones: a hairline of progress along the top instead of the scrubber. */}
       <div
-        className="bg-brand absolute top-0 left-0 h-0.5 w-full origin-left md:hidden"
+        className="bg-lamp absolute top-0 left-0 h-0.5 w-full origin-left md:hidden"
         style={{ transform: `scaleX(${duration ? Math.min(time / duration, 1) : 0})` }}
       />
 
-      <div className="flex min-w-0 flex-1 items-center gap-1 md:w-1/4 md:flex-none lg:w-1/3">
+      <SelectionWindow playing={playing} index={track ? index : null} />
+
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-72 md:flex-none">
         {track ? (
           // Keyed by track, so each new one rises into place.
-          <div key={track.id} className="animate-rise flex min-w-0 items-center gap-3">
-            <Cover type="album" id={track.albumId} size={96} className="size-11" />
-            <div className="min-w-0 max-md:hidden">
-              <Link href={`/albums/${track.albumId}`} className="block truncate text-[13px] font-medium hover:underline">
+          <div key={track.id} className="animate-rise flex min-w-0 flex-1 items-center gap-2.5">
+            <Cover type="album" id={track.albumId} size={96} className="size-11 max-sm:hidden" />
+            {/* The track as a title strip: name on ivory, artist on the band. */}
+            <div className="print min-w-0 flex-1 overflow-hidden rounded-[3px] max-md:hidden">
+              <Link href={`/albums/${track.albumId}`} className="t-label block truncate px-2 text-[12.5px] leading-6 hover:underline">
                 {track.title}
               </Link>
-              <Link href={`/artists/${track.artistId}`} className="text-muted-foreground block truncate text-xs hover:underline">
+              <Link href={`/artists/${track.artistId}`} className="bg-brand block truncate px-2 text-xs leading-5 font-medium hover:underline">
                 {track.artistName}
               </Link>
             </div>
-            {/* Phones: the whole title opens Now playing. */}
-            <button type="button" className="min-w-0 text-left outline-none md:hidden" onClick={() => setSheetOpen(true)}>
-              <span className="block truncate text-[13px] font-medium">{track.title}</span>
-              <span className="text-muted-foreground block truncate text-xs">{track.artistName}</span>
+            {/* Phones: the whole strip opens Now playing. */}
+            <button type="button" className="print min-w-0 flex-1 overflow-hidden rounded-[3px] text-left outline-none md:hidden" onClick={() => setSheetOpen(true)}>
+              <span className="t-label block truncate px-2 text-[12.5px] leading-6">{track.title}</span>
+              <span className="bg-brand block truncate px-2 text-xs leading-5 font-medium">{track.artistName}</span>
             </button>
           </div>
         ) : (
@@ -240,12 +267,10 @@ export function PlayerBar() {
         {track ? <LikeButton key={`like-${track.id}`} track={track} className="max-md:hidden" /> : null}
       </div>
 
-      <div className="flex flex-col items-center gap-1 md:min-w-0 md:flex-1">
-        <Transport {...transport} className="max-md:[&>[data-previous]]:hidden" />
-        <Scrubber time={time} duration={duration} disabled={!track} onSeek={seek} className="max-w-xl max-md:hidden" />
-      </div>
+      <Transport {...transport} className="max-md:[&>[data-previous]]:hidden" />
+      <Scrubber time={time} duration={duration} disabled={!track} onSeek={seek} tone="lamp" className="min-w-0 flex-1 max-md:hidden" />
 
-      <div className="flex items-center justify-end gap-1 md:w-1/4 lg:w-1/3">
+      <div className="flex items-center justify-end gap-1">
         <StreamControl className="max-md:hidden" />
         <Button
           variant="ghost"
@@ -257,7 +282,7 @@ export function PlayerBar() {
         >
           <ListMusic />
         </Button>
-        <div className="flex items-center gap-1 max-md:hidden">
+        <div className="flex items-center gap-1 max-lg:hidden">
           <Button variant="ghost" size="icon-sm" aria-label={volume ? "Mute" : "Unmute"} className="text-muted-foreground" onClick={toggleMute}>
             {volume === 0 ? <VolumeX /> : volume < 0.5 ? <Volume1 /> : <Volume2 />}
           </Button>
@@ -272,6 +297,25 @@ export function PlayerBar() {
         <StreamControl className="self-center" onNavigate={() => setSheetOpen(false)} />
       </NowPlaying>
     </footer>
+  );
+}
+
+/**
+ * The selection window: the number of the row that is playing, in amber on
+ * dark glass. While a number is being typed it shows that instead. The number
+ * rolls in once each time it changes.
+ */
+function SelectionWindow({ playing, index }: { playing: boolean; index: number | null }) {
+  const typed = useSelection((state) => state.typed);
+  const label = typed ? "Select" : index === null ? "Ready" : playing ? "Playing" : "Paused";
+  const number = typed || (index === null ? "00" : rowNumber(index));
+  return (
+    <div className="bg-glass shrink-0 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)]" aria-live="polite">
+      <span className="t-label text-muted-foreground block text-[9.5px] tracking-[0.1em]">{label}</span>
+      <span key={number} className={cn("t-num animate-roll block text-[26px] tracking-[0.06em]", index === null && !typed ? "text-muted-foreground/50" : "text-lamp")}>
+        {number}
+      </span>
+    </div>
   );
 }
 
@@ -294,30 +338,21 @@ function Transport({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center justify-center", large ? "gap-5" : "gap-1 sm:gap-2", className)}>
-      <Button data-previous variant="ghost" size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
+    <div className={cn("flex shrink-0 items-center justify-center", large ? "gap-3" : "gap-1.5", className)}>
+      <Button data-previous size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
         <SkipBack className="fill-current" />
       </Button>
-      <button
-        type="button"
+      {/* The one coral key on the deck. */}
+      <Button
+        variant="brand"
         aria-label={playing ? "Pause" : "Play"}
         disabled={disabled}
         onClick={onToggle}
-        className={cn(
-          "bg-foreground text-background focus-visible:ring-ring/50 grid place-items-center rounded-full outline-none transition-transform duration-150 hover:scale-105 focus-visible:ring-[3px] active:scale-95 disabled:opacity-40 disabled:hover:scale-100",
-          large ? "size-14" : "size-8",
-        )}
+        className={large ? "h-12 w-16" : "h-9 w-11"}
       >
-        {/* Starting playback gets a pop; pausing just swaps the icon. */}
-        <span key={String(playing)} className={cn("grid place-items-center", playing && "animate-pop")}>
-          {playing ? (
-            <Pause className={cn("fill-current", large ? "size-5" : "size-3.5")} />
-          ) : (
-            <Play className={cn("translate-x-px fill-current", large ? "size-5" : "size-3.5")} />
-          )}
-        </span>
-      </button>
-      <Button variant="ghost" size={large ? "icon-lg" : "icon-sm"} aria-label="Next" disabled={disabled} onClick={onNext}>
+        {playing ? <Pause className={cn("fill-current", large && "size-5")} /> : <Play className={cn("fill-current", large && "size-5")} />}
+      </Button>
+      <Button size={large ? "icon-lg" : "icon-sm"} aria-label="Next" disabled={disabled} onClick={onNext}>
         <SkipForward className="fill-current" />
       </Button>
     </div>
@@ -333,12 +368,15 @@ function Scrubber({
   duration,
   disabled,
   onSeek,
+  tone,
   className,
 }: {
   time: number;
   duration: number;
   disabled: boolean;
   onSeek: (seconds: number) => void;
+  /** Amber on the deck; left out on print, where ink reads better. */
+  tone?: "lamp";
   className?: string;
 }) {
   const [dragging, setDragging] = useState<number | null>(null);
@@ -349,7 +387,7 @@ function Scrubber({
     <div className={cn("text-muted-foreground flex w-full items-center gap-2 text-[11px] tabular-nums", className)}>
       <span className="w-9 text-right">{formatDuration(shown)}</span>
       <Slider
-        tone="brand"
+        tone={tone}
         aria-label="Seek"
         disabled={disabled}
         min={0}

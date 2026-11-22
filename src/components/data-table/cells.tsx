@@ -74,7 +74,7 @@ export function DataTableCell<TRow>({
       return <span className="text-muted-foreground">{formatDate(value)}</span>;
     case "boolean":
       return value ? (
-        <Check className="size-4 text-emerald-400" />
+        <Check className="text-ok size-4" />
       ) : (
         <Minus className="text-muted-foreground size-4" />
       );

@@ -86,7 +86,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               onClick={() => close(true)}
               className={cn(
                 variant === "destructive" &&
-                  "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                  "bg-destructive text-strip",
               )}
             >
               {pending?.options.confirmLabel ?? "Confirm"}
