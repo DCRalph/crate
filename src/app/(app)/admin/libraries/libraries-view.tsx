@@ -58,8 +58,9 @@ export function LibrariesView() {
     // The first load only records where things stand.
     if (!before) return;
     for (const library of rows) {
-      const previous = before.get(library.id);
-      if (previous === undefined || !library.lastScan || previous === (library.lastScanAt?.getTime() ?? 0)) continue;
+      // A library added since the last look counts as never scanned, so its first scan is announced too.
+      const previous = before.get(library.id) ?? 0;
+      if (!library.lastScan || previous === (library.lastScanAt?.getTime() ?? 0)) continue;
       if (library.lastScan.error) toast.error(`${library.name}: ${library.lastScan.error}`);
       else toast(`${library.name} scanned. ${scanSummary(library.lastScan)}.`);
     }

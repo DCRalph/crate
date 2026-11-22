@@ -104,17 +104,23 @@ function SearchBox() {
   // searches landing in the URL are left alone, or they'd undo newer typing.
   const place = query === null ? pathname : `search:${query}`;
   const [seen, setSeen] = useState(place);
+  /** Counts the times the page changed under the box other than by its own search. */
+  const [navigations, setNavigations] = useState(0);
   if (place !== seen) {
     setSeen(place);
-    if (query === null) {
-      setValue("");
-      // Forgotten on the way out, so coming Back to one of these searches counts as navigation.
-      setSent([]);
-    } else if (!sent.includes(query)) setValue(query);
+    const ours = query !== null && sent.includes(query);
+    if (!ours) {
+      setValue(query ?? "");
+      setNavigations(navigations + 1);
+    }
+    // Forgotten on the way out, so coming Back to one of these searches counts as navigation.
+    if (query === null) setSent([]);
   }
 
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // A search still waiting to be sent is dropped when the page changes by other
+  // means (or the box goes away), so it can't fire and replace the page you went to.
+  useEffect(() => () => clearTimeout(timer.current), [navigations]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
