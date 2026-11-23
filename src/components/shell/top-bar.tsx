@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, Search } from "lucide-react";
 
-import { usePlayer } from "~/components/player/store";
+import { forgetQueue, usePlayer } from "~/components/player/store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -243,6 +244,7 @@ const themes: { value: ThemeChoice; label: string }[] = [
 /** The menu under a person's initial: their own pages, day or night, and signing out. */
 function UserMenu({ user }: { user: HeaderUser }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [theme, setTheme] = useThemeChoice();
   return (
     <DropdownMenu>
@@ -286,6 +288,10 @@ function UserMenu({ user }: { user: HeaderUser }) {
           className="flex items-center gap-3 py-2"
           onSelect={async () => {
             await authClient.signOut();
+            // The next person to sign in on this browser shouldn't find this one's queue on the deck, or their
+            // lists still in memory.
+            forgetQueue();
+            queryClient.clear();
             router.push("/signin");
             router.refresh();
           }}

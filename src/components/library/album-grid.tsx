@@ -6,18 +6,12 @@ import { Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
-import { usePlayer } from "~/components/player/store";
+import { playWhenLoaded } from "~/components/player/store";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useTRPC } from "~/trpc/react";
 import { Cover } from "./cover";
 
 export type AlbumTile = { id: number; name: string; artistName: string; year: number | null };
-
-/**
- * Counts tile plays across every grid, so an album asked for earlier (even from
- * another page) can't start over a later one when its tracks arrive late.
- */
-let playRequests = 0;
 
 const grid = "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6";
 
@@ -32,10 +26,9 @@ export function AlbumGrid({ albums, showArtist = true }: { albums: AlbumTile[]; 
   const queryClient = useQueryClient();
 
   const playAlbum = async (album: AlbumTile) => {
-    const request = ++playRequests;
     try {
-      const { tracks } = await queryClient.fetchQuery(trpc.library.album.queryOptions({ id: album.id }));
-      if (request === playRequests) usePlayer.getState().play(tracks);
+      const result = await playWhenLoaded(async () => (await queryClient.fetchQuery(trpc.library.album.queryOptions({ id: album.id }))).tracks);
+      if (result === "empty") toast(`${album.name} has no tracks.`);
     } catch {
       toast.error(`Couldn't play ${album.name}.`);
     }

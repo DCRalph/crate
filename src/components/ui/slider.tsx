@@ -14,6 +14,7 @@ function Slider({
   className,
   tone = "default",
   "aria-label": label,
+  "aria-valuetext": valueText,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root> & { tone?: "default" | "lamp" }) {
   return (
@@ -28,8 +29,8 @@ function Slider({
       <SliderPrimitive.Track className="bg-secondary relative h-1 w-full grow overflow-hidden rounded-full">
         <SliderPrimitive.Range className={cn("absolute h-full", tone === "lamp" ? "bg-lamp" : "bg-foreground")} />
       </SliderPrimitive.Track>
-      {/* The thumb is what a screen reader meets, so the name goes on it rather than on the wrapper. */}
-      <SliderPrimitive.Thumb aria-label={label} className="bg-foreground focus-visible:ring-ring/50 block size-3 rounded-full opacity-0 outline-none group-hover/slider:opacity-100 focus-visible:opacity-100 focus-visible:ring-[3px] pointer-coarse:opacity-100" />
+      {/* The thumb is what a screen reader meets, so the name and the spoken value go on it rather than on the wrapper. */}
+      <SliderPrimitive.Thumb aria-label={label} aria-valuetext={valueText} className="bg-foreground focus-visible:ring-ring/50 block size-3 rounded-full opacity-0 outline-none group-hover/slider:opacity-100 focus-visible:opacity-100 focus-visible:ring-[3px] pointer-coarse:opacity-100" />
     </SliderPrimitive.Root>
   );
 }

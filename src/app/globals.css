@@ -255,6 +255,8 @@
     ::before,
     ::after {
       animation-duration: 0.01ms !important;
+      /* Staggered tiles would otherwise still blink in one by one. */
+      animation-delay: 0s !important;
       animation-iteration-count: 1 !important;
       scroll-behavior: auto !important;
     }

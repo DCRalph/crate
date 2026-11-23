@@ -9,11 +9,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover
 import { cn } from "~/lib/utils";
 import { capNote, normaliseOptions, qualityOptions, sentLabel, sentSummary, usePlayback } from "./playback";
 import { usePlayer } from "./store";
+import { Volume } from "./volume";
 
 /**
  * The player's audio settings behind one button, which reads as what is being
  * sent ("FLAC", "MP3 192"). Quality and volume levelling are changed here and
- * apply straight away; the rest is on the Playback page. `onNavigate` runs
+ * apply straight away; the rest is on the Playback page. Below the width
+ * where the deck has room for it, the volume is here too. `onNavigate` runs
  * when the link to that page is followed, for a caller that has to get out of the way.
  */
 export function StreamControl({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
@@ -30,13 +32,15 @@ export function StreamControl({ onNavigate, className }: { onNavigate?: () => vo
           variant="ghost"
           size="sm"
           aria-label={label ? `Playback settings, sending ${label}` : "Playback settings"}
-          className={cn("text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground px-2 text-[11px] tabular-nums", className)}
+          // A width of its own, so a change from FLAC to OPUS 256 doesn't shift the scrubber.
+          className={cn("text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground min-w-[4.25rem] px-2 text-[11px] tabular-nums", className)}
         >
           {label ?? <SlidersHorizontal />}
         </Button>
       </PopoverTrigger>
       {/* Marked so the queue sheet knows a click in here isn't a click away from it. */}
       <PopoverContent data-player-settings side="top" align="end" className="flex w-64 flex-col gap-4">
+        <Volume className="lg:hidden" />
         <div className="flex flex-col gap-2">
           <RadioList legend="Quality" options={qualityOptions(cap)} value={quality} onChange={setQuality} />
           {cap !== null ? <p className="text-muted-foreground px-2 text-xs">{capNote(cap)}</p> : null}

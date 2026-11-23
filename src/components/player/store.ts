@@ -38,6 +38,8 @@ type PlayerState = {
   /** While shuffle is on, the queue in the order it was lined up, to go back to. Null when shuffle is off. */
   lineup: WebTrack[] | null;
   repeat: Repeat;
+  /** Counts the times a track was chosen to play (a new queue, a jump, a skip). Choosing the track that is already playing starts it over. */
+  turn: number;
   playing: boolean;
   /** 0 to 1. */
   volume: number;
@@ -62,6 +64,8 @@ type PlayerState = {
   cycleRepeat: () => void;
   jump: (index: number) => void;
   remove: (index: number) => void;
+  /** Empties the queue of everything but the current track, which carries on. */
+  clear: () => void;
   /** On to the next track. Past the last one it goes round again when repeating, and stops otherwise. */
   next: () => void;
   previous: () => void;
@@ -91,6 +95,7 @@ export const usePlayer = create<PlayerState>()(
       index: 0,
       lineup: null,
       repeat: "off",
+      turn: 0,
       playing: false,
       volume: 1,
       volumeBeforeMute: 1,
@@ -100,8 +105,9 @@ export const usePlayer = create<PlayerState>()(
       unplayable: new Set(),
       play: (tracks, startAt) => {
         const playing = tracks.length > 0;
-        if (get().lineup === null) set({ queue: tracks, index: startAt ?? 0, playing });
-        else set({ lineup: tracks, queue: shuffledFrom(tracks, startAt ?? Math.floor(Math.random() * tracks.length)), index: 0, playing });
+        const turn = get().turn + 1;
+        if (get().lineup === null) set({ queue: tracks, index: startAt ?? 0, playing, turn });
+        else set({ lineup: tracks, queue: shuffledFrom(tracks, startAt ?? Math.floor(Math.random() * tracks.length)), index: 0, playing, turn });
       },
       enqueue: (tracks) => {
         const { queue, lineup, play } = get();
@@ -122,7 +128,7 @@ export const usePlayer = create<PlayerState>()(
         else set({ lineup: null, queue: lineup, index: Math.max(placeOf(lineup, queue[index]), 0) });
       },
       cycleRepeat: () => set({ repeat: repeats[(repeats.indexOf(get().repeat) + 1) % repeats.length] }),
-      jump: (index) => set({ index, playing: true }),
+      jump: (index) => set({ index, playing: true, turn: get().turn + 1 }),
       remove: (index) => {
         const { queue, index: current, lineup } = get();
         const next = queue.filter((_, i) => i !== index);
@@ -132,18 +138,25 @@ export const usePlayer = create<PlayerState>()(
           lineup: lineup && lineup.filter((_, i) => i !== place),
           // Keep pointing at the same track when one before it goes.
           index: Math.min(index < current ? current - 1 : current, Math.max(next.length - 1, 0)),
-          playing: next.length ? get().playing : false,
+          // Taking away the last track while it plays ends the music; it doesn't start the one before it.
+          playing: index === current && index === queue.length - 1 ? false : get().playing,
         });
       },
+      clear: () => {
+        const { queue, index, lineup } = get();
+        const kept = queue.slice(index, index + 1);
+        set({ queue: kept, index: 0, lineup: lineup && kept });
+      },
       next: () => {
-        const { queue, index, repeat } = get();
-        if (index < queue.length - 1) set({ index: index + 1, playing: true });
-        else if (repeat !== "off" && queue.length) set({ index: 0, playing: true });
+        const { queue, index, repeat, turn } = get();
+        if (index < queue.length - 1) set({ index: index + 1, playing: true, turn: turn + 1 });
+        else if (repeat !== "off" && queue.length) set({ index: 0, playing: true, turn: turn + 1 });
         else set({ playing: false });
       },
-      previous: () => set({ index: Math.max(get().index - 1, 0), playing: true }),
+      previous: () => set({ index: Math.max(get().index - 1, 0), playing: true, turn: get().turn + 1 }),
       setPlaying: (playing) => set({ playing: playing && get().queue.length > 0 }),
-      setVolume: (volume) => set({ volume }),
+      // The last volume that wasn't silence is what unmuting goes back to, also after the slider was dragged to nothing.
+      setVolume: (volume) => set(volume > 0 ? { volume, volumeBeforeMute: volume } : { volume }),
       toggleMute: () => {
         const { volume, volumeBeforeMute } = get();
         set(volume ? { volume: 0, volumeBeforeMute: volume } : { volume: volumeBeforeMute || 1 });
@@ -160,7 +173,17 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: "crate-player",
-      partialize: ({ queue, index, lineup, repeat, volume, quality, format, normalise }) => ({ queue, index, lineup, repeat, volume, quality, format, normalise }),
+      partialize: ({ queue, index, lineup, repeat, volume, volumeBeforeMute, quality, format, normalise }) => ({
+        queue,
+        index,
+        lineup,
+        repeat,
+        volume,
+        volumeBeforeMute,
+        quality,
+        format,
+        normalise,
+      }),
       // Rehydrated by PlayerBar after mount, so the server and first client render agree.
       skipHydration: true,
     },
@@ -168,3 +191,30 @@ export const usePlayer = create<PlayerState>()(
 );
 
 export const useCurrentTrack = () => usePlayer((state) => state.queue[state.index]);
+
+/** Whether Next has anywhere to go: a later track, or the start again when repeating. */
+export const useCanSkip = () =>
+  usePlayer((state) => state.index < state.queue.length - 1 || (state.repeat !== "off" && state.queue.length > 0));
+
+let requests = 0;
+
+/**
+ * Plays what `load` fetches, for a tile whose tracks aren't on the page yet.
+ * A slow answer never undoes a later choice: it is dropped if another tile
+ * was pressed, or anything else was chosen to play, while it was on its way.
+ * An empty answer leaves the queue alone. Says which of those happened.
+ */
+export async function playWhenLoaded(load: () => Promise<WebTrack[]>): Promise<"played" | "empty" | "superseded"> {
+  const request = ++requests;
+  const { turn } = usePlayer.getState();
+  const tracks = await load();
+  if (request !== requests || usePlayer.getState().turn !== turn) return "superseded";
+  if (!tracks.length) return "empty";
+  usePlayer.getState().play(tracks);
+  return "played";
+}
+
+/** Forgets the queue, in this tab and in what the browser keeps, for when the person signs out. Their preferences stay. */
+export function forgetQueue() {
+  usePlayer.setState({ queue: [], index: 0, lineup: usePlayer.getState().lineup && [], playing: false });
+}
