@@ -21,7 +21,7 @@ export default function Servers() {
   const top = useHeaderSpace();
 
   return (
-    <Screen scrollY={scrollY} title="Servers" left="back">
+    <Screen scrollY={scrollY} title="Servers" back ground="cabinet">
       <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
         {servers.length ? (
           <Card>

@@ -5,7 +5,7 @@ import { Animated, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-import { font, space, usePalette } from "@/lib/theme";
+import { font, glass, space, useGround } from "@/lib/theme";
 
 /** Height of the pinned bar below the status bar. */
 export const headerHeight = 52;
@@ -32,12 +32,13 @@ const reveal = (scrollY: Animated.Value, at: number, over = 16) => scrollY.inter
  * its own. The page scrolls up behind it through a blur that is full under
  * the line and thins to nothing at its lower edge, as under the bars of the
  * system's own apps. The blur ends where a page's content starts
- * (`useHeaderSpace`), so nothing is soft until it moves; once the page has moved, a wash of the cabinet's colour comes in
- * over the blur so the name stays easy to read over whatever is passing.
+ * (`useHeaderSpace`), so nothing is soft until it moves; once the page has
+ * moved, a wash of the page's ground (glass, or the cabinet) comes in over
+ * the blur so the name stays easy to read over whatever is passing.
  *  - `titleAt`: for a page that letters its own name in its content, the scroll offset at which the bar takes the name over. Without it the name is always there.
  */
 export function PinnedHeader({ scrollY, title, titleAt, left, right }: { scrollY: Animated.Value; title?: string; titleAt?: number; left?: ReactNode; right?: ReactNode }) {
-  const palette = usePalette();
+  const ground = useGround();
   const insets = useSafeAreaInsets();
   const height = insets.top + headerHeight;
 
@@ -55,12 +56,13 @@ export function PinnedHeader({ scrollY, title, titleAt, left, right }: { scrollY
         }
       >
         {/* The blur is always there, and shows only once something is under it; its opacity is never animated, which iOS draws wrongly. */}
-        <BlurView tint={palette.isNight ? "systemUltraThinMaterialDark" : "systemUltraThinMaterialLight"} intensity={80} style={StyleSheet.absoluteFill} />
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: palette.cab, opacity: reveal(scrollY, 12, 12).interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] }) }]} />
+        {/* On glass the plain dark blur, which leaves the glass its own colour at rest; the system's material would lighten it. */}
+        <BlurView tint={ground.ground === "glass" ? "dark" : ground.isNight ? "systemUltraThinMaterialDark" : "systemUltraThinMaterialLight"} intensity={80} style={StyleSheet.absoluteFill} />
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: ground.base, opacity: reveal(scrollY, 12, 12).interpolate({ inputRange: [0, 1], outputRange: [ground.ground === "glass" ? 0.55 : 0, 0.6] }) }]} />
       </MaskedView>
       <View pointerEvents="box-none" style={styles.row}>
         {left}
-        <Animated.Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: palette.chrome, opacity: titleAt === undefined ? 1 : reveal(scrollY, titleAt) }]}>
+        <Animated.Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: ground.chrome, opacity: titleAt === undefined ? 1 : reveal(scrollY, titleAt) }]}>
           {title}
         </Animated.Text>
         {right}
@@ -74,11 +76,10 @@ export function useHeaderSpace() {
   return useSafeAreaInsets().top + headerHeight + headerTail;
 }
 
-/** Content dissolving into the cabinet at the bottom edge, under the floating tabs and deck. Fixed, and ignores touches. */
+/** Content dissolving into the glass at the bottom edge, under the floating tabs and deck. Fixed, and ignores touches. */
 export function BottomFade({ height }: { height: number }) {
-  const palette = usePalette();
   // Keyed by height: the gradient is not redrawn when its box changes size, as it does when the deck arrives.
-  return <Fade key={height} from={palette.cab} up style={{ bottom: 0, height }} />;
+  return <Fade key={height} from={glass} up style={{ bottom: 0, height }} />;
 }
 
 /** A full-width vertical gradient from `from` to clear; `up` puts the colour at the bottom instead of the top. */

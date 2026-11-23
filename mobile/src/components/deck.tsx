@@ -1,28 +1,31 @@
 import { useEffect } from "react";
 import { useRouter, useSegments } from "expo-router";
 import { Pause, Play, SkipForward } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCurrentTrack, usePlayer } from "@/lib/player";
-import { deck, font, ink, label, lamp, space, usePalette } from "@/lib/theme";
+import { lamp, space } from "@/lib/theme";
 import { deckHeight, deckOffset, floatSpring } from "./bottom";
 import { Glass } from "./glass";
 import { BottomFade } from "./screen-header";
-import { Cover } from "./ui";
+import { Cover, Key, Strip } from "./ui";
+
+/** The round cover on the deck and the ring of light round it. */
+const coverSize = 42;
 
 /**
- * The deck: a glass capsule floating over every page of the library while
- * something is on it, above the tabs where there are tabs and in their place
- * where there aren't. The cover turns up as a record label, then the name and
- * artist, the coral Play key and Next, with the lamp's line of progress under
- * them. Touching it opens Now playing. Always night glass, so the lamp reads
- * the same at any hour. It sits back a little while a track is on its way.
+ * The deck: a capsule of night glass floating over every page of the library
+ * while something is on it, above the tabs where there are tabs and in their
+ * place where there aren't. The cover sits in a ring that is amber while it
+ * plays, as what is playing is everywhere, then its title strip, the coral Play key and the
+ * Next key, with the lamp's line of progress under them. Touching the cover
+ * or the strip opens Now playing. It sits back a little while a track is on
+ * its way.
  */
 export function Deck() {
   const router = useRouter();
-  const palette = usePalette();
   const insets = useSafeAreaInsets();
   const [section] = useSegments();
   const track = useCurrentTrack();
@@ -45,31 +48,35 @@ export function Deck() {
   return (
     <>
       {onTabs ? null : <BottomFade height={offset + deckHeight + space.xl} />}
-      <Animated.View pointerEvents="box-none" style={[{ position: "absolute", left: space.md, right: space.md, bottom: 0 }, lifted]}>
-        <Glass night interactive style={{ height: deckHeight, borderRadius: deckHeight / 2, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 7, paddingRight: 8 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Now playing: ${track.title}, ${track.artistName}`} onPress={() => router.push("/now-playing")} style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, opacity: loading ? 0.6 : 1 }}>
-            <Cover type="album" id={track.albumId} size={160} style={{ width: 44, borderRadius: 22 }} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text numberOfLines={1} style={[label, { color: deck.chrome, fontSize: 12 }]}>
-                {track.title}
-              </Text>
-              <Text numberOfLines={1} style={{ fontFamily: font.medium, fontSize: 12.5, color: deck.chrome2 }}>
-                {track.artistName}
-              </Text>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, lifted]}>
+        <Glass night interactive style={styles.capsule}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Now playing: ${track.title}, ${track.artistName}`} onPress={() => router.push("/now-playing")} style={[styles.open, { opacity: loading ? 0.6 : 1 }]}>
+            <View style={[styles.ring, playing && styles.lit]}>
+              <Cover type="album" id={track.albumId} size={160} style={styles.cover} />
             </View>
+            <Strip title={track.title} band={track.artistName} style={styles.strip} />
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Pause" : "Play"} hitSlop={6} onPress={usePlayer.getState().toggle} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, backgroundColor: palette.band, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.8 : 1 })}>
-            {playing ? <Pause size={18} color={ink} fill={ink} /> : <Play size={18} color={ink} fill={ink} style={{ marginLeft: 2 }} />}
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Next" hitSlop={6} disabled={!hasNext} onPress={usePlayer.getState().next} style={({ pressed }) => ({ width: 38, height: 42, alignItems: "center", justifyContent: "center", opacity: !hasNext ? 0.35 : pressed ? 0.6 : 1 })}>
-            <SkipForward size={19} color={deck.chrome} fill={deck.chrome} />
-          </Pressable>
+          <Key tone="brand" icon={playing ? Pause : Play} fill name={playing ? "Pause" : "Play"} onPress={usePlayer.getState().toggle} style={styles.key} />
+          <Key icon={SkipForward} fill name="Next" disabled={!hasNext} onPress={usePlayer.getState().next} style={styles.key} />
           {/* Kept to the flat of the capsule, clear of its round ends. */}
-          <View pointerEvents="none" style={{ position: "absolute", left: 61, right: 30, bottom: 4, height: 2, borderRadius: 1, backgroundColor: "rgba(227,235,232,0.16)" }}>
-            <View style={{ height: 2, borderRadius: 1, width: `${played * 100}%`, backgroundColor: lamp }} />
+          <View pointerEvents="none" style={styles.track}>
+            <View style={[styles.played, { width: `${played * 100}%` }]} />
           </View>
         </Glass>
       </Animated.View>
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: { position: "absolute", left: space.md, right: space.md, bottom: 0 },
+  capsule: { height: deckHeight, borderRadius: deckHeight / 2, flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 7, paddingRight: 9 },
+  open: { flex: 1, flexDirection: "row", alignItems: "center", gap: 9 },
+  ring: { width: coverSize + 4, height: coverSize + 4, borderRadius: (coverSize + 4) / 2, borderWidth: 2, borderColor: "rgba(227,235,232,0.18)", alignItems: "center", justifyContent: "center" },
+  lit: { borderColor: lamp, shadowColor: lamp, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
+  cover: { width: coverSize - 2, borderRadius: (coverSize - 2) / 2 },
+  strip: { flex: 1, minWidth: 0, borderRadius: 3, overflow: "hidden" },
+  key: { width: 42, height: 38, paddingHorizontal: 0 },
+  track: { position: "absolute", left: 64, right: 28, bottom: 3, height: 2, borderRadius: 1, backgroundColor: "rgba(227,235,232,0.16)" },
+  played: { height: 2, borderRadius: 1, backgroundColor: lamp },
+});

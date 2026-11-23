@@ -24,7 +24,7 @@ export default function CarPage() {
   const scale = (width - space.lg * 2) / car.width;
 
   return (
-    <Screen scrollY={scrollY} title="Car screen" left="back">
+    <Screen scrollY={scrollY} title="Car screen" back>
       <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
         {/* A box the size the screen ends up, holding the screen at its own size, scaled from its corner. */}
         <View style={{ width: car.width * scale, height: car.height * scale, borderRadius: 10, overflow: "hidden" }}>

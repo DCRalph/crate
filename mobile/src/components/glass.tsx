@@ -4,7 +4,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "ex
 import type { LucideIcon } from "lucide-react-native";
 import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { deck, usePalette } from "@/lib/theme";
+import { deck, useGround, usePalette } from "@/lib/theme";
 
 /** Whether this phone draws real Liquid Glass (iOS 26 and later). Read once: it can't change while the app runs. */
 const liquidGlass = Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
@@ -42,8 +42,10 @@ export const useGlassInk = (night = false) => {
   return night ? deck.chrome : palette.chrome;
 };
 
-/** A round glass button with one sign on it: back, close, settings. */
-export function GlassButton({ label, icon: Icon, onPress, size = 40, night = false, disabled, fill }: { label: string; icon: LucideIcon; onPress: () => void; size?: number; night?: boolean; disabled?: boolean; fill?: boolean }) {
+/** A round glass button with one sign on it: back, close, settings. On the glass window it is night glass, unless told otherwise. */
+export function GlassButton({ label, icon: Icon, onPress, size = 40, night: asked, disabled, fill }: { label: string; icon: LucideIcon; onPress: () => void; size?: number; night?: boolean; disabled?: boolean; fill?: boolean }) {
+  const ground = useGround();
+  const night = asked ?? ground.ground === "glass";
   const ink = useGlassInk(night);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} hitSlop={8} style={{ opacity: disabled ? 0.4 : 1 }}>

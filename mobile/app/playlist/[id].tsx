@@ -9,7 +9,7 @@ import { Backdrop, Hero } from "@/components/hero";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { TrackList } from "@/components/track-list";
-import { Cover, Key, Note } from "@/components/ui";
+import { Key, Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
 import { progressOf, useDownloads } from "@/lib/downloads";
 import { count, formatBytes, formatLength } from "@/lib/format";
@@ -62,13 +62,14 @@ export default function PlaylistPage() {
   );
 
   return (
-    <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back" action={playlist.data?.canEdit ? <GlassButton label="Edit playlist" icon={Pencil} onPress={() => router.push(`/playlist/${id}/edit`)} /> : null}>
+    <Screen scrollY={scrollY} title={data?.name} titleAt={130} back action={playlist.data?.canEdit ? <GlassButton label="Edit playlist" icon={Pencil} onPress={() => router.push(`/playlist/${id}/edit`)} /> : null}>
       <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
         <Backdrop type="playlist" id={id} version={data?.coverKey} />
         {data ? (
           <>
             <Hero
-              cover={<Cover type="playlist" id={id} size={400} version={data.coverKey} style={{ borderRadius: 3 }} />}
+              cover={{ type: "playlist", id, version: data.coverKey }}
+              kind="Playlist"
               title={data.name}
               facts={[count(data.tracks.length, "track"), formatLength(data.duration), progress?.bytes ? `${formatBytes(progress.bytes)} downloaded` : ""].filter(Boolean)}
               from={from}

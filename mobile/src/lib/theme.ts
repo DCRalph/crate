@@ -1,15 +1,17 @@
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { useColorScheme } from "react-native";
 
 import { accents, useSettings } from "./settings";
 
 /**
- * Wallbox, natively: the same jukebox selector panel as the website
- * (`src/app/globals.css`). The cabinet is seafoam enamel by day and petrol
- * green by night and follows the phone. Print (cards, strips, rows) is ivory
- * with ink at any hour. The deck is always the night cabinet. The band a title
- * strip carries is coral unless the person picked another colour in Settings;
- * amber is a lamp, and means something is live.
+ * Wallbox, natively: the same cabinet as the website (`src/app/globals.css`).
+ * The music is behind glass: every page of the library, Now playing and the
+ * deck sit on the dark glass window, the same at any hour, so covers and lamps
+ * read alike by day and by night. The enamel cabinet, seafoam by day and
+ * petrol green by night, is what the settings are on. Print (cards, strips,
+ * rows) is ivory with ink at any hour. The band a title strip carries is
+ * coral unless the person picked another colour in Settings; amber is a lamp,
+ * and means something is live.
  */
 const day = {
   cab: "#bcdcd5",
@@ -49,10 +51,29 @@ export function usePalette(): Palette {
 /** The deck's cabinet, which is night whatever the hour. */
 export const deck = night;
 
+/**
+ * What a page is set on: the glass window, or the cabinet. A page says which
+ * (`Screen`; anything outside one is on the cabinet), and what is drawn on
+ * it reads its colours from `useGround`, so a note or a heading is pale on
+ * glass and lettered in chrome on the cabinet.
+ */
+export type Ground = "glass" | "cabinet";
+export const GroundContext = createContext<Ground>("cabinet");
+
+/** The colours of the ground a part is on: its colour, the lettering on it and the quieter lettering. */
+export function useGround() {
+  const ground = useContext(GroundContext);
+  const palette = usePalette();
+  return ground === "glass" ? { ground, base: glass, chrome: deck.chrome, chrome2: deck.chrome2, line: glassLine, isNight: true } : { ground, base: palette.cab, chrome: palette.chrome, chrome2: palette.chrome2, line: palette.line, isNight: palette.isNight };
+}
+
 export const ink = "#1b1a16";
 export const ink2 = "#5b5545";
 export const lamp = "#ffc44d";
 export const glass = "#071a1d";
+/** Hairlines on glass, and the edge of a small window set into it (`inset`). */
+export const glassLine = "#1d4247";
+export const insetLine = "#2b565b";
 export const bad = "#b3261e";
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;

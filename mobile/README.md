@@ -12,7 +12,9 @@ The native app for a Crate server. Expo (SDK 57), expo-router, tRPC with TanStac
 - **Downloads.** Press Download on a playlist and it is fetched to the phone and plays with no connection, several tracks at once, carrying on with the app in the background. Settings choose the quality, whether mobile data may be used, and whether a download follows its playlist as it changes on the server.
 - **Lock screen and car.** The track, its cover, and Play, Next and Previous show wherever the system puts them: the lock screen, Control Centre, headphones, a car's Now Playing screen. A browsable CarPlay app is not built; it needs an entitlement Apple grants on request. There is a drawn car screen to look at in the simulator (`CARPLAY=1 bunx expo prebuild -p ios`, `modules/car-display`): the cover, the title strip and the track as a waveform. Xcode 27 gives a simulator no CarPlay to connect, so it runs inside the app, under Settings, Car screen, with its keys working. It can't ship as a car's screen, because Apple lets only navigation apps draw on one.
 - **Sealed audio.** Downloaded tracks, and streamed ones by default, come from the server encrypted for this one phone and are stored exactly as they arrive. See below.
-- **The Wallbox look.** The same cabinet, print, band and amber lamp as the website (`src/lib/theme.ts`). Settings hold it to day or night, or let it follow the phone, and change the band from coral to one of four other colours.
+- **The Wallbox look.** The same machine as the website (`src/lib/theme.ts`). The library is behind the dark glass window, edge to edge, with the tabs and the deck floating over it in Liquid Glass. Covers are lit from underneath in their own colours, and what is playing has the amber ring. Home's rows are lettered and their tiles coded ("B3"). An album with no art gets the record label the server draws. The settings are on the enamel cabinet, which Settings hold to day or night or let follow the phone; they also change the band from coral to one of four other colours.
+- **Now playing.** Detailed (the cover, the track's name and album, the heart, the waveform, the keys and the queue) or Minimal (the cover, the name, the waveform and three keys), switched at the top and remembered.
+- **Track lists.** The playing row opens to show its waveform, which a finger moves through. Most played (from Home) lists the tracks played most over 30 days, 90 days or all time, with their counts. Search finds albums and tracks as you type.
 
 ## How audio is sealed
 
@@ -46,6 +48,8 @@ That copy carries its own JavaScript and runs without the bundler. iCloud for se
 
 - `app/` the pages (expo-router), on a native stack. `(tabs)` holds the library's four pages; an album, a playlist and the settings are pushed over them, and the deck floats over all of it.
 - `src/components/glass.tsx` Liquid Glass (a blur before iOS 26), for the tabs, the deck and the round buttons of a page's bar.
+- `src/components/screen.tsx` a page and the ground it is on (`useGround` in `src/lib/theme.ts`): glass for the library, the cabinet for the settings.
+- `src/components/lit-cover.tsx` a cover lit in its own colours, and the amber ring on what is playing.
 - `src/lib/servers.ts` paired servers, pairing, and the keychain.
 - `src/lib/sealed.ts` key agreement and opening sealed files.
 - `src/lib/downloads.ts` what is downloaded, fetching it, and keeping it in step with the server.

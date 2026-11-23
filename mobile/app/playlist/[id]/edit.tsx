@@ -24,7 +24,7 @@ export default function EditPlaylistPage() {
   const bottom = useBottomSpace();
 
   return (
-    <Screen scrollY={scrollY} title="Edit playlist" left="back">
+    <Screen scrollY={scrollY} title="Edit playlist" back>
       <Animated.ScrollView {...scrollProps} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
         {/* The form copies the playlist once, so it waits for the server's answer rather than start from a remembered one that may be behind. */}
         {playlist.data && playlist.isFetchedAfterMount ? <Form playlist={playlist.data} /> : playlist.isError ? <Note>{playlist.error.message}</Note> : null}

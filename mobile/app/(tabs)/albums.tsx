@@ -19,14 +19,15 @@ export default function Albums() {
   const bottom = useBottomSpace(true);
 
   return (
-    <Screen scrollY={scrollY} title="Albums" settings>
+    <Screen scrollY={scrollY} title="Albums" search settings>
       <Animated.FlatList
         {...scrollProps}
         data={items}
         keyExtractor={(album) => String(album.id)}
         numColumns={2}
         columnWrapperStyle={{ gap: space.md }}
-        contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}
+        // Room under each row for the light its tiles throw.
+        contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.xl }}
         ListEmptyComponent={albums.isPending ? null : <Note>{albums.isError ? "Couldn't reach the server." : "No albums yet."}</Note>}
         renderItem={({ item }) => (
           <View style={{ flex: 1 }}>

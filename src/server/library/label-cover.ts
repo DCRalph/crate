@@ -59,7 +59,8 @@ export function labelFor(artistCredit: string, name: string): Label {
   const next = seeded(seedOf(`${artistCredit}\0${name}`));
   return {
     grooves: GROOVES.slice(0, 2 + Math.floor(next() * 3)),
-    colour: LABELS[Math.floor(next() * LABELS.length)],
+    // `?? LABELS[0]` only satisfies a stricter check (the app's, which reads this file for its types); the index is always in range.
+    colour: LABELS[Math.floor(next() * LABELS.length)] ?? LABELS[0],
     turn: Math.floor(next() * 360),
     letter: letterOf(name),
   };

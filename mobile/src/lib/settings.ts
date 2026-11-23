@@ -14,6 +14,8 @@ export const crossfades = [0, 3, 6, 9] as const;
 /** Tracks downloaded at the same time. */
 export const downloadCounts = [2, 4, 6] as const;
 export const appearances = ["auto", "day", "night"] as const;
+/** How Now playing is laid out: everything (with the queue), or the cover, the name and the keys alone. */
+export const nowPlayingModes = ["detailed", "minimal"] as const;
 /** The colour of the band: title strips, the Play key, switches. Each is light enough to carry ink. */
 export const accents = {
   coral: { band: "#ef5b34", bandDown: "#c94522" },
@@ -46,6 +48,7 @@ export type Preferences = {
   /** Day or night whatever the phone says, or following it. */
   appearance: (typeof appearances)[number];
   accent: Accent;
+  nowPlaying: (typeof nowPlayingModes)[number];
 };
 const defaults: Preferences = {
   streamQuality: null,
@@ -60,6 +63,7 @@ const defaults: Preferences = {
   downloadsAtOnce: 2,
   appearance: "auto",
   accent: "coral",
+  nowPlaying: "detailed",
 };
 
 type Settings = Preferences & {
@@ -93,6 +97,7 @@ function parse(saved: string | null): Partial<Preferences> & { cloudSync?: boole
     ...(oneOf(downloadCounts, found.downloadsAtOnce) ? { downloadsAtOnce: found.downloadsAtOnce } : {}),
     ...(oneOf(appearances, found.appearance) ? { appearance: found.appearance } : {}),
     ...(oneOf(accentNames, found.accent) ? { accent: found.accent } : {}),
+    ...(oneOf(nowPlayingModes, found.nowPlaying) ? { nowPlaying: found.nowPlaying } : {}),
     ...(typeof found.sealStreams === "boolean" ? { sealStreams: found.sealStreams } : {}),
     ...(found.downloadOver === "wifi" || found.downloadOver === "any" ? { downloadOver: found.downloadOver } : {}),
     ...(typeof found.syncDownloads === "boolean" ? { syncDownloads: found.syncDownloads } : {}),
