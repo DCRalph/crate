@@ -8,7 +8,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="card"
       className={cn(
         // min-w-0 lets a card in a grid shrink below its truncated rows instead of overflowing the column.
-        "print flex min-w-0 flex-col gap-5 rounded-lg py-5 shadow-[0_1px_2px_rgb(0_0_0/0.14)]",
+        // What is on the card fades in, since a card usually takes the place of a placeholder of the same shape.
+        "print flex min-w-0 flex-col gap-5 rounded-lg py-5 shadow-[0_1px_2px_rgb(0_0_0/0.14)] *:animate-arrive",
         className,
       )}
       {...props}

@@ -8,7 +8,7 @@ import { ChevronRight, Folder, FolderPlus, LayoutGrid, ListMusic, ListTree, More
 import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
-import { PlaylistGrid } from "~/components/playlists/playlist-grid";
+import { PlaylistGrid, PlaylistGridSkeleton } from "~/components/playlists/playlist-grid";
 import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
 import { usePin } from "~/components/playlists/use-pin";
 import { usePlaylistsLayout } from "~/components/playlists/view";
@@ -18,11 +18,11 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { count, formatLength } from "~/lib/format";
 import { buildTree, itemsUnder, type Tree, type TreeNode } from "~/lib/tree";
 import { cn } from "~/lib/utils";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
+import { RowsSkeleton } from "~/components/shell/skeletons";
 
 type FolderRow = RouterOutputs["playlists"]["tree"]["folders"][number];
 type PlaylistRow = RouterOutputs["playlists"]["tree"]["playlists"][number];
@@ -98,9 +98,13 @@ export function PlaylistsView() {
   return (
     <Page maxWidth="max-w-5xl" detail={tree.data ? count(tree.data.playlists.length, "playlist") : null} actions={actions}>
       {tree.isPending ? (
-        <Skeleton className="h-40" />
+        layout === "grid" ? (
+          <PlaylistGridSkeleton />
+        ) : (
+          <RowsSkeleton rows={8} />
+        )
       ) : tree.isError ? (
-        <LoadError message={tree.error.message} />
+        <LoadError error={tree.error} />
       ) : !tree.data.playlists.length && !tree.data.folders.length ? (
         <Empty>No playlists yet. Start one here, or add tracks to a new one from any track&apos;s menu.</Empty>
       ) : (
@@ -131,13 +135,15 @@ export function PlaylistsView() {
               <span className={cn(head, "max-sm:hidden")}>Owner</span>
               <span />
             </div>
-            {/* Pinned playlists first. One inside a folder is still in its place below as well. */}
-            {pinned.map((playlist) => (
-              <PlaylistLine key={`pin${playlist.id}`} playlist={playlist} depth={0} />
-            ))}
-            {/* A pinned playlist that sits at the top level is already above, so it isn't listed twice. */}
-            <Level level={text ? shown : { ...shown, items: shown.items.filter((playlist) => !playlist.pinnedAt) }} depth={0} isOpen={isOpen} onFlip={flip} />
-            {text && !shown.items.length && !shown.folders.length ? <p className="text-muted-foreground px-4 py-6 text-sm">Nothing called that.</p> : null}
+            <div className="animate-arrive">
+              {/* Pinned playlists first. One inside a folder is still in its place below as well. */}
+              {pinned.map((playlist) => (
+                <PlaylistLine key={`pin${playlist.id}`} playlist={playlist} depth={0} />
+              ))}
+              {/* A pinned playlist that sits at the top level is already above, so it isn't listed twice. */}
+              <Level level={text ? shown : { ...shown, items: shown.items.filter((playlist) => !playlist.pinnedAt) }} depth={0} isOpen={isOpen} onFlip={flip} />
+              {text && !shown.items.length && !shown.folders.length ? <p className="text-muted-foreground px-4 py-6 text-sm">Nothing called that.</p> : null}
+            </div>
           </div>
           )}
         </>

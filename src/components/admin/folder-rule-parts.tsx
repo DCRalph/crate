@@ -86,14 +86,15 @@ export function LibraryFolderPicker({ libraryId, value, onChange }: { libraryId:
           onChange={(event) => setFilter(event.target.value)}
         />
       </div>
-      <ul role="listbox" aria-label="Folder" className="max-h-64 overflow-y-auto p-1">
+      <ul aria-label="Folder" className="max-h-64 overflow-y-auto p-1">
         {shown.map((folder) => {
           const depth = folder.path ? folder.path.split("/").length : 0;
           const selected = folder.path === value;
           return (
-            <li key={folder.path} role="option" aria-selected={selected}>
+            <li key={folder.path}>
               <button
                 type="button"
+                aria-pressed={selected}
                 onClick={() => onChange(folder.path)}
                 className={cn(
                   "focus-visible:ring-ring/50 flex w-full items-center gap-2 rounded-sm py-1.5 pr-2 text-left text-sm outline-none focus-visible:ring-[3px]",
@@ -175,7 +176,7 @@ export function RulePreview({ libraryId, path, mode }: { libraryId: number; path
       <p className="text-muted-foreground mb-2 text-xs tabular-nums">
         {[data.folderCount ? count(data.folderCount, "folder") : null, count(data.playlistCount, "playlist"), count(data.trackCount, "track")].filter(Boolean).join(", ")}
       </p>
-      <ul className="max-h-80 overflow-y-auto rounded-md border px-3 py-2">
+      <ul tabIndex={0} aria-label="What the rule makes" className="focus-visible:ring-ring/60 max-h-80 overflow-y-auto rounded-md border px-3 py-2 outline-none focus-visible:ring-[3px]">
         <PreviewLevel level={tree} depth={0} />
       </ul>
       {hidden > 0 ? <p className="text-muted-foreground mt-2 text-xs">And {count(hidden, "more item")} not shown.</p> : null}

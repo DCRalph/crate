@@ -10,9 +10,9 @@ import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { authClient } from "~/lib/auth-client";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 /** The signed-in person's own name and password. Their music apps and playback have pages of their own. */
 export function AccountView() {
@@ -22,12 +22,12 @@ export function AccountView() {
   return (
     <Page maxWidth="max-w-2xl" className="flex flex-col gap-6">
       {profile.isError ? (
-        <LoadError message={profile.error.message} />
+        <LoadError error={profile.error} />
       ) : profile.data ? (
         // Keyed by what is saved, so the field starts from it again after each save.
         <ProfileForm key={profile.data.name} profile={profile.data} />
       ) : (
-        <Skeleton className="h-44" />
+        <CardSkeleton lines={2} />
       )}
       <PasswordForm />
     </Page>

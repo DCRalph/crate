@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Folder, Pin, Play } from "lucide-react";
 import { toast } from "sonner";
 
+import { TileSkeleton } from "~/components/library/album-grid";
 import { Cover } from "~/components/library/cover";
 import { rowNumber, useNumbered } from "~/components/player/selection";
 import { usePlayer } from "~/components/player/store";
@@ -175,5 +176,16 @@ export function PlaylistGrid({ tree, flat }: { tree: Level; flat?: PlaylistRow[]
         <p className="text-muted-foreground py-6 text-sm">{flat ? "Nothing called that." : "This folder is empty."}</p>
       )}
     </>
+  );
+}
+
+/** Static placeholders in the grid's shape while playlists load. */
+export function PlaylistGridSkeleton({ count = 10 }: { count?: number }) {
+  return (
+    <div className={grid}>
+      {Array.from({ length: count }, (_, i) => (
+        <TileSkeleton key={i} index={i} />
+      ))}
+    </div>
   );
 }

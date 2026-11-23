@@ -43,7 +43,7 @@ export function AllPlaylistsView() {
   return (
     <Page>
       {playlists.isError ? (
-        <LoadError message={playlists.error.message} />
+        <LoadError error={playlists.error} />
       ) : (
         <DataTable
           api={table}

@@ -58,7 +58,7 @@ export function FolderPlaylistsView() {
         folder sets the order of its tracks.
       </p>
       {rules.isError ? (
-        <LoadError message={rules.error.message} />
+        <LoadError error={rules.error} />
       ) : (
         <DataTable
           api={table}

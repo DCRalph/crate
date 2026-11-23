@@ -39,7 +39,7 @@ function Tab({ href, current, children }: { href: string; current: boolean; chil
       aria-current={current ? "page" : undefined}
       className={cn(
         "t-label focus-visible:ring-ring/60 shrink-0 rounded-t-md px-3.5 pt-2 text-[12.5px] outline-none transition-colors focus-visible:ring-[3px]",
-        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-muted-foreground hover:text-foreground pb-[7px]",
+        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-foreground/80 hover:text-foreground pb-[7px]",
       )}
     >
       {children}

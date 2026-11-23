@@ -16,9 +16,9 @@ import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 /**
  * One folder: its name, where it sits, and what is directly inside it. A
@@ -47,14 +47,14 @@ export function FolderView({ id }: { id: number }) {
   if (tree.isError) {
     return (
       <Page maxWidth="max-w-2xl">
-        <LoadError message={tree.error.message} />
+        <LoadError error={tree.error} />
       </Page>
     );
   }
   if (!tree.data) {
     return (
       <Page maxWidth="max-w-2xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={2} />
       </Page>
     );
   }
@@ -62,7 +62,7 @@ export function FolderView({ id }: { id: number }) {
   if (!folder) {
     return (
       <Page maxWidth="max-w-2xl">
-        <LoadError message="Folder not found." />
+        <LoadError error={{ message: "Folder not found.", data: { code: "NOT_FOUND" } }} />
       </Page>
     );
   }

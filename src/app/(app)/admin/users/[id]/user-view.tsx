@@ -14,10 +14,10 @@ import { Page } from "~/components/shell/page";
 import { LoadError, SectionHeading } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Switch } from "~/components/ui/switch";
 import { useTRPC } from "~/trpc/react";
 import { LibraryAccessTable, PasswordField, QualitySelect, RoleSelect } from "../user-fields";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 /** One thing about the account that is read here, not changed. */
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -59,7 +59,7 @@ export function UserView({ id }: { id: string }) {
   if (user.isError) {
     return (
       <Page maxWidth="max-w-4xl">
-        <LoadError message={user.error.message} />
+        <LoadError error={user.error} />
       </Page>
     );
   }
@@ -67,7 +67,7 @@ export function UserView({ id }: { id: string }) {
   if (!data) {
     return (
       <Page maxWidth="max-w-4xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={2} />
       </Page>
     );
   }

@@ -17,12 +17,12 @@ import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import { count, formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 type Playlist = RouterOutputs["playlists"]["byId"];
 type Track = Playlist["tracks"][number];
@@ -59,7 +59,7 @@ export function EditPlaylistView({ id }: { id: number }) {
   if (playlist.isError) {
     return (
       <Page maxWidth="max-w-4xl">
-        <LoadError message={playlist.error.message} />
+        <LoadError error={playlist.error} />
       </Page>
     );
   }
@@ -67,7 +67,7 @@ export function EditPlaylistView({ id }: { id: number }) {
   if (!data) {
     return (
       <Page maxWidth="max-w-4xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={3} />
       </Page>
     );
   }

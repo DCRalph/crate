@@ -73,7 +73,7 @@ function LogTable<Row>({
   list: { data?: ListResult<Row>; isPending: boolean; isFetching: boolean; error: { message: string } | null };
   searchPlaceholder: string;
 }) {
-  if (list.error) return <LoadError message={list.error.message} />;
+  if (list.error) return <LoadError error={list.error} />;
   return (
     <DataTable
       api={table}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Info, ListEnd, ListPlus, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
+import { Download, Info, ListEnd, ListPlus, ListStart, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
@@ -20,7 +20,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
@@ -30,6 +29,7 @@ import { Cover } from "./cover";
 import { LikeButton } from "./like-button";
 import { usePendingTracks } from "./pending-tracks";
 import { TrackInfoDialog } from "./track-info";
+import { RowsSkeleton } from "~/components/shell/skeletons";
 
 /**
  * The list of tracks on an album, playlist or search page, printed as a card.
@@ -73,7 +73,7 @@ export function TrackTable({
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="animate-arrive">
             {tracks.map((track, index) => {
               const isCurrent = current?.id === track.id;
               // The playing row's button pauses and resumes; any other row starts the list from there.
@@ -148,7 +148,7 @@ export function TrackTable({
 export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo: () => void; onRemove?: () => void }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const enqueue = usePlayer((state) => state.enqueue);
+  const { enqueue, playNext } = usePlayer.getState();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // Only asked for once a menu is opened, not once per row.
@@ -174,6 +174,15 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem
+            onSelect={() => {
+              playNext([track]);
+              toast(`Playing next: ${track.title}`);
+            }}
+          >
+            <ListStart />
+            Play next
+          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => {
               enqueue([track]);
@@ -239,12 +248,6 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
 }
 
 /** Static placeholder rows while a track list loads. */
-export function TrackTableSkeleton({ rows = 8 }: { rows?: number }) {
-  return (
-    <div className="flex flex-col gap-2 pt-2">
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-8 w-full" />
-      ))}
-    </div>
-  );
+export function TrackTableSkeleton({ rows = 8, covers = false }: { rows?: number; covers?: boolean }) {
+  return <RowsSkeleton rows={rows} covers={covers} />;
 }

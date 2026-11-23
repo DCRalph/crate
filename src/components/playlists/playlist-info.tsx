@@ -45,7 +45,7 @@ function PlaylistFacts({ id }: { id: number }) {
   // A playlist changes as tracks are added from other pages, so each opening asks again.
   const info = useQuery(trpc.info.playlist.queryOptions({ id }, { staleTime: 0 }));
 
-  if (info.isError) return <LoadError message={info.error.message} />;
+  if (info.isError) return <LoadError error={info.error} />;
   const data = info.data;
   if (!data) return <FactsSkeleton rows={10} />;
 

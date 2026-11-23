@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Info, ListEnd, Pencil, Pin, Play } from "lucide-react";
+import { Copy, Image as ImageIcon, Info, ListEnd, MoreHorizontal, Pencil, Pin, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
+import { HeroSkeleton } from "~/components/shell/skeletons";
 import { usePin } from "~/components/playlists/use-pin";
 import { Hero } from "~/components/library/hero";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
@@ -17,6 +18,7 @@ import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { count, formatLength } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
@@ -45,16 +47,17 @@ export function PlaylistView({ id }: { id: number }) {
 
   if (playlist.isError) {
     return (
-      <Page maxWidth="max-w-5xl">
-        <LoadError message={playlist.error.message} />
+      <Page maxWidth="max-w-5xl" title="trail">
+        <LoadError error={playlist.error} />
       </Page>
     );
   }
   const data = playlist.data;
   if (!data) {
     return (
-      <Page maxWidth="max-w-5xl">
-        <TrackTableSkeleton />
+      <Page maxWidth="max-w-5xl" title="trail">
+        <HeroSkeleton />
+        <TrackTableSkeleton covers />
       </Page>
     );
   }
@@ -90,35 +93,46 @@ export function PlaylistView({ id }: { id: number }) {
           }}
         >
           <ListEnd />
-          Add to queue
+          {/* On a phone the keys keep to one row: these two show their sign alone. */}
+          <span className="max-sm:sr-only">Add to queue</span>
         </Button>
         {data.canEdit ? (
           <Button variant="outline" asChild>
             <Link href={`/playlists/${id}/edit`}>
               <Pencil />
-              Edit
+              <span className="max-sm:sr-only">Edit</span>
             </Link>
           </Button>
-        ) : (
-          <Button variant="outline" disabled={copy.isPending} onClick={() => copy.mutate({ id })}>
-            <Copy />
-            Make a copy
-          </Button>
-        )}
-        <Button variant="outline" aria-pressed={!!data.pinnedAt} onClick={() => togglePin(data)}>
-          <Pin className={data.pinnedAt ? "fill-current" : undefined} />
-          {data.pinnedAt ? "Unpin" : "Pin"}
-        </Button>
-        {/* A playlist that follows the disk can't be edited, but its owner can still choose its cover. */}
-        {data.canSetCover && !data.canEdit ? (
-          <Button variant="outline" asChild>
-            <Link href={`/playlists/${id}/edit`}>Change cover</Link>
-          </Button>
         ) : null}
-        <Button variant="outline" onClick={() => setInfoOpen(true)}>
-          <Info />
-          Get info
+        <Button variant="outline" size="icon" aria-pressed={!!data.pinnedAt} aria-label={data.pinnedAt ? "Unpin" : "Pin to the top"} onClick={() => togglePin(data)}>
+          <Pin className={data.pinnedAt ? "text-brand fill-current" : undefined} />
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label={`More for ${data.name}`}>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem disabled={copy.isPending} onSelect={() => copy.mutate({ id })}>
+              <Copy />
+              Make a copy
+            </DropdownMenuItem>
+            {/* A playlist that follows the disk can't be edited, but its owner can still choose its cover. */}
+            {data.canSetCover && !data.canEdit ? (
+              <DropdownMenuItem asChild>
+                <Link href={`/playlists/${id}/edit`}>
+                  <ImageIcon />
+                  Change cover
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem onSelect={() => setInfoOpen(true)}>
+              <Info />
+              Get info
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </Hero>
       <PlaylistInfoDialog playlist={data} open={infoOpen} onOpenChange={setInfoOpen} />
 

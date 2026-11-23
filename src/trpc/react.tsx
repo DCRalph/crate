@@ -8,6 +8,7 @@ import { createTRPCContext } from "@trpc/tanstack-react-query";
 import superjson from "superjson";
 
 import type { AppRouter } from "~/server/api/root";
+import { isFinal } from "./failure";
 
 /**
  * The web app's data layer. In a client component:
@@ -22,8 +23,9 @@ export type RouterOutputs = inferRouterOutputs<AppRouter>;
 const makeQueryClient = () =>
   new QueryClient({
     defaultOptions: {
-      // A music library changes rarely; refetching on every focus would only add flicker.
-      queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 },
+      // A music library changes rarely; refetching on every focus would only add flicker. A failure is tried
+      // once more, unless it is an answer that won't change, which is shown straight away.
+      queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: (failures, error) => failures < 1 && !isFinal(error) },
     },
   });
 

@@ -50,7 +50,7 @@ function TabsTrigger({
         // `min-w-fit` keeps a trigger at its content width: rather than
         // shrinking to fit a narrow screen, the list grows and the wrapper
         // scrolls. `flex-1` still spreads triggers when there is room to spare.
-        "t-label bg-secondary text-muted-foreground hover:text-foreground data-[state=active]:bg-strip data-[state=active]:text-ink focus-visible:ring-ring/60 inline-flex min-w-fit flex-1 items-center justify-center gap-1.5 rounded-t-md px-3.5 pt-2 pb-[7px] text-[12.5px] whitespace-nowrap transition-colors select-none outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:pb-[9px] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "t-label bg-secondary text-foreground/80 hover:text-foreground data-[state=active]:bg-strip data-[state=active]:text-ink focus-visible:ring-ring/60 inline-flex min-w-fit flex-1 items-center justify-center gap-1.5 rounded-t-md px-3.5 pt-2 pb-[7px] text-[12.5px] whitespace-nowrap transition-colors select-none outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:pb-[9px] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

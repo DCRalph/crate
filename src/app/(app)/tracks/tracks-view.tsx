@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Pause, Play } from "lucide-react";
 
-import { DataTable, useDataTable, type DataTableColumn } from "~/components/data-table";
+import { DataTable, useDataTable, useTableWidth, type DataTableColumn } from "~/components/data-table";
 import { Cover } from "~/components/library/cover";
 import { LikeButton } from "~/components/library/like-button";
 import { TrackInfoDialog } from "~/components/library/track-info";
@@ -25,6 +25,20 @@ type Track = RouterOutputs["library"]["tracks"]["rows"][number];
 type Row = Track & { index: number };
 
 const formats = Object.keys(audioTypes).map((suffix) => ({ label: suffix.toUpperCase(), value: suffix }));
+
+/** Cover and title. On a table too narrow for the Artist column, the artist goes under the title so it is never lost. */
+function TitleCell({ row }: { row: Row }) {
+  const width = useTableWidth();
+  return (
+    <span className="flex min-w-0 items-center gap-3">
+      <Cover type="album" id={row.albumId} size={64} className="size-8" />
+      <span className="min-w-0">
+        <span className="block truncate font-medium">{row.title}</span>
+        {width !== null && width < 560 ? <span className="text-muted-foreground block truncate text-xs">{row.artistName}</span> : null}
+      </span>
+    </span>
+  );
+}
 
 /** A row's number and lamp. Clicking plays the page from that row; on the row that is playing it pauses. */
 function PlayCell({ row, onPlay }: { row: Row; onPlay: (index: number) => void }) {
@@ -70,12 +84,7 @@ export function TracksView() {
         sortable: true,
         hideable: false,
         className: "max-w-0 w-2/5 py-1.5",
-        cell: (row) => (
-          <span className="flex min-w-0 items-center gap-3">
-            <Cover type="album" id={row.albumId} size={64} className="size-8" />
-            <span className="truncate font-medium">{row.title}</span>
-          </span>
-        ),
+        cell: (row) => <TitleCell row={row} />,
       },
       {
         id: "artistName",
@@ -154,7 +163,7 @@ export function TracksView() {
   return (
     <Page detail={tracks.data ? count(tracks.data.total, "track") : null}>
       {tracks.isError ? (
-        <LoadError message={tracks.error.message} />
+        <LoadError error={tracks.error} />
       ) : (
         <DataTable
           api={table}

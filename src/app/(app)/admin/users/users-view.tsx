@@ -109,7 +109,7 @@ export function UsersView() {
   return (
     <Page>
       {users.isError ? (
-        <LoadError message={users.error.message} />
+        <LoadError error={users.error} />
       ) : (
         <DataTable
           api={table}

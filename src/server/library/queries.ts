@@ -158,6 +158,10 @@ const appearance = db
 export const albumsWith = (artistId: number) =>
   inArray(album.id, db.select({ albumId: appearance.albumId }).from(appearance).where(eq(appearance.artistId, artistId)));
 
+/** A filter for `listTracks`: every track an artist is credited on, alone or with others. */
+export const tracksWith = (artistId: number) =>
+  inArray(track.id, db.select({ trackId: trackArtist.trackId }).from(trackArtist).where(eq(trackArtist.artistId, artistId)));
+
 export type ArtistRow = Awaited<ReturnType<typeof listArtists>>[number];
 
 /**

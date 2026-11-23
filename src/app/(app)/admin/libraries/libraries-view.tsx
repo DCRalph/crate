@@ -77,7 +77,7 @@ export function LibrariesView() {
       }
     >
       {libraries.isError ? (
-        <LoadError message={libraries.error.message} />
+        <LoadError error={libraries.error} />
       ) : (
         <DataTable
           api={table}

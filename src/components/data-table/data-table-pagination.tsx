@@ -13,6 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
+import { cn } from "~/lib/utils";
 import type { DataTableApi } from "./use-data-table";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -20,10 +21,13 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export function DataTablePagination<TRow>({
   api,
   total,
+  isLoading = false,
   pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: {
   api: DataTableApi<TRow>;
   total: number;
+  /** The first page is still on its way, so there is nothing to count yet. */
+  isLoading?: boolean;
   pageSizeOptions?: number[];
 }) {
   const { page, pageSize, setPage, setPageSize } = api;
@@ -34,9 +38,8 @@ export function DataTablePagination<TRow>({
   return (
     <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-3 px-1 text-sm">
       <div className="flex items-center gap-3">
-        <span className="tabular-nums">
-          {from.toLocaleString()}–{to.toLocaleString()} of{" "}
-          {total.toLocaleString()}
+        <span className={cn("tabular-nums", isLoading && "invisible")}>
+          {from.toLocaleString()} to {to.toLocaleString()} of {total.toLocaleString()}
         </span>
         <Popover>
           <PopoverTrigger asChild>
@@ -61,7 +64,7 @@ export function DataTablePagination<TRow>({
       </div>
 
       <div className="flex items-center gap-1">
-        <span className="mr-2 tabular-nums">
+        <span className={cn("mr-2 tabular-nums", isLoading && "invisible")}>
           Page {page} of {pageCount}
         </span>
         <Button

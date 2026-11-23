@@ -13,10 +13,10 @@ import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Switch } from "~/components/ui/switch";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 /** One folder rule: what it follows, what it makes, and the result as it stands. Changes rebuild it straight away. */
 export function RuleView({ id }: { id: number }) {
@@ -42,7 +42,7 @@ export function RuleView({ id }: { id: number }) {
   if (rule.isError) {
     return (
       <Page maxWidth="max-w-4xl">
-        <LoadError message={rule.error.message} />
+        <LoadError error={rule.error} />
       </Page>
     );
   }
@@ -50,7 +50,7 @@ export function RuleView({ id }: { id: number }) {
   if (!data) {
     return (
       <Page maxWidth="max-w-4xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={2} />
       </Page>
     );
   }

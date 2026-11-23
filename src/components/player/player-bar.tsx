@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ListMusic, Pause, Play, SkipBack, SkipForward, Volume1, Volume2, VolumeX, X } from "lucide-react";
+import { ListMusic, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume1, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
@@ -18,7 +18,7 @@ import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { levelFor, usePlayback } from "./playback";
 import { rowNumber, useSelection } from "./selection";
-import { usePlayer } from "./store";
+import { usePlayer, usePlayingPlace } from "./store";
 import { StreamControl } from "./stream-control";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
@@ -31,6 +31,9 @@ type Clock = {
   /** Where to move a file to once enough of it has loaded to seek. */
   seekOnLoad: number | null;
 };
+
+/** Previous goes back a track only this early in one, in seconds. Later than that it starts the track over. */
+const restartAfter = 3;
 
 /** How far into the track the element is, in seconds. */
 const positionOf = (clock: Clock, audio: HTMLAudioElement) => clock.seekOnLoad ?? clock.offset + audio.currentTime;
@@ -59,7 +62,8 @@ function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecisi
  * The bar across the bottom of the app, and the only audio element. It
  * follows the player store: a new current track loads, `playing` plays or
  * pauses, and the playback preferences decide what is asked for and how loud
- * it is. Media keys and lock-screen controls work through the Media Session API.
+ * it is. Media keys and lock-screen controls (skip, and seeking where the
+ * device offers it) work through the Media Session API.
  *
  * A file the browser turns out not to play is asked for again as a
  * conversion, once, and only a conversion that fails is reported.
@@ -72,7 +76,7 @@ export function PlayerBar() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { track, sent } = usePlayback();
   const playing = usePlayer((state) => state.playing);
-  const index = usePlayer((state) => state.index);
+  const place = usePlayingPlace();
   const volume = usePlayer((state) => state.volume);
   const normalise = usePlayer((state) => state.normalise);
   const { next, previous, setPlaying, setVolume, toggleMute, markUnplayable } = usePlayer.getState();
@@ -126,20 +130,6 @@ export function PlayerBar() {
     if (audioRef.current) audioRef.current.volume = volume * level;
   }, [volume, level]);
 
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    navigator.mediaSession.metadata = track
-      ? new MediaMetadata({
-          title: track.title,
-          artist: track.artistName,
-          album: track.albumName,
-          artwork: [{ src: `/api/cover/album/${track.albumId}?size=512`, sizes: "512x512", type: "image/jpeg" }],
-        })
-      : null;
-    navigator.mediaSession.setActionHandler("nexttrack", () => usePlayer.getState().next());
-    navigator.mediaSession.setActionHandler("previoustrack", () => usePlayer.getState().previous());
-  }, [track]);
-
   // Space plays and pauses, and digits then Enter pick a numbered row, unless
   // the key belongs to a control or a text field.
   useEffect(() => {
@@ -185,7 +175,33 @@ export function PlayerBar() {
     else audio.currentTime = seconds;
     setTime(seconds);
   };
-  const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: previous };
+  /** Previous, the way every player does it: back a track from the start of one, otherwise back to the start of this one. */
+  const back = () => {
+    const audio = audioRef.current;
+    if (audio && usePlayer.getState().index > 0 && positionOf(clock.current, audio) <= restartAfter) return previous();
+    seek(0);
+    setPlaying(true);
+  };
+  const onBack = useEffectEvent(back);
+  const onSeek = useEffectEvent(seek);
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.metadata = track
+      ? new MediaMetadata({
+          title: track.title,
+          artist: track.artistName,
+          album: track.albumName,
+          artwork: [{ src: `/api/cover/album/${track.albumId}?size=512`, sizes: "512x512", type: "image/jpeg" }],
+        })
+      : null;
+    navigator.mediaSession.setActionHandler("nexttrack", () => usePlayer.getState().next());
+    navigator.mediaSession.setActionHandler("previoustrack", () => onBack());
+    navigator.mediaSession.setActionHandler("seekto", ({ seekTime }) => {
+      if (seekTime !== undefined) onSeek(seekTime);
+    });
+  }, [track]);
+
+  const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: back };
 
   return (
     // Always the night cabinet, so the lamp and the selection number read the same at any hour.
@@ -209,8 +225,10 @@ export function PlayerBar() {
           }
         }}
         onEnded={(event) => {
-          const before = usePlayer.getState().queue[usePlayer.getState().index]?.id;
-          next();
+          const ended = usePlayer.getState();
+          const before = ended.queue[ended.index]?.id;
+          // Repeating one track stays on it; the restart below does the rest.
+          if (ended.repeat !== "one") next();
           const after = usePlayer.getState();
           if (after.queue[after.index]?.id !== before) return;
           if (after.playing) {
@@ -249,9 +267,9 @@ export function PlayerBar() {
         style={{ transform: `scaleX(${duration ? Math.min(time / duration, 1) : 0})` }}
       />
 
-      <SelectionWindow playing={playing} index={track ? index : null} />
+      <SelectionWindow playing={playing} index={place} />
 
-      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-72 md:flex-none">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-52 md:flex-none lg:w-72">
         {track ? (
           // Keyed by track, so each new one rises into place.
           <div key={track.id} className="animate-rise flex min-w-0 flex-1 items-center gap-2.5">
@@ -278,7 +296,7 @@ export function PlayerBar() {
         {track ? <LikeButton key={`like-${track.id}`} track={track} className="max-md:hidden" /> : null}
       </div>
 
-      <Transport {...transport} className="max-md:[&>[data-previous]]:hidden" />
+      <Transport {...transport} className="max-md:[&>[data-wide]]:hidden" />
       <Scrubber time={time} duration={duration} disabled={!track} onSeek={seek} tone="lamp" className="min-w-0 flex-1 max-md:hidden" />
 
       <div className="flex items-center justify-end gap-1">
@@ -330,7 +348,26 @@ function SelectionWindow({ playing, index }: { playing: boolean; index: number |
   );
 }
 
-/** Previous, play or pause, next. */
+/** A key that switches a way of playing on and off. Its lamp is lit while it is on. */
+function ModeKey({ label, lit, large, onClick, children }: { label: string; lit: boolean; large: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Button
+      data-wide
+      variant="ghost"
+      size={large ? "icon-lg" : "icon-sm"}
+      aria-label={label}
+      title={label}
+      aria-pressed={lit}
+      className={cn("relative", lit ? "text-foreground" : "text-muted-foreground")}
+      onClick={onClick}
+    >
+      {children}
+      {lit ? <span className="lamp animate-pop absolute bottom-px left-1/2 size-1.5 -translate-x-1/2" data-lit /> : null}
+    </Button>
+  );
+}
+
+/** Shuffle, previous, play or pause, next, repeat. The slim bar on a phone keeps only play and next. */
 function Transport({
   playing,
   disabled,
@@ -348,9 +385,15 @@ function Transport({
   onPrevious: () => void;
   className?: string;
 }) {
+  const shuffle = usePlayer((state) => state.lineup !== null);
+  const repeat = usePlayer((state) => state.repeat);
+  const { toggleShuffle, cycleRepeat } = usePlayer.getState();
   return (
     <div className={cn("flex shrink-0 items-center justify-center", large ? "gap-3" : "gap-1.5", className)}>
-      <Button data-previous size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
+      <ModeKey label={shuffle ? "Shuffle is on" : "Shuffle"} lit={shuffle} large={large} onClick={toggleShuffle}>
+        <Shuffle />
+      </ModeKey>
+      <Button data-wide size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
         <SkipBack className="fill-current" />
       </Button>
       {/* The one coral key on the deck. */}
@@ -366,6 +409,9 @@ function Transport({
       <Button size={large ? "icon-lg" : "icon-sm"} aria-label="Next" disabled={disabled} onClick={onNext}>
         <SkipForward className="fill-current" />
       </Button>
+      <ModeKey label={repeat === "one" ? "Repeating this track" : repeat === "all" ? "Repeating the queue" : "Repeat"} lit={repeat !== "off"} large={large} onClick={cycleRepeat}>
+        {repeat === "one" ? <Repeat1 /> : <Repeat />}
+      </ModeKey>
     </div>
   );
 }
@@ -444,6 +490,10 @@ function NowPlaying({
   const queue = usePlayer((state) => state.queue);
   const index = usePlayer((state) => state.index);
   const { jump, remove, play } = usePlayer.getState();
+  const playing = usePlayer((state) => state.playing);
+  // The queue opens on the track that is playing, with what comes next below it, and follows it from one track to the
+  // next. A ref, not an effect: the sheet's rows don't exist yet when `open` turns true.
+  const showCurrent = useCallback((row: HTMLLIElement | null) => row?.scrollIntoView({ block: "start" }), []);
 
   return (
     // Not modal: the player bar stays live while the queue is open.
@@ -492,8 +542,14 @@ function NowPlaying({
         {queue.length ? (
           <ol className="no-scrollbar flex-1 overflow-y-auto p-2">
             {queue.map((item, i) => (
-              <li key={`${item.id}-${i}`} className="group hover:bg-accent/50 flex items-center gap-2 rounded-md pr-1 transition-colors">
-                <button type="button" className="min-w-0 flex-1 px-2 py-1.5 text-left outline-none" onClick={() => jump(i)}>
+              <li
+                key={`${item.id}-${i}`}
+                ref={i === index ? showCurrent : undefined}
+                aria-current={i === index ? "true" : undefined}
+                className="group hover:bg-accent/50 flex scroll-mt-1 items-center gap-2 rounded-md pr-1 pl-2 transition-colors"
+              >
+                <span className="lamp" data-lit={i === index && playing} />
+                <button type="button" className="min-w-0 flex-1 px-1 py-1.5 text-left outline-none" onClick={() => jump(i)}>
                   <p className={cn("truncate text-sm", i === index && "text-brand-text")}>{item.title}</p>
                   <p className="text-muted-foreground truncate text-xs">{item.artistName}</p>
                 </button>

@@ -18,11 +18,11 @@ import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { count } from "~/lib/format";
 import { ruleModes } from "~/components/admin/folder-rule-parts";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 type Library = RouterOutputs["admin"]["libraries"]["byId"];
 const number = new Intl.NumberFormat("en");
@@ -70,14 +70,14 @@ export function LibraryView({ id }: { id: number }) {
   if (library.isError) {
     return (
       <Page maxWidth="max-w-4xl">
-        <LoadError message={library.error.message} />
+        <LoadError error={library.error} />
       </Page>
     );
   }
   if (!data) {
     return (
       <Page maxWidth="max-w-4xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={2} />
       </Page>
     );
   }

@@ -52,7 +52,7 @@ export function AlbumsView({ isAdmin }: { isAdmin: boolean }) {
       {albums.isPending ? (
         <AlbumGridSkeleton />
       ) : albums.isError ? (
-        <LoadError message={albums.error.message} />
+        <LoadError error={albums.error} />
       ) : items.length === 0 ? (
         byPlays ? (
           <Empty>Nothing played yet. This fills in as you listen.</Empty>
