@@ -9,8 +9,9 @@ import { webScope } from "~/server/media/web";
 const params = z.object({ type: z.enum(["album", "track", "artist", "playlist"]), id: z.coerce.number().int() });
 
 /**
- * Cover art for the website: /api/cover/album/12?size=300. 404 when there is none.
- * Album art is kept by the browser for a day. A playlist's cover is generated
+ * Cover art for the website: /api/cover/album/12?size=300. 404 when there is none
+ * the caller can see. An album's cover (its art, or the record label drawn for
+ * one without) is kept by the browser for a day. A playlist's cover is generated
  * and changes when the playlist is renamed or its music does, so the browser
  * asks each time and is told when the one it has is still right.
  */
