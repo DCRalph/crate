@@ -2,10 +2,11 @@ import { ViewTransition, type ReactNode } from "react";
 
 /**
  * A page's content, for the moment one page gives way to another: the old one
- * fades out as the new one rises in, in one movement, while the tabs and the
- * deck hold still. The browser does the animating (a view transition), so a
- * browser without them simply swaps the pages. The motion is in globals.css
- * under `.page`.
+ * fades out as the new one rises in, in one movement, while the rail, the
+ * glass's frame and the console hold still. The browser does the animating
+ * (a view transition), so a browser without them simply swaps the pages. The
+ * motion is in globals.css under `.page`. The child must be the page's own
+ * scroller, so the picture taken of it is clipped to the glass.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
   return (

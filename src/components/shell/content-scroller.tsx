@@ -1,22 +1,27 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, type UIEvent } from "react";
+
+/** How a page's own scroller makes itself known to the glass it sits in. */
+const ScrollerContext = createContext<{ attach: (element: HTMLDivElement | null) => void; onScroll: (event: UIEvent<HTMLDivElement>) => void } | null>(null);
 
 /**
- * The scrolling content column, and the page's main landmark. The page
- * scrolls inside this element rather than the window, so the browser's own
- * scroll handling doesn't apply and it is done here: a new page starts at the
- * top, and Back returns to where you were (so a long album grid isn't lost by
- * opening an album). A page is its path and its query, so a folder opened in
- * the covers layout or the next page of a table starts at the top too.
+ * The glass's content area, and the page's main landmark. Each page scrolls
+ * in its own scroller (`PageScroller`), exactly the size of the glass, so the
+ * picture taken of it for a page transition is clipped to the glass and never
+ * spills over the console. This keeps what the browser would otherwise do: a
+ * new page starts at the top, and Back returns to where you were (so a long
+ * album grid isn't lost by opening an album). A page is its path and its
+ * query, so a folder opened in the covers layout or the next page of a table
+ * starts at the top too.
  *
- * It also takes the keyboard's focus when the path changes, unless something
- * is being typed, so the arrow and Page keys scroll the page that was just
- * opened and not nothing at all.
+ * It also gives the page's scroller the keyboard's focus when the path
+ * changes, unless something is being typed, so the arrow and Page keys
+ * scroll the page that was just opened and not nothing at all.
  */
 export function ContentScroller({ className, children }: { className?: string; children: React.ReactNode }) {
-  const ref = useRef<HTMLElement>(null);
+  const scroller = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
   const place = `${pathname}?${useSearchParams().toString()}`;
   /** Where each page was left. */
@@ -30,8 +35,9 @@ export function ContentScroller({ className, children }: { className?: string; c
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // A page's scroller is attached before this runs for the place it belongs to, so it is the one restored.
   useLayoutEffect(() => {
-    const element = ref.current;
+    const element = scroller.current;
     if (!element) return;
     const saved = restoring.current ? (positions.current.get(place) ?? 0) : 0;
     restoring.current = false;
@@ -49,14 +55,36 @@ export function ContentScroller({ className, children }: { className?: string; c
 
   useEffect(() => {
     const active = document.activeElement;
+    const element = scroller.current;
     // Only from the link or key that led here (or from nowhere): a search being typed keeps its box.
-    const fromOutside = !active || active === document.body || (active.matches("a, button") && !ref.current?.contains(active));
-    if (fromOutside) ref.current?.focus({ preventScroll: true });
+    const fromOutside = !active || active === document.body || (active.matches("a, button") && !element?.contains(active));
+    if (fromOutside) element?.focus({ preventScroll: true });
   }, [pathname]);
 
+  const attach = useCallback((element: HTMLDivElement | null) => {
+    if (element) scroller.current = element;
+  }, []);
+  const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => positions.current.set(place, event.currentTarget.scrollTop), [place]);
+
   return (
-    <main ref={ref} tabIndex={-1} className={className} onScroll={(event) => positions.current.set(place, event.currentTarget.scrollTop)}>
+    <ScrollerContext value={{ attach, onScroll }}>
+      <main className={className}>{children}</main>
+    </ScrollerContext>
+  );
+}
+
+/** A page's own scroller, filling the glass. Rendered by `Page`; the page transition is a picture of this. */
+export function PageScroller({ children }: { children: React.ReactNode }) {
+  const scroller = useContext(ScrollerContext);
+  return (
+    <div
+      ref={scroller?.attach}
+      onScroll={scroller?.onScroll}
+      tabIndex={-1}
+      data-scroller
+      className="absolute inset-0 overflow-x-hidden overflow-y-auto outline-none [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]"
+    >
       {children}
-    </main>
+    </div>
   );
 }

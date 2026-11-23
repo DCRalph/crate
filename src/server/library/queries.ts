@@ -189,6 +189,18 @@ export async function listMostPlayed(scope: Scope, range: PlayRange, limit = 50)
     .limit(limit);
 }
 
+/** How many times this person has played each of `trackIds`, all time, for the counts on track rows. Tracks they never played are left out. */
+export async function playCounts(scope: Scope, trackIds: number[]) {
+  if (!trackIds.length) return new Map<number, number>();
+  const rows = await db
+    .select({ trackId: playEvent.trackId, plays: sql<number>`count(*)::int` })
+    .from(playEvent)
+    .innerJoin(track, eq(track.id, playEvent.trackId))
+    .where(and(eq(playEvent.userId, scope.user.id), inArray(playEvent.trackId, trackIds), inScope(track.libraryId, scope)))
+    .groupBy(playEvent.trackId);
+  return new Map(rows.map((row) => [row.trackId, row.plays]));
+}
+
 /** Each artist with each album they are on: as its album artist, or credited on one of its tracks. */
 const appearance = db
   .select({ artistId: trackArtist.artistId, albumId: track.albumId })

@@ -27,10 +27,11 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art. Its owner can pick another generated one, the art of an album in the playlist, or upload a picture.
 - **Albums without art** get a cover drawn for them: a record whose label is in a colour of its own and carries the album's first letter. It is the same every time, on the website, in the iOS app and in Subsonic apps, and its tracks and artists show it too.
 - **Playlists page.** A folder tree or a grid of covers, with any playlist pinned to the top of your own list.
-- **Most played.** Everyone's top 50 tracks over the last 30 days, 90 days or all time, worked out from their own plays each time it is opened, so it is never stale. It opens from the top of Playlists, and Subsonic apps see the last 90 days as a read-only playlist.
+- **Most played.** Everyone's top 50 tracks over the last 30 days, 90 days or all time, worked out from their own plays each time it is opened, so it is never stale. It is a page on the rail and opens from the top of Playlists, and Subsonic apps see the last 90 days as a read-only playlist.
 - **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
-- **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most.
-- **The deck.** Each track is drawn as its waveform, measured from the audio when it is scanned, and that is what you seek on. Tracks follow each other with no gap, or over a crossfade if you set one. Shuffle, repeat, a queue you can reorder, a sleep timer, and keyboard shortcuts (press `?` for the list).
+- **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most, each row lettered so any tile can be played by its code ("B3").
+- **Your playlists always in reach.** The rail down the side holds the pages, your pinned playlists and your whole playlist tree, with folders that open in place.
+- **The console.** Each track is drawn as its waveform, measured from the audio when it is scanned, and that is what you seek on. Every track row also shows its waveform small, and how often you have played it. Tracks follow each other with no gap, or over a crossfade if you set one. Shuffle, repeat, a queue you can reorder, a sleep timer, and keyboard shortcuts (press `?` for the list).
 - **Selecting.** Click, Shift-click or Ctrl/Cmd-click tracks, then queue them or add them to a playlist together. A right-click on a track, an album or a playlist brings up its menu.
 - **An iOS app** of its own, in [`mobile/`](mobile/README.md). It pairs with a server (several, if you have them) over the server's own API, not Subsonic, and shows under Music apps like any other device. Playlists can be downloaded to the phone, and audio it downloads arrives encrypted for that one phone. It plays without gaps or with a crossfade, and its queue is shared with your other devices through the server.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
@@ -51,15 +52,17 @@ Two APIs sit on one core, so access rules and logging apply to both without bein
 
 ## Design
 
-The look is called Wallbox: the app as the selector panel of a jukebox. `design-previews/style-guide.html` is the style guide.
+The look is called Wallbox: the app as a jukebox, built as one machine. An enamel cabinet holds a rail of pages down its side, a glass window that every page is shown behind, and a console along the bottom. One rule decides every surface: glass shows, print lists, keys act. `design-previews/style-guide.html` is the original style guide for the parts (strips, plates, lamps, keys).
 
-- **Two grounds.** The cabinet is seafoam enamel by day and petrol green by night. Print (cards, tables, menus, dialogs) is ivory with ink in both. The player deck is always night.
-- **Tokens** are in `src/app/globals.css` under the shadcn names, so components carry no colours of their own. `.print` re-declares them in ivory and ink for everything inside it, and `.night` does the same for the deck.
-- **Day and night** follow the device unless someone picks one from the menu under their initial. The choice is kept in the browser, and a script in `<head>` applies it before the first paint (`src/components/shell/theme.tsx`).
+- **Three grounds.** The cabinet is seafoam enamel by day and petrol green by night. Glass and the console are dark at any hour, so covers and lamps read the same by day and by night. Print (cards, tables, menus, dialogs) is ivory with ink in both.
+- **Materials** are utilities in `src/app/globals.css`, all of them still paint: `enamel` (grain, lit from above), `glass-window` and `glass-bevel`, `glass-inset` (the console's little windows), `console`, `key` (a key with travel and a chrome lip), `lamp`, `plate`, and `glow`, a cover lit from underneath in its own colour, read from the picture as it loads (`src/components/library/cover.tsx`). `glow-lit` is what is playing: an amber ring. Amber means live and nothing else.
+- **Tokens** are in `src/app/globals.css` under the shadcn names, so components carry no colours of their own. `.print` re-declares them in ivory and ink for everything inside it, `.night` does the same for the console, and `.glass` for the window.
+- **Selection codes.** A list's rows are numbered; on a page with several rows of tiles each row has a letter and each tile a code ("B3"). Typing one and `Enter` plays it, and the console's window shows what is typed (`src/components/player/selection.ts`).
+- **Day and night** follow the device unless someone picks one from the menu under their name. The choice is kept in the browser, and a script in `<head>` applies it before the first paint (`src/components/shell/theme.tsx`).
 - **Type** is Jost, with Big Shoulders for numbers and titles (`t-num`, `t-display`, `font-title`; `t-label` is capitals for strips and keys).
-- **Motion** plays once and stops (`animate-rise`, `animate-pop`, `animate-roll`, `animate-arrive`), and all of it yields to reduced motion. Going from page to page is a view transition: the old page fades as the new one rises, and a cover travels from its tile to the page it opens (`src/components/shell/transitions.tsx`).
+- **Motion** plays once and stops (`animate-rise`, `animate-pop`, `animate-roll`, `animate-arrive`), nothing loops, and all of it yields to reduced motion. Going from page to page is a view transition of the page's own scroller, so it stays inside the glass: the old page fades as the new one rises, a cover travels from its tile to the page it opens, and the rail and console change at once (`src/components/shell/transitions.tsx`).
 
-Keyboard: `/` jumps to search, `Space` plays and pauses, and typing a row's number then `Enter` plays that row.
+Keyboard: `/` jumps to search, `Space` plays and pauses, and typing a row's number (or a tile's code) then `Enter` plays it.
 
 ## Reaching it on your network
 

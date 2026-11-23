@@ -25,7 +25,7 @@ function ModeKey({ label, lit, large, onClick, children }: { label: string; lit:
   );
 }
 
-/** Shuffle, previous, play or pause, next, repeat. The slim bar on a phone keeps only play and next. */
+/** Shuffle, previous, play or pause, next, repeat: chrome keys, and the one coral one. The slim bar on a phone keeps only play and next. */
 export function Transport({
   playing,
   disabled,
@@ -48,15 +48,15 @@ export function Transport({
       <ModeKey label={shuffle ? "Shuffle is on" : "Shuffle"} lit={shuffle} large={large} onClick={toggleShuffle}>
         <Shuffle />
       </ModeKey>
-      <Button data-wide size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
+      <Button data-wide size={large ? "icon-lg" : "icon"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
         <SkipBack className="fill-current" />
       </Button>
       {/* The one coral key on the deck. */}
-      <Button variant="brand" aria-label={playing ? "Pause" : "Play"} disabled={disabled} onClick={() => setPlaying(!playing)} className={large ? "h-12 w-16" : "h-9 w-11"}>
+      <Button variant="brand" aria-label={playing ? "Pause" : "Play"} disabled={disabled} onClick={() => setPlaying(!playing)} className={large ? "h-12 w-16" : "h-10 w-[3.25rem]"}>
         {playing ? <Pause className={cn("fill-current", large && "size-5")} /> : <Play className={cn("fill-current", large && "size-5")} />}
       </Button>
       {/* Off on the last track unless repeating: there is nowhere to go, and it shouldn't stop the music. */}
-      <Button size={large ? "icon-lg" : "icon-sm"} aria-label="Next" disabled={disabled || !canSkip} onClick={next}>
+      <Button size={large ? "icon-lg" : "icon"} aria-label="Next" disabled={disabled || !canSkip} onClick={next}>
         <SkipForward className="fill-current" />
       </Button>
       <ModeKey label={repeat === "one" ? "Repeating this track" : repeat === "all" ? "Repeating the queue" : "Repeat"} lit={repeat !== "off"} large={large} onClick={cycleRepeat}>
