@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { nowPlayingLayer } from "~/components/player/now-playing-layer";
 import { PlayerBar } from "~/components/player/player-bar";
 import { ContentScroller } from "~/components/shell/content-scroller";
 import { CrumbProvider } from "~/components/shell/crumb";
@@ -29,6 +30,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Suspense>
               <ContentScroller className="relative min-h-0 flex-1">{children}</ContentScroller>
             </Suspense>
+            {/* Where Now playing is drawn, over the page, when it is open. */}
+            <div id={nowPlayingLayer} className="contents" />
             <div className="glass-bevel absolute inset-0 z-20" aria-hidden />
           </div>
         </div>

@@ -86,6 +86,7 @@ export function Scrubber({
   duration,
   onSeek,
   tone,
+  size = "md",
   className,
 }: {
   /** The track being played, or undefined with nothing on the deck. */
@@ -95,6 +96,8 @@ export function Scrubber({
   onSeek: (seconds: number) => void;
   /** Amber for the console: the played part of the waveform is lit, and so is the plain slider. Left out on print, where ink reads better. */
   tone?: "lamp";
+  /** "lg" is the tall waveform of Now playing, with the times under it. */
+  size?: "md" | "lg";
   className?: string;
 }) {
   const trpc = useTRPC();
@@ -131,9 +134,20 @@ export function Scrubber({
   const shown = moved ?? time;
 
   return (
-    <div className={cn("text-muted-foreground flex w-full items-center gap-2 text-[11px] tabular-nums", className)}>
+    <div
+      className={cn(
+        "text-muted-foreground flex w-full items-center gap-2 text-[11px] tabular-nums",
+        size === "lg" && "grid grid-cols-2 gap-x-2 gap-y-1.5 text-[12px] [&>span]:w-auto [&>span:first-child]:order-2 [&>span:first-child]:text-left [&>span:last-child]:order-3 [&>span:last-child]:text-right",
+        className,
+      )}
+    >
       <span className="w-9 text-right">{formatDuration(shown)}</span>
-      <div className="has-focus-visible:ring-ring/50 text-foreground relative flex h-9 min-w-0 flex-1 items-center rounded-sm has-focus-visible:ring-[3px]">
+      <div
+        className={cn(
+          "has-focus-visible:ring-ring/50 text-foreground relative flex min-w-0 flex-1 items-center rounded-sm has-focus-visible:ring-[3px]",
+          size === "lg" ? "order-1 col-span-2 h-20" : "h-9",
+        )}
+      >
         {peaks ? <Waveform key={trackId} peaks={peaks} played={duration ? Math.min(shown / duration, 1) : 0} lit={tone === "lamp"} /> : null}
         <Slider
           tone={tone}

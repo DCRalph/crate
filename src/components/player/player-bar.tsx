@@ -11,6 +11,7 @@ import { cn } from "~/lib/utils";
 import { usePlayerEngine } from "./engine";
 import { useDeckKeys } from "./keys";
 import { NowPlaying } from "./now-playing";
+import { NowPlayingKey, NowPlayingView, useNowPlayingView } from "./now-playing-view";
 import { Scrubber } from "./scrubber";
 import { useSelection } from "./selection";
 import { ShortcutsDialog } from "./shortcuts";
@@ -54,7 +55,16 @@ export function PlayerBar() {
         {track ? (
           // Keyed by track, so each new one rises into place. It sits back a little until the sound starts.
           <div key={track.id} aria-busy={loading} className={cn("animate-rise flex min-w-0 flex-1 items-center gap-2.5 transition-opacity", loading && "opacity-55")}>
-            <Cover type="album" id={track.albumId} size={112} glow className="size-12 max-sm:hidden" />
+            {/* The cover opens Now playing. */}
+            <button
+              type="button"
+              aria-label={`Now playing: ${track.title}`}
+              aria-keyshortcuts="V"
+              onClick={() => useNowPlayingView.getState().toggle()}
+              className="focus-visible:ring-ring/60 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px] max-sm:hidden"
+            >
+              <Cover type="album" id={track.albumId} size={112} glow className="size-12" />
+            </button>
             {/* The track as a title strip: name on ivory, artist on the band. */}
             <div className="print min-w-0 flex-1 overflow-hidden rounded-[3px] max-md:hidden">
               <Link href={`/albums/${track.albumId}`} className="t-label block truncate px-2 text-[12.5px] leading-[26px] hover:underline">
@@ -102,6 +112,7 @@ export function PlayerBar() {
         >
           <ListMusic />
         </Button>
+        <NowPlayingKey disabled={!track} className="max-md:hidden" />
         {/* Narrower screens find the volume in the playback settings. */}
         <Volume className="max-lg:hidden" />
       </div>
@@ -126,6 +137,7 @@ export function PlayerBar() {
         settings={<StreamControl onNavigate={() => setSheetOpen(false)} />}
       />
       <ShortcutsDialog />
+      <NowPlayingView track={track} time={time} duration={duration} playing={playing} onSeek={seek} onPrevious={back} />
     </footer>
   );
 }
