@@ -8,8 +8,8 @@ import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { useTRPC } from "~/trpc/react";
 
-/** A bar and the gap after it, in pixels. */
-const pitch = 3;
+/** A bar and the gap after it, in pixels: a bar one pixel wide, then half a pixel of gap. */
+const pitch = 1.5;
 
 /** The track's loudness as bars about a centre line, in whatever the text colour is. */
 const Bars = memo(function Bars({ peaks, count }: { peaks: number[]; count: number }) {
@@ -22,7 +22,7 @@ const Bars = memo(function Bars({ peaks, count }: { peaks: number[]; count: numb
       for (let i = from; i < to; i++) peak = Math.max(peak, peaks[i] ?? 0);
       // Never nothing: silence is still a thin line, so the track's whole length can be seen and clicked.
       const height = Math.max(4, (peak / 255) * 100);
-      d += `M${bar * pitch} ${(100 - height) / 2}h2v${height}h-2z`;
+      d += `M${bar * pitch} ${(100 - height) / 2}h1v${height}h-1z`;
     }
     return d;
   }, [peaks, count]);

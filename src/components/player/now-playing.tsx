@@ -16,27 +16,37 @@ import { usePlayer } from "./store";
 /**
  * The sheet behind the queue button: the track that is playing, large, with
  * its cover, and the queue under it. On a desktop it sits above the deck and
- * leaves it usable. On a phone it fills the screen and also holds the
- * scrubber, transport and playback settings (passed as children) that the
- * slim bar leaves out.
+ * leaves it usable. On a phone it fills the screen and also holds what the
+ * slim bar leaves out: the scrubber and transport (`controls`) and the
+ * playback settings (`settings`).
+ *
+ * It has no bar across the top. The cover starts the sheet, edge to edge,
+ * with the close key on one corner and, on a phone, the settings on the
+ * other. The name and artist are a tile's strip under it.
  */
 export function NowPlaying({
   open,
   onOpenChange,
   track,
   returnFocusTo,
-  children,
+  controls,
+  settings,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   track: WebTrack | undefined;
   /** Where the keyboard goes back to when the sheet closes. */
   returnFocusTo: React.RefObject<HTMLElement | null>;
-  children: React.ReactNode;
+  controls: React.ReactNode;
+  settings: React.ReactNode;
 }) {
   const length = usePlayer((state) => state.queue.length);
   /** Whether the sheet is closing because something on the page was clicked, which then keeps the focus. */
   const clickedAway = useRef(false);
+  /** Following a link from the sheet: on a phone the sheet covers the page it leads to, so it closes. */
+  const leave = () => {
+    if (window.matchMedia("(max-width: 47.99rem)").matches) onOpenChange(false);
+  };
 
   return (
     // Not modal: the deck stays live while it is open.
@@ -45,6 +55,7 @@ export function NowPlaying({
         // Marks the one dialog that Space and the other keys still work in.
         data-queue
         className="w-full gap-0 outline-none md:bottom-(--player-height)! md:h-auto!"
+        showCloseButton={!track}
         // Focus goes to the sheet itself, not to the first control in it.
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -62,26 +73,40 @@ export function NowPlaying({
           clickedAway.current = false;
         }}
       >
-        <SheetHeader className="border-b">
+        {/* With a track there is no bar across the top: the cover starts the sheet, and the way out sits on its corner. */}
+        <SheetHeader className={track ? "sr-only" : "border-b"}>
           <SheetTitle>Now playing</SheetTitle>
           <SheetDescription className="sr-only">The track that is playing, and what is queued after it.</SheetDescription>
         </SheetHeader>
 
         {track ? (
-          <div className="flex flex-col gap-4 border-b p-5">
-            <Cover key={track.albumId} type="album" id={track.albumId} size={640} className="animate-rise mx-auto w-full max-w-64 md:max-w-56" />
-            <div key={track.id} className="animate-arrive flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <Link href={`/albums/${track.albumId}`} className="block truncate font-medium hover:underline">
+          <div className="border-b">
+            <div className="relative">
+              {/* Edge to edge, and never so tall on a short screen that the queue is pushed off it. */}
+              <Cover key={track.albumId} type="album" id={track.albumId} size={800} className="animate-rise max-h-[46svh] w-full rounded-none" />
+              <div className="print absolute top-2 left-2 rounded-md shadow-[0_1px_3px_rgb(0_0_0/0.3)] md:hidden">{settings}</div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => onOpenChange(false)}
+                className="print focus-visible:ring-ring/60 absolute top-2 right-2 grid size-8 place-items-center rounded-md shadow-[0_1px_3px_rgb(0_0_0/0.3)] outline-none focus-visible:ring-[3px]"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            {/* The name and artist as a tile's strip, under the cover and as wide. */}
+            <div key={track.id} className="animate-arrive">
+              <div className="flex items-center pr-2">
+                <Link href={`/albums/${track.albumId}`} onClick={leave} className="t-label min-w-0 flex-1 truncate px-4 text-[13px] leading-9 hover:underline">
                   {track.title}
                 </Link>
-                <Link href={`/artists/${track.artistId}`} className="text-muted-foreground block truncate text-sm hover:underline">
-                  {track.artistName}
-                </Link>
+                <LikeButton key={track.id} track={track} />
               </div>
-              <LikeButton key={track.id} track={track} />
+              <Link href={`/artists/${track.artistId}`} onClick={leave} className="bg-brand block truncate px-4 text-xs leading-6 font-medium hover:underline">
+                {track.artistName}
+              </Link>
             </div>
-            <div className="flex flex-col gap-4 md:hidden">{children}</div>
+            <div className="flex flex-col gap-3 p-4 md:hidden">{controls}</div>
           </div>
         ) : null}
 

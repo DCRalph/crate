@@ -49,8 +49,8 @@ function Tab({ href, current, children }: { href: string; current: boolean; chil
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "t-label focus-visible:ring-ring/60 shrink-0 rounded-t-md px-3.5 pt-2 text-[12.5px] outline-none transition-colors focus-visible:ring-[3px]",
-        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-foreground/80 hover:text-foreground has-data-pending:bg-strip has-data-pending:text-ink pb-[7px]",
+        "t-label focus-visible:ring-ring/60 shrink-0 rounded-t-md px-3 pt-1.5 text-[12px] outline-none transition-colors focus-visible:ring-[3px] md:px-3.5 md:pt-2 md:text-[12.5px]",
+        current ? "bg-strip text-ink pb-[7px] md:pb-[9px]" : "bg-secondary text-foreground/80 hover:text-foreground has-data-pending:bg-strip has-data-pending:text-ink pb-[5px] md:pb-[7px]",
       )}
     >
       {children}
@@ -74,11 +74,11 @@ export function TopBar({ user }: { user: HeaderUser }) {
 
   return (
     <header className="bg-muted shrink-0">
-      <div className="border-strip flex flex-wrap items-end gap-x-3 border-b-[3px] px-3 pt-2.5 sm:px-4">
-        <Link href="/home" aria-label={`${site.name}, home`} className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
+      <div className="border-strip flex flex-wrap items-end gap-x-3 border-b-[3px] px-3 pt-2 sm:px-4 md:pt-2.5">
+        <Link href="/home" aria-label={`${site.name}, home`} className="focus-visible:ring-ring/60 mb-1.5 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px] md:mb-2">
           <Mark lit={playing} />
         </Link>
-        <div className="mb-2 flex min-w-0 flex-1 items-center justify-end gap-2 md:order-3 md:flex-none">
+        <div className="mb-1.5 flex min-w-0 flex-1 items-center justify-end gap-2 md:order-3 md:mb-2 md:flex-none">
           {/* Reads the URL's query, which a prerendered shell doesn't have yet. */}
           <Suspense>
             <SearchBox />

@@ -11,7 +11,6 @@ import { Cover } from "~/components/library/cover";
 import { HeroSkeleton } from "~/components/shell/skeletons";
 import { usePin } from "~/components/playlists/use-pin";
 import { Hero } from "~/components/library/hero";
-import { PlayKey } from "~/components/library/play-key";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
 import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
@@ -36,7 +35,7 @@ export function PlaylistView({ id }: { id: number }) {
   const coverKey = playlist.data?.coverKey ?? queryClient.getQueryData(trpc.playlists.tree.queryKey())?.playlists.find((row) => row.id === id)?.coverKey;
   const cover = coverKey ? (
     <SharedCover name={`playlist-${id}`}>
-      <Cover type="playlist" id={id} version={coverKey} size={400} className="w-40 sm:w-48" />
+      <Cover type="playlist" id={id} version={coverKey} size={400} />
     </SharedCover>
   ) : undefined;
   const togglePin = usePin();
@@ -91,6 +90,8 @@ export function PlaylistView({ id }: { id: number }) {
       <PageCrumb label={data.name} />
       <Hero
         cover={cover}
+        from={from}
+        tracks={data.tracks}
         title={data.name}
         note={data.comment}
         band={[
@@ -104,7 +105,6 @@ export function PlaylistView({ id }: { id: number }) {
             <span key={fact}>{fact}</span>
           ))}
       >
-        <PlayKey from={from} tracks={data.tracks} />
         <Button
           variant="outline"
           disabled={!data.tracks.length}

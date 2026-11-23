@@ -7,7 +7,6 @@ import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
 import { Hero } from "~/components/library/hero";
-import { PlayKey } from "~/components/library/play-key";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
 import { PageCrumb } from "~/components/shell/crumb";
@@ -32,7 +31,7 @@ export function AlbumView({ id }: { id: number }) {
   const from = `album:${id}`;
   const cover = (
     <SharedCover name={`album-${id}`}>
-      <Cover type="album" id={id} size={400} className="w-40 sm:w-48" />
+      <Cover type="album" id={id} size={400} />
     </SharedCover>
   );
 
@@ -51,6 +50,8 @@ export function AlbumView({ id }: { id: number }) {
       {data ? (
         <Hero
           cover={cover}
+          from={from}
+          tracks={data.tracks}
           title={data.name}
           band={
             <>
@@ -63,7 +64,6 @@ export function AlbumView({ id }: { id: number }) {
             </>
           }
         >
-          <PlayKey from={from} tracks={data.tracks} />
           <Button
             variant="outline"
             disabled={!data.tracks.length}
@@ -73,7 +73,8 @@ export function AlbumView({ id }: { id: number }) {
             }}
           >
             <ListEnd />
-            Add to queue
+            {/* On a phone the keys show their sign alone. */}
+            <span className="max-sm:sr-only">Add to queue</span>
           </Button>
         </Hero>
       ) : (
