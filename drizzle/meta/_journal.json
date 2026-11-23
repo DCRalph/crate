@@ -43,6 +43,13 @@
       "when": 1795394591772,
       "tag": "0005_unlock_orphaned_playlists",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795395795077,
+      "tag": "0006_track_waveform",
+      "breakpoints": true
     }
   ]
 }

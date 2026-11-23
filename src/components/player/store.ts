@@ -14,6 +14,13 @@ export type Normalise = "off" | "track" | "album";
 export type Repeat = "off" | "all" | "one";
 const repeats: Repeat[] = ["off", "all", "one"];
 
+/** What the sleep timer can be set to: minutes from now, or the end of the track that is playing. */
+export type SleepChoice = 15 | 30 | 60 | "track";
+export const sleepChoices: SleepChoice[] = [15, 30, 60, "track"];
+
+/** Seconds one track can fade into the next. 0 is none: tracks follow each other with no gap. */
+export const crossfades = [0, 2, 5, 8, 12];
+
 /** A copy in a random order. */
 function shuffled<T>(items: readonly T[]) {
   const result = [...items];
@@ -40,6 +47,12 @@ type PlayerState = {
   repeat: Repeat;
   /** Counts the times a track was chosen to play (a new queue, a jump, a skip). Choosing the track that is already playing starts it over. */
   turn: number;
+  /** Where the queue was played from ("album:12", "playlist:5", "liked"), so that page's Play key can show it is the one playing. */
+  from: string | null;
+  /** What the sleep timer was set to, and when it runs out if that is a time. Not kept across a reload. */
+  sleep: { choice: SleepChoice; at: number | null } | null;
+  /** Seconds of crossfade between tracks. */
+  crossfade: number;
   playing: boolean;
   /** 0 to 1. */
   volume: number;
@@ -52,8 +65,8 @@ type PlayerState = {
   normalise: Normalise;
   /** Tracks that failed to play as they are in this browser, by id. They are converted for the rest of the session. */
   unplayable: ReadonlySet<number>;
-  /** Replaces the queue and starts playing at `startAt`. Left out, that is the first track, or any track when shuffle is on. */
-  play: (tracks: WebTrack[], startAt?: number) => void;
+  /** Replaces the queue and starts playing at `startAt`. Left out, that is the first track, or any track when shuffle is on. `from` names the page it came from. */
+  play: (tracks: WebTrack[], startAt?: number, from?: string) => void;
   /** Adds to the end of the queue. Starts playing if nothing was queued. */
   enqueue: (tracks: WebTrack[]) => void;
   /** Adds straight after the current track. Starts playing if nothing was queued. */
@@ -66,6 +79,11 @@ type PlayerState = {
   remove: (index: number) => void;
   /** Empties the queue of everything but the current track, which carries on. */
   clear: () => void;
+  /** Moves a queued track to another place. The current track stays current wherever it ends up. */
+  move: (from: number, to: number) => void;
+  /** Stops the music after so many minutes or at the end of this track. Null switches the timer off. */
+  setSleep: (choice: SleepChoice | null) => void;
+  setCrossfade: (seconds: number) => void;
   /** On to the next track. Past the last one it goes round again when repeating, and stops otherwise. */
   next: () => void;
   previous: () => void;
@@ -96,6 +114,9 @@ export const usePlayer = create<PlayerState>()(
       lineup: null,
       repeat: "off",
       turn: 0,
+      from: null,
+      sleep: null,
+      crossfade: 0,
       playing: false,
       volume: 1,
       volumeBeforeMute: 1,
@@ -103,11 +124,10 @@ export const usePlayer = create<PlayerState>()(
       format: "mp3",
       normalise: "off",
       unplayable: new Set(),
-      play: (tracks, startAt) => {
-        const playing = tracks.length > 0;
-        const turn = get().turn + 1;
-        if (get().lineup === null) set({ queue: tracks, index: startAt ?? 0, playing, turn });
-        else set({ lineup: tracks, queue: shuffledFrom(tracks, startAt ?? Math.floor(Math.random() * tracks.length)), index: 0, playing, turn });
+      play: (tracks, startAt, from = undefined) => {
+        const common = { playing: tracks.length > 0, turn: get().turn + 1, from: from ?? null };
+        if (get().lineup === null) set({ queue: tracks, index: startAt ?? 0, ...common });
+        else set({ lineup: tracks, queue: shuffledFrom(tracks, startAt ?? Math.floor(Math.random() * tracks.length)), index: 0, ...common });
       },
       enqueue: (tracks) => {
         const { queue, lineup, play } = get();
@@ -147,6 +167,16 @@ export const usePlayer = create<PlayerState>()(
         const kept = queue.slice(index, index + 1);
         set({ queue: kept, index: 0, lineup: lineup && kept });
       },
+      move: (from, to) => {
+        const { queue, index } = get();
+        if (from === to || !queue[from] || to < 0 || to >= queue.length) return;
+        const current = queue[index];
+        const next = queue.toSpliced(from, 1).toSpliced(to, 0, queue[from]);
+        // Found again by identity, since the same track can be queued twice.
+        set({ queue: next, index: current ? next.indexOf(current) : 0 });
+      },
+      setSleep: (choice) => set({ sleep: choice === null ? null : { choice, at: choice === "track" ? null : Date.now() + choice * 60_000 } }),
+      setCrossfade: (crossfade) => set({ crossfade }),
       next: () => {
         const { queue, index, repeat, turn } = get();
         if (index < queue.length - 1) set({ index: index + 1, playing: true, turn: turn + 1 });
@@ -173,11 +203,13 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: "crate-player",
-      partialize: ({ queue, index, lineup, repeat, volume, volumeBeforeMute, quality, format, normalise }) => ({
+      partialize: ({ queue, index, lineup, repeat, from, crossfade, volume, volumeBeforeMute, quality, format, normalise }) => ({
         queue,
         index,
         lineup,
         repeat,
+        from,
+        crossfade,
         volume,
         volumeBeforeMute,
         quality,
@@ -204,17 +236,29 @@ let requests = 0;
  * was pressed, or anything else was chosen to play, while it was on its way.
  * An empty answer leaves the queue alone. Says which of those happened.
  */
-export async function playWhenLoaded(load: () => Promise<WebTrack[]>): Promise<"played" | "empty" | "superseded"> {
+export async function playWhenLoaded(load: () => Promise<WebTrack[]>, from?: string): Promise<"played" | "empty" | "superseded"> {
   const request = ++requests;
   const { turn } = usePlayer.getState();
   const tracks = await load();
   if (request !== requests || usePlayer.getState().turn !== turn) return "superseded";
   if (!tracks.length) return "empty";
-  usePlayer.getState().play(tracks);
+  usePlayer.getState().play(tracks, undefined, from);
   return "played";
+}
+
+/**
+ * For a Play key that stands for a whole album, playlist or list. `mine` is
+ * true while the queue is the one played from `from`, and `sounding` while it
+ * is also playing, which is when the key should read Pause. `toggle` pauses
+ * or resumes it, and is only for when `mine` is true.
+ */
+export function usePlayingFrom(from: string) {
+  const mine = usePlayer((state) => state.from === from && state.queue.length > 0);
+  const sounding = usePlayer((state) => state.from === from && state.playing);
+  return { mine, sounding, toggle: () => usePlayer.getState().setPlaying(!usePlayer.getState().playing) };
 }
 
 /** Forgets the queue, in this tab and in what the browser keeps, for when the person signs out. Their preferences stay. */
 export function forgetQueue() {
-  usePlayer.setState({ queue: [], index: 0, lineup: usePlayer.getState().lineup && [], playing: false });
+  usePlayer.setState({ queue: [], index: 0, lineup: usePlayer.getState().lineup && [], playing: false, from: null, sleep: null });
 }

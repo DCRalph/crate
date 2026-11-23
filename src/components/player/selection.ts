@@ -33,20 +33,22 @@ export const useSelection = create<Selection>()((set, get) => ({
 
 /**
  * Makes a list the one that typed numbers pick from, for as long as it is on
- * screen. Rows are numbered from 1; `onChoose` gets the row's index.
+ * screen. Rows are numbered from 1; `onChoose` gets the row's index. A list
+ * that shows no numbers passes `enabled` false and takes no part.
  */
-export function useNumbered(count: number, onChoose: (index: number) => void) {
+export function useNumbered(count: number, onChoose: (index: number) => void, enabled = true) {
   const choose = useEffectEvent((number: number) => {
     if (number >= 1 && number <= count) onChoose(number - 1);
   });
   useEffect(() => {
+    if (!enabled) return;
     const mine = (number: number) => choose(number);
     useSelection.setState({ choose: mine });
     return () => {
       // Only if a newer list hasn't already taken over.
       if (useSelection.getState().choose === mine) useSelection.setState({ choose: null });
     };
-  }, []);
+  }, [enabled]);
 }
 
 /** A row's number as printed: two digits at least, "07". */

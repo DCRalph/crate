@@ -31,12 +31,12 @@ export async function requireUser(next: string) {
 /** For pages: admins only. Everyone else lands on the library. */
 export async function requireAdmin(next: string) {
   const session = await requireUser(next);
-  if (session.user.role !== "admin") redirect("/albums");
+  if (session.user.role !== "admin") redirect("/home");
   return session;
 }
 
 /** Only same-site paths are allowed as post-sign-in destinations, so `?next=` can't bounce someone to another origin. */
-export function safeNext(next: string | string[] | undefined | null, fallback = "/albums") {
+export function safeNext(next: string | string[] | undefined | null, fallback = "/home") {
   if (typeof next !== "string" || !next.startsWith("/") || next.startsWith("//")) return fallback;
   return next;
 }

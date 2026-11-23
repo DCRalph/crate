@@ -32,7 +32,9 @@ function browserPlays(suffix: string) {
  * sent as. A track is converted when it is over the quality, when the browser
  * says it can't play that kind of file, or when it already failed to play as
  * it is. The player bar and every settings control read this one hook, so
- * what the bar plays and what the settings say can't drift apart.
+ * what the bar plays and what the settings say can't drift apart. `decide`
+ * answers the same question for any other track, which is how the next one
+ * is got ready before it is current.
  */
 export function usePlayback() {
   const trpc = useTRPC();
@@ -43,9 +45,10 @@ export function usePlayback() {
   const track = useCurrentTrack();
   // A preference above the cap is the cap in practice, so that is what the settings show as chosen.
   const quality = cap !== null && (preferred === null || preferred > cap) ? cap : preferred;
-  const convert = !!track && (unplayable.has(track.id) || !browserPlays(track.suffix));
-  const sent = track ? decideWebStream(track, { maxBitRate: quality, format, convert }, cap) : null;
-  return { cap, quality, format, track, sent };
+  const decide = (of: WebTrack) =>
+    decideWebStream(of, { maxBitRate: quality, format, convert: unplayable.has(of.id) || !browserPlays(of.suffix) }, cap);
+  const sent = track ? decide(track) : null;
+  return { cap, quality, format, track, sent, decide };
 }
 
 /** The quality choices, best first. The ones above the account's cap can't be picked. */

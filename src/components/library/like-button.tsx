@@ -44,6 +44,8 @@ export function LikeButton({ track, className }: { track: { id: number; title: s
       type="button"
       aria-label={liked ? `Unlike ${track.title}` : `Like ${track.title}`}
       aria-pressed={liked}
+      // How the deck's L key finds its heart.
+      data-like
       onClick={() => {
         // One write at a time, so a quick double click can't land out of order.
         if (star.isPending) return;

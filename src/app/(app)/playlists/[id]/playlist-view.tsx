@@ -4,18 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Image as ImageIcon, Info, ListEnd, MoreHorizontal, Pencil, Pin, Play } from "lucide-react";
+import { Copy, Image as ImageIcon, Info, ListEnd, MoreHorizontal, Pencil, Pin } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
 import { HeroSkeleton } from "~/components/shell/skeletons";
 import { usePin } from "~/components/playlists/use-pin";
 import { Hero } from "~/components/library/hero";
+import { PlayKey } from "~/components/library/play-key";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
 import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
+import { SharedCover } from "~/components/shell/transitions";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
@@ -28,7 +30,15 @@ export function PlaylistView({ id }: { id: number }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const playlist = useQuery(trpc.playlists.byId.queryOptions({ id }));
-  const { play, enqueue } = usePlayer.getState();
+  const { enqueue } = usePlayer.getState();
+  const from = `playlist:${id}`;
+  // The cover's address changes with the cover, so until the playlist has loaded it is only known if the list of playlists is in hand.
+  const coverKey = playlist.data?.coverKey ?? queryClient.getQueryData(trpc.playlists.tree.queryKey())?.playlists.find((row) => row.id === id)?.coverKey;
+  const cover = coverKey ? (
+    <SharedCover name={`playlist-${id}`}>
+      <Cover type="playlist" id={id} version={coverKey} size={400} className="w-40 sm:w-48" />
+    </SharedCover>
+  ) : undefined;
   const togglePin = usePin();
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -70,7 +80,7 @@ export function PlaylistView({ id }: { id: number }) {
   if (!data) {
     return (
       <Page maxWidth="max-w-5xl" title="trail">
-        <HeroSkeleton />
+        <HeroSkeleton cover={cover} />
         <TrackTableSkeleton covers />
       </Page>
     );
@@ -80,7 +90,7 @@ export function PlaylistView({ id }: { id: number }) {
     <Page maxWidth="max-w-5xl" title="trail">
       <PageCrumb label={data.name} />
       <Hero
-        cover={<Cover type="playlist" id={id} version={data.coverKey} size={480} className="w-40 sm:w-48" />}
+        cover={cover}
         title={data.name}
         note={data.comment}
         band={[
@@ -94,10 +104,7 @@ export function PlaylistView({ id }: { id: number }) {
             <span key={fact}>{fact}</span>
           ))}
       >
-        <Button variant="brand" disabled={!data.tracks.length} onClick={() => play(data.tracks)}>
-          <Play className="fill-current" />
-          Play
-        </Button>
+        <PlayKey from={from} tracks={data.tracks} />
         <Button
           variant="outline"
           disabled={!data.tracks.length}
@@ -156,6 +163,7 @@ export function PlaylistView({ id }: { id: number }) {
           showAlbum
           showCover
           onRemove={data.canEdit ? remove : undefined}
+          from={from}
         />
       ) : (
         <Empty>{data.canEdit ? "No tracks yet. Add some from any track's menu." : "No tracks."}</Empty>

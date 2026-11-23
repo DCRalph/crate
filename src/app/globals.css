@@ -266,6 +266,53 @@
   }
 }
 
+/*
+ * Going from one page to another. The browser takes a picture of the old page
+ * and the new one and animates between them; the tabs and the deck are not
+ * part of either picture, so they hold still. The old page goes quickly and
+ * the new one rises in as it leaves, in one movement.
+ */
+::view-transition-old(.page) {
+  animation: 120ms ease-in both page-out;
+}
+::view-transition-new(.page) {
+  animation: 320ms var(--ease-out-expo) 60ms both page-in;
+}
+/* A cover travelling from its tile to the top of the page it opens. */
+::view-transition-group(.cover) {
+  animation-duration: 340ms;
+  animation-timing-function: var(--ease-out-expo);
+}
+/* Clicks land on the page underneath while a transition plays. */
+::view-transition {
+  pointer-events: none;
+}
+@keyframes page-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* A browser without view transitions gets the page rising in on its own, as before. */
+@supports not (view-transition-name: none) {
+  .page-enter {
+    animation: var(--animate-rise);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
 @layer components {
   /* Page and section titles, lettered like a selection number. */
   .font-title {

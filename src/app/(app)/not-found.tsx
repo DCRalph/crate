@@ -13,7 +13,7 @@ export default function NotFound() {
           <p className="text-muted-foreground text-sm">There is nothing at this address. It may have been moved or removed.</p>
         </div>
         <Button asChild variant="brand" size="sm">
-          <Link href="/albums">Back to albums</Link>
+          <Link href="/home">Back home</Link>
         </Button>
       </div>
     </Page>

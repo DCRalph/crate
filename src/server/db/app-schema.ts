@@ -170,6 +170,21 @@ export const trackArtist = pgTable(
   (t) => [primaryKey({ columns: [t.trackId, t.artistId] }), index("track_artist_artist_idx").on(t.artistId)],
 );
 
+/**
+ * How loud a track is along its length, for the deck's waveform. Worked out
+ * from the audio when the track is scanned. `size` and `mtimeMs` are the
+ * file's as it was read, so a file that changes is read again.
+ */
+export const trackWaveform = pgTable("track_waveform", {
+  trackId: integer("track_id")
+    .primaryKey()
+    .references(() => track.id, { onDelete: "cascade" }),
+  /** One byte a slice, base64. Empty when the file couldn't be read. */
+  peaks: text("peaks").notNull(),
+  size: bigint("size", { mode: "number" }).notNull(),
+  mtimeMs: bigint("mtime_ms", { mode: "number" }).notNull(),
+});
+
 export const annotationTypes = ["track", "album", "artist"] as const;
 export type AnnotationType = (typeof annotationTypes)[number];
 

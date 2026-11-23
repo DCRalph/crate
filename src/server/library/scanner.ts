@@ -10,6 +10,7 @@ import { album, artist, library, track, trackArtist, type ScanResult } from "~/s
 import { syncFolderRules } from "~/server/playlists/folder-rules";
 import { artistKey, fromFileName, readCredit, splitJoint, type Credit } from "./artists";
 import { audioTypes, coverFilePattern, suffixOf } from "./audio";
+import { drawWaveforms } from "./waveform";
 
 type Library = typeof library.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -18,7 +19,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type ScanProgress = {
   libraryId: number;
   libraryName: string;
-  phase: "listing" | "reading" | "cleaning";
+  phase: "listing" | "reading" | "cleaning" | "waveforms";
   done: number;
   total: number;
   startedAt: number;
@@ -394,6 +395,12 @@ export function startScan(
         );
         await db.update(library).set({ lastScanAt: new Date(), lastScan: result }).where(eq(library.id, lib.id));
         if (!result.error) await syncFolderRules(lib.id);
+        // Last, and after the scan's result is saved: the tracks are all usable already, this only draws them.
+        if (!result.error) {
+          await drawWaveforms(lib.id, (done, total) => {
+            state.crateScan = { libraryId: lib.id, libraryName: lib.name, phase: "waveforms", done, total, startedAt: state.crateScan?.startedAt ?? Date.now() };
+          });
+        }
         await recordActivity({
           action: "library.scanned",
           actor: options.actor ?? { id: null, name: "Schedule" },
