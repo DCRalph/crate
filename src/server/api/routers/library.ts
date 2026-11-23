@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { playRanges } from "~/lib/most-played";
 import { inScope, type Scope } from "~/server/access";
 import { db } from "~/server/db";
 import { album, annotation, annotationTypes, artist, track } from "~/server/db/app-schema";
@@ -11,6 +12,7 @@ import {
   listAlbums,
   listAlbumsByPlays,
   listArtists,
+  listMostPlayed,
   listTracks,
   search,
   tracksWith,
@@ -169,6 +171,12 @@ export const libraryRouter = router({
       limit: 5000,
     });
     return tracks.map((row) => toWebTrack(ctx.scope, row));
+  }),
+
+  /** The user's most played tracks over a range, each with its play count in that range, for the Most played page. */
+  mostPlayed: protectedProcedure.input(z.object({ range: z.enum(playRanges) })).query(async ({ ctx, input }) => {
+    const tracks = await listMostPlayed(ctx.scope, input.range);
+    return tracks.map((row) => ({ ...toWebTrack(ctx.scope, row), plays: row.plays }));
   }),
 
   star: protectedProcedure

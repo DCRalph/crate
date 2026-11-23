@@ -37,19 +37,22 @@ const between = (from: number, to: number) => Array.from({ length: Math.abs(to -
  *    that mix albums. Off on an album's own page, where they'd all be the same.
  *  - `onRemove`: adds "Remove from playlist".
  *  - `from`: names the list for the queue ("album:12"), so its Play key knows it is what is playing.
+ *  - `plays`: adds a Plays column with what it gives for each track.
  */
-export function TrackTable({
+export function TrackTable<T extends WebTrack>({
   tracks,
   showAlbum = false,
   showCover = false,
   onRemove,
   from,
+  plays,
 }: {
-  tracks: WebTrack[];
+  tracks: T[];
   showAlbum?: boolean;
   showCover?: boolean;
   onRemove?: (index: number) => void;
   from?: string;
+  plays?: (track: T) => number;
 }) {
   // One Get info dialog for the whole list. The track stays after closing, so the dialog doesn't empty as it fades.
   const [info, setInfo] = useState<{ track: WebTrack; open: boolean } | null>(null);
@@ -117,6 +120,7 @@ export function TrackTable({
                   <TableHead>Title</TableHead>
                   <TableHead className="max-md:hidden">Artist</TableHead>
                   {showAlbum ? <TableHead className="max-lg:hidden">Album</TableHead> : null}
+                  {plays ? <TableHead className="w-12 text-right sm:w-16">Plays</TableHead> : null}
                   <TableHead className="w-10" />
                   <TableHead className="w-12 text-right sm:w-16">Time</TableHead>
                   <TableHead className="w-10" />
@@ -183,6 +187,7 @@ export function TrackTable({
                           </Link>
                         </TableCell>
                       ) : null}
+                      {plays ? <TableCell className="text-muted-foreground text-right font-normal tabular-nums">{plays(track)}</TableCell> : null}
                       <TableCell className="py-0">
                         {/* A liked heart always shows; an empty one waits for the row to be hovered or focused. */}
                         <LikeButton

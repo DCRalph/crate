@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Folder, FolderPlus, LayoutGrid, ListMusic, ListTree, MoreHorizontal, Pin, Plus, Search } from "lucide-react";
+import { ChevronRight, Folder, FolderPlus, LayoutGrid, ListMusic, ListTree, MoreHorizontal, Pin, Plus, Search, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
@@ -20,6 +20,7 @@ import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { count, formatLength } from "~/lib/format";
+import { defaultPlayRange } from "~/lib/most-played";
 import { buildTree, itemsUnder, type Tree, type TreeNode } from "~/lib/tree";
 import { cn } from "~/lib/utils";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
@@ -49,7 +50,8 @@ function matching(level: Tree<FolderRow, PlaylistRow>, text: string): Tree<Folde
  * Playlists, as a tree or as big covers. Folders hold folders and playlists,
  * and a playlist is always a leaf. Ones that follow a folder on disk are
  * marked and can't be changed here; everything else is the person's own to
- * arrange. Playlists a person has pinned come first in either layout.
+ * arrange. Most played, made from the person's own plays, comes before
+ * everything, then the playlists they have pinned, in either layout.
  */
 export function PlaylistsView() {
   const trpc = useTRPC();
@@ -71,6 +73,7 @@ export function PlaylistsView() {
   const text = filter.trim().toLowerCase();
   const shown = text ? matching(nested, text) : nested;
   const pinned = text ? [] : (tree.data?.playlists ?? []).filter((playlist) => playlist.pinnedAt);
+  const showMostPlayed = "most played".includes(text);
   const isOpen = (id: number, depth: number) => !!text || (depth === 0) !== flipped.has(id);
   const flip = (id: number) =>
     setFlipped((before) => {
@@ -126,7 +129,11 @@ export function PlaylistsView() {
           </div>
           {layout === "grid" ? (
             // A search shows the playlists that match, wherever they sit.
-            <PlaylistGrid tree={nested} flat={text ? tree.data.playlists.filter((playlist) => playlist.name.toLowerCase().includes(text)) : undefined} />
+            <PlaylistGrid
+              tree={nested}
+              flat={text ? tree.data.playlists.filter((playlist) => playlist.name.toLowerCase().includes(text)) : undefined}
+              mostPlayed={showMostPlayed}
+            />
           ) : (
           <div className="print overflow-hidden rounded-lg pb-1 shadow-[0_1px_2px_rgb(0_0_0/0.14)]">
             <div className={cn(columns, "bg-brand h-8 px-4")} aria-hidden>
@@ -137,13 +144,14 @@ export function PlaylistsView() {
               <span />
             </div>
             <div className="animate-arrive">
+              {showMostPlayed ? <MostPlayedLine /> : null}
               {/* Pinned playlists first. One inside a folder is still in its place below as well. */}
               {pinned.map((playlist) => (
                 <PlaylistLine key={`pin${playlist.id}`} playlist={playlist} depth={0} />
               ))}
               {/* A pinned playlist that sits at the top level is already above, so it isn't listed twice. */}
               <Level level={text ? shown : { ...shown, items: shown.items.filter((playlist) => !playlist.pinnedAt) }} depth={0} isOpen={isOpen} onFlip={flip} />
-              {text && !shown.items.length && !shown.folders.length ? <p className="text-muted-foreground px-4 py-6 text-sm">Nothing called that.</p> : null}
+              {text && !showMostPlayed && !shown.items.length && !shown.folders.length ? <p className="text-muted-foreground px-4 py-6 text-sm">Nothing called that.</p> : null}
             </div>
           </div>
           )}
@@ -237,6 +245,30 @@ function FolderMenu({ folder }: { folder: FolderRow }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** The row for Most played at the top of the list, opening the person's own most played tracks. */
+function MostPlayedLine() {
+  const trpc = useTRPC();
+  const mostPlayed = useQuery(trpc.library.mostPlayed.queryOptions({ range: defaultPlayRange }));
+  const tracks = mostPlayed.data;
+
+  return (
+    <div className={cn(columns, "hover:bg-accent min-h-10 border-b px-4 text-sm transition-colors")}>
+      <div className="flex min-w-0 items-center gap-2 py-2">
+        <TrendingUp className="text-muted-foreground ml-6 size-4 shrink-0" />
+        <Link href="/most-played" className="truncate outline-none hover:underline focus-visible:underline">
+          Most played
+        </Link>
+      </div>
+      <span className="text-muted-foreground text-right tabular-nums">{tracks?.length}</span>
+      <span className="text-muted-foreground text-right tabular-nums max-sm:hidden">
+        {tracks ? formatLength(tracks.reduce((sum, track) => sum + track.duration, 0)) : null}
+      </span>
+      <span className="text-muted-foreground truncate max-sm:hidden">You</span>
+      <span />
+    </div>
   );
 }
 

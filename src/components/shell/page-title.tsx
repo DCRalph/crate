@@ -8,6 +8,9 @@ import { ChevronRight } from "lucide-react";
 import { useCrumbLeaf } from "./crumb";
 import { navItemFor } from "./navigation";
 
+/** Pages that are not tabs but still open with a title. */
+const untabbedPages: Partial<Record<string, string>> = { "/search": "Search", "/most-played": "Most played" };
+
 /**
  * A page's title, worked out from where it is: the tab it belongs to, then
  * the name a record page announces through `PageCrumb` ("Libraries, Main").
@@ -18,7 +21,8 @@ export function PageTitle({ variant, detail, actions }: { variant: "heading" | "
   const pathname = usePathname();
   const leaf = useCrumbLeaf();
   const item = navItemFor(pathname);
-  const section = item ? { href: item.url, label: item.title } : pathname === "/search" ? { href: pathname, label: "Search" } : null;
+  const untabbed = untabbedPages[pathname];
+  const section = item ? { href: item.url, label: item.title } : untabbed ? { href: pathname, label: untabbed } : null;
   if (!section) return null;
   const onRecord = item !== undefined && pathname !== item.url;
 

@@ -27,6 +27,7 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art. Its owner can pick another generated one, the art of an album in the playlist, or upload a picture.
 - **Albums without art** get a cover drawn for them: a record whose label is in a colour of its own and carries the album's first letter. It is the same every time, on the website, in the iOS app and in Subsonic apps, and its tracks and artists show it too.
 - **Playlists page.** A folder tree or a grid of covers, with any playlist pinned to the top of your own list.
+- **Most played.** Everyone's top 50 tracks over the last 30 days, 90 days or all time, worked out from their own plays each time it is opened, so it is never stale. It opens from the top of Playlists, and Subsonic apps see the last 90 days as a read-only playlist.
 - **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
 - **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most.
 - **The deck.** Each track is drawn as its waveform, measured from the audio when it is scanned, and that is what you seek on. Tracks follow each other with no gap, or over a crossfade if you set one. Shuffle, repeat, a queue you can reorder, a sleep timer, and keyboard shortcuts (press `?` for the list).

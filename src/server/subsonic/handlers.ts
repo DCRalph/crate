@@ -15,6 +15,7 @@ import {
   listAlbumsByPlays,
   listArtists,
   listGenres,
+  listMostPlayed,
   listPlaylists,
   listStarred,
   listTracks,
@@ -31,11 +32,13 @@ import { SubsonicError, type Payload } from "./respond";
 import {
   idOf,
   ignoredArticles,
+  mostPlayed,
   parseId,
   toAlbum,
   toAlbumFolder,
   toArtist,
   toIndexes,
+  toMostPlayedPlaylist,
   toPlaylist,
   toSong,
   toUser,
@@ -98,6 +101,17 @@ async function playlistPayload(ctx: Context, id: number) {
   if (!found) throw new SubsonicError(70, "Playlist not found.");
   const [named] = await namedByFolder([found]);
   return { playlist: { ...toPlaylist(named!), entry: found.tracks.map(toSong) } };
+}
+
+async function mostPlayedPayload({ scope }: Context) {
+  const tracks = await listMostPlayed(scope, mostPlayed.range);
+  return { playlist: { ...toMostPlayedPlaylist(scope, tracks), entry: tracks.map(toSong) } };
+}
+
+/** The playlist a write names. Most played follows the caller's plays, so nothing can be written to it. */
+function writablePlaylistId(value: string) {
+  if (value === mostPlayed.id) throw new SubsonicError(50, "Most played is made from your plays and can't be changed.");
+  return idOf(value, "playlist");
 }
 
 /** `musicFolderId` narrows a list to one library. Scope is applied on top, so it can't widen anything. */
@@ -353,9 +367,15 @@ export const handlers: Record<string, Handler> = {
     };
   },
 
-  // Subsonic has no playlist folders, so a playlist's folders ride along in its name.
-  getPlaylists: async ({ scope }) => ({ playlists: { playlist: (await namedByFolder(await listPlaylists(scope))).map(toPlaylist) } }),
-  getPlaylist: async (ctx) => playlistPayload(ctx, idOf(ctx.params.required("id"), "playlist")),
+  // Subsonic has no playlist folders, so a playlist's folders ride along in its name. Most played comes first.
+  getPlaylists: async ({ scope }) => {
+    const [playlists, top] = await Promise.all([listPlaylists(scope).then(namedByFolder), listMostPlayed(scope, mostPlayed.range)]);
+    return { playlists: { playlist: [toMostPlayedPlaylist(scope, top), ...playlists.map(toPlaylist)] } };
+  },
+  getPlaylist: async (ctx) => {
+    const id = ctx.params.required("id");
+    return id === mostPlayed.id ? mostPlayedPayload(ctx) : playlistPayload(ctx, idOf(id, "playlist"));
+  },
 
   createPlaylist: async (ctx) => {
     const { params, scope } = ctx;
@@ -364,7 +384,7 @@ export const handlers: Record<string, Handler> = {
     // With a playlistId this replaces that playlist's songs; otherwise it makes a new one.
     const id = await playlistWrite(async () => {
       if (!existing) return createPlaylist(scope, { name: params.required("name"), trackIds });
-      const playlistId = idOf(existing, "playlist");
+      const playlistId = writablePlaylistId(existing);
       await updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds });
       return playlistId;
     });
@@ -373,7 +393,7 @@ export const handlers: Record<string, Handler> = {
 
   updatePlaylist: async ({ scope, params }) => {
     const isPublic = params.get("public");
-    const playlistId = idOf(params.required("playlistId"), "playlist");
+    const playlistId = writablePlaylistId(params.required("playlistId"));
     const name = params.get("name");
     await playlistWrite(async () =>
       updatePlaylist(scope, playlistId, {
@@ -389,7 +409,7 @@ export const handlers: Record<string, Handler> = {
   },
 
   deletePlaylist: async ({ scope, params }) => {
-    await playlistWrite(() => deletePlaylist(scope, idOf(params.required("id"), "playlist")));
+    await playlistWrite(() => deletePlaylist(scope, writablePlaylistId(params.required("id"))));
     return {};
   },
 
