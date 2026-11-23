@@ -152,6 +152,7 @@ export function parseWebStreamParams(params: URLSearchParams): WebStreamPrefs & 
     format,
     convert: format !== undefined,
     offsetSeconds: Number.isFinite(at) && at > 0 ? at : 0,
-    carriesOn: params.has("at") && Number.isFinite(at) && at >= 0,
+    // A blank `at` is no number at all, not a zero.
+    carriesOn: (params.get("at") ?? "").trim() !== "" && Number.isFinite(at) && at >= 0,
   };
 }

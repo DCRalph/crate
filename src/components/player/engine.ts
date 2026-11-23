@@ -254,8 +254,8 @@ export function usePlayerEngine() {
       retire(to);
       live.current = from;
       settle(from, 1);
-      // The same play the spare was readied for, so it isn't logged again.
-      clock.current = loadStream(audio, track.id, sent, 0, "on");
+      // Asked for as a new play: the spare may not have reached the server yet, and a play logged twice beats one missed.
+      clock.current = loadStream(audio, track.id, sent, 0, "new");
     });
   });
   // `turn` as well as the address: choosing the track that is already playing (its row, Next onto a second copy) starts it over.

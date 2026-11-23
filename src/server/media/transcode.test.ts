@@ -97,6 +97,8 @@ test("web: the address carries what the player decided, and the server reads it 
   // Carrying on from the very start (a seek back to it) still says it is the same play.
   expect(webStreamUrl(7, sent, 0, "on")).toBe("/api/stream/7?q=192&f=opus&at=0");
   expect(parseWebStreamParams(paramsOf("/api/stream/7?at=0"))).toMatchObject({ offsetSeconds: 0, carriesOn: true });
+  expect(parseWebStreamParams(paramsOf("/api/stream/7?at")).carriesOn).toBe(false);
+  expect(parseWebStreamParams(paramsOf("/api/stream/7?at=%20")).carriesOn).toBe(false);
   expect(parseWebStreamParams(paramsOf("/api/stream/7?start=83.5"))).toMatchObject({ offsetSeconds: 83.5, carriesOn: false });
   expect(parseWebStreamParams(paramsOf("/api/stream/7?at=83.5"))).toMatchObject({ offsetSeconds: 83.5, carriesOn: true });
 
