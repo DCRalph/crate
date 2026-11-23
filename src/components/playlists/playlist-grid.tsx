@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Folder, Pin, Play, TrendingUp } from "lucide-react";
@@ -88,10 +88,17 @@ export function PlaylistGrid({
       toast.error(`Couldn't play ${playlist.name}.`);
     }
   };
+  const list = useRef<HTMLUListElement>(null);
+  // Only a tile that is showing can be picked: a row keeps to one line of tiles and leaves the rest out.
+  const showing = (index: number) => {
+    const tile = list.current?.children[index + (lead ? 1 : 0)];
+    return !tile || getComputedStyle(tile).display !== "none";
+  };
   // Tiles are numbered in the order shown: folders, then playlists. A folder's number opens it.
   useNumbered(
     folders.length + playlists.length,
     (index) => {
+      if (!showing(index)) return;
       const folder = folders[index];
       if (folder) open(folder.folder.id);
       else void play(playlists[index - folders.length]!);
@@ -127,6 +134,7 @@ export function PlaylistGrid({
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <ul
+              ref={list}
               className={cn(tileGrid, row && oneRow)}
               onContextMenu={(event) => {
                 const tile = event.target instanceof Element ? event.target.closest<HTMLElement>("li[data-playlist]") : null;
@@ -156,12 +164,8 @@ export function PlaylistGrid({
                     name={node.folder.name}
                     band={count(inside.length, "playlist")}
                     lit={sounding !== null && inside.some((playlist) => sounding === `playlist:${playlist.id}`)}
-                    code={
-                      <span className="flex items-center gap-1">
-                        <Folder className="size-3" />
-                        {codeOf(index)}
-                      </span>
-                    }
+                    code={codeOf(index)}
+                    codeIcon={<Folder className="size-3" />}
                   />
                 );
               })}
@@ -257,7 +261,7 @@ function MostPlayedTile() {
       }}
       name="Most played"
       band={mostPlayed.data ? count(tracks.length, "track") : ""}
-      code={<TrendingUp className="size-3" />}
+      codeIcon={<TrendingUp className="size-3" />}
       lit={sounding}
       overlay={tracks.length ? <TilePlayKey from={from} name="Most played" onPlay={() => usePlayer.getState().play(tracks, undefined, from)} /> : undefined}
     />

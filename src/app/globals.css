@@ -31,6 +31,8 @@
  */
 
 @custom-variant dark (&:is(.dark *));
+/* A screen too short for the rail's playlists to have a scroller of their own (a phone on its side): the whole rail scrolls instead. */
+@custom-variant short (@media (max-height: 39.99rem));
 
 @theme inline {
   --color-background: var(--background);
@@ -310,6 +312,10 @@
 }
 ::view-transition-new(.page) {
   animation: 320ms var(--ease-out-expo) 60ms both page-in;
+}
+/* The page's picture is clipped to its own box as it rises, so it never shows past the glass. */
+::view-transition-group(.page) {
+  overflow: clip;
 }
 /*
  * The glass's bevel is drawn over the page, during a transition too. The rail

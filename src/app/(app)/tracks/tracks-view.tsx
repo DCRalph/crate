@@ -11,6 +11,7 @@ import { DataTable, useDataTable, useTableWidth, type BulkAction, type DataTable
 import { Cover } from "~/components/library/cover";
 import { LikeButton } from "~/components/library/like-button";
 import { RowWave } from "~/components/library/row-wave";
+import { useTrackRows } from "~/components/library/track-rows";
 import { usePendingTracks } from "~/components/library/pending-tracks";
 import { contextKit, TrackActions } from "~/components/library/track-actions";
 import { TrackInfoDialog } from "~/components/library/track-info";
@@ -87,8 +88,7 @@ export function TracksView() {
   const router = useRouter();
   const play = (index: number) => usePlayer.getState().play(rows, index);
   // Each row's small waveform and how often this person has played it, for the page in one go.
-  const ids = useMemo(() => rows.map((row) => row.id), [rows]);
-  const extras = useQuery(trpc.library.trackRows.queryOptions({ trackIds: ids }, { enabled: ids.length > 0, staleTime: 60_000, placeholderData: (previous) => previous }));
+  const extras = useTrackRows(useMemo(() => rows.map((row) => row.id), [rows]));
 
   const columns = useMemo<DataTableColumn<Row>[]>(
     () => [
@@ -151,7 +151,7 @@ export function TracksView() {
         showFrom: 1180,
         className: "w-32 py-0",
         cell: (row) => {
-          const peaks = extras.data?.[row.id]?.peaks;
+          const peaks = extras[row.id]?.peaks;
           return peaks ? <span className="text-muted-foreground/70 block"><RowWave peaks={peaks} /></span> : null;
         },
       },
@@ -160,7 +160,7 @@ export function TracksView() {
         header: "Plays",
         align: "right",
         showFrom: 640,
-        cell: (row) => <span className="t-num text-muted-foreground text-[15px]">{extras.data?.[row.id]?.plays || null}</span>,
+        cell: (row) => <span className="t-num text-muted-foreground text-[15px]">{extras[row.id]?.plays || null}</span>,
       },
       // Left off the narrowest screens, where the title needs the room more.
       { id: "duration", header: "Time", align: "right", sortable: true, showFrom: 430, cell: (row) => <span className="text-muted-foreground tabular-nums">{formatDuration(row.duration)}</span> },
@@ -178,7 +178,7 @@ export function TracksView() {
         ),
       },
     ],
-    [rows, extras.data],
+    [rows, extras],
   );
 
   const table = useDataTable({ columns, getRowId: (row) => String(row.id), urlKey: "tracks", pageSize: 50, defaultSort: [{ id: "title", desc: false }] });

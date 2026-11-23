@@ -14,7 +14,7 @@ export const oneRow = "one-row";
 
 /**
  * One tile in a grid of albums or playlists: the cover, lit from underneath
- * in its own colour, with a code plate in its corner, and the title strip
+ * in its own colour, with its selection code on a plate in its corner, and the title strip
  * under it (the name on ivory, `band` on coral). The tile that is playing
  * (`lit`) has an amber ring and more light. `overlay` is what sits on the
  * cover (a play key, a pin), as siblings of the link since a button can't sit
@@ -29,6 +29,7 @@ export function Tile({
   name,
   band,
   code,
+  codeIcon,
   lit = false,
   overlay,
   index,
@@ -41,7 +42,10 @@ export function Tile({
   shared?: string;
   name: string;
   band: ReactNode;
-  code?: ReactNode;
+  /** The tile's selection code ("B3"), on its plate and read out with its name. */
+  code?: string;
+  /** A sign on the plate before the code: a folder, Most played. */
+  codeIcon?: ReactNode;
   lit?: boolean;
   overlay?: ReactNode;
   index: number;
@@ -80,11 +84,13 @@ export function Tile({
         )}
         <span className="print block overflow-hidden rounded-b-[3px]">
           <span className="t-label block truncate px-2 text-[12.5px] leading-6">{name}</span>
-          <span className="bg-brand block truncate px-2 text-xs leading-5 font-medium">{band || " "}</span>
+          <span className="bg-brand block truncate px-2 text-xs leading-5 font-medium">{band || "\u00a0"}</span>
         </span>
+        {code ? <span className="sr-only">, selection {code}</span> : null}
       </Link>
-      {code ? (
-        <span className={cn("plate pointer-events-none absolute top-1.5 left-1.5", lit && "text-lamp")} aria-hidden>
+      {code || codeIcon ? (
+        <span className={cn("plate pointer-events-none absolute top-1.5 left-1.5 gap-1", codeIcon && code && "flex", lit && "text-lamp")} aria-hidden>
+          {codeIcon}
           {code}
         </span>
       ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
@@ -118,7 +118,11 @@ export function usePlayerEngine() {
   /** Counts plays, so each is recorded once however often its stream is loaded (a seek, a change of quality). */
   const plays = useRef(0);
   const recordedPlay = useRef(0);
-  const recordPlay = useMutation(trpc.library.recordPlay.mutationOptions());
+  const queryClient = useQueryClient();
+  // A recorded play changes the counts on track rows, so the lists that show them ask again.
+  const recordPlay = useMutation(
+    trpc.library.recordPlay.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(trpc.library.trackRows.pathFilter()) }),
+  );
 
   // The saved queue and preferences are read after mount so the first render matches the server's.
   useEffect(() => void usePlayer.persist.rehydrate(), []);

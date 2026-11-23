@@ -86,7 +86,7 @@ export function Rail({ user }: { user: HeaderUser }) {
   return (
     <aside
       aria-label={site.name}
-      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 px-3 pt-2.5 pb-1 [view-transition-name:rail] md:flex md:min-h-0 md:flex-col md:items-stretch md:gap-0 md:px-3 md:pt-3 md:pb-3"
+      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 px-3 pt-2.5 pb-1 [view-transition-name:rail] md:no-scrollbar md:flex md:min-h-0 md:flex-col md:items-stretch md:gap-0 md:overflow-y-auto md:px-3 md:pt-3 md:pb-3"
     >
       <Link href="/home" aria-label={`${site.name}, home`} className="focus-visible:ring-ring/60 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px] md:mb-4 md:self-start">
         <Mark lit={playing} />
@@ -111,9 +111,7 @@ export function Rail({ user }: { user: HeaderUser }) {
           </span>
         ) : null}
       </nav>
-      <Suspense fallback={<div className="max-md:hidden md:flex-1" />}>
-        <RailPlaylists className="max-md:hidden" />
-      </Suspense>
+      <RailPlaylists className="max-md:hidden" />
       {user.isAdmin ? (
         <div className="mt-2 max-md:hidden">
           <RailKey item={adminKey} current={group === adminNav} />
@@ -203,14 +201,14 @@ const railRow =
 
 /**
  * Your playlists on the rail, always in reach: the ones you pinned, then the
- * whole tree with folders that open in place. A lamp is lit beside the
- * playlist that is playing, and beside every folder it is in.
+ * whole tree with folders that open in place (and stay open, in this
+ * browser). A lamp is lit beside the playlist that is playing, and beside
+ * every closed folder it is in.
  */
 function RailPlaylists({ className }: { className?: string }) {
   const trpc = useTRPC();
   const tree = useQuery(trpc.playlists.tree.queryOptions());
   const pathname = usePathname();
-  const folderParam = Number(useSearchParams().get("folder")) || null;
   const sounding = usePlayer((state) => (state.playing ? state.from : null));
   const [open, toggle] = useOpenFolders();
   const nested = useMemo(
@@ -250,29 +248,20 @@ function RailPlaylists({ className }: { className?: string }) {
         const id = child.folder.id;
         const isOpen = open.has(id);
         const lit = playingId !== null && itemsUnder(child).some((playlist) => playlist.id === playingId);
-        const here = pathname === "/playlists" && folderParam === id;
         return (
           <li key={`f${id}`}>
-            <div className={cn(railRow, "pr-1", here ? "bg-accent" : "hover:bg-accent/60")} style={{ paddingLeft: `${0.625 + depth * 0.875}rem` }}>
-              <Link
-                href={`/playlists?folder=${id}`}
-                aria-current={here ? "page" : undefined}
-                className="text-foreground/85 hover:text-foreground flex h-full min-w-0 flex-1 items-center gap-2 outline-none focus-visible:underline"
-              >
-                <Folder className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{child.folder.name}</span>
-                {lit && !isOpen ? <span className="lamp" data-lit aria-label="Playing inside" /> : null}
-              </Link>
-              <button
-                type="button"
-                aria-label={isOpen ? `Close ${child.folder.name}` : `Open ${child.folder.name}`}
-                aria-expanded={isOpen}
-                onClick={() => toggle(id)}
-                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 grid size-5 shrink-0 place-items-center rounded-sm outline-none focus-visible:ring-[2px]"
-              >
-                <ChevronRight className={cn("size-3.5 transition-transform duration-150", isOpen && "rotate-90")} />
-              </button>
-            </div>
+            <button
+              type="button"
+              aria-expanded={isOpen}
+              onClick={() => toggle(id)}
+              className={cn(railRow, "text-foreground/85 hover:bg-accent/60 hover:text-foreground w-full text-left")}
+              style={{ paddingLeft: `${0.625 + depth * 0.875}rem` }}
+            >
+              <Folder className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{child.folder.name}</span>
+              {lit && !isOpen ? <span className="lamp" data-lit aria-label="Playing inside" /> : null}
+              <ChevronRight className={cn("text-muted-foreground size-3.5 shrink-0 transition-transform duration-150", isOpen && "rotate-90")} aria-hidden />
+            </button>
             {isOpen ? <ul>{level(child, depth + 1)}</ul> : null}
           </li>
         );
@@ -283,7 +272,7 @@ function RailPlaylists({ className }: { className?: string }) {
   );
 
   return (
-    <div className={cn("no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto border-t pb-2", className)}>
+    <div className={cn("no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto border-t pb-2 short:min-h-fit short:flex-none short:overflow-visible", className)}>
       {tree.data && pinned.length ? (
         <section>
           <h2 className="t-label text-muted-foreground mt-4 mb-1.5 px-2.5 text-[10.5px] tracking-[0.08em]">Pinned</h2>

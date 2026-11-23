@@ -38,7 +38,8 @@ export const useSelection = create<Selection>()((set, get) => ({
     const { typed, lists } = get();
     if (/^[0-9]$/.test(key)) {
       const letter = /^[A-Z]/.test(typed) ? typed[0] : "";
-      set({ typed: letter + (typed.slice(letter.length) + key).slice(-3) });
+      // Four digits: a playlist can be thousands of rows long.
+      set({ typed: letter + (typed.slice(letter.length) + key).slice(-4) });
       return true;
     }
     const letter = key.toUpperCase();

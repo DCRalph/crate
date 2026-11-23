@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Play } from "lucide-react";
 import { toast } from "sonner";
@@ -59,12 +59,19 @@ export function AlbumGrid({
     }
   };
 
-  useNumbered(albums.length, (index) => void playAlbum(albums[index]!), numbered, letter);
+  const list = useRef<HTMLUListElement>(null);
+  // Only a tile that is showing can be picked: a row keeps to one line of tiles and leaves the rest out.
+  const showing = (index: number) => {
+    const tile = list.current?.children[index];
+    return !tile || getComputedStyle(tile).display !== "none";
+  };
+  useNumbered(albums.length, (index) => showing(index) && void playAlbum(albums[index]!), numbered, letter);
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <ul
+          ref={list}
           className={cn(tileGrid, row && oneRow)}
           onContextMenu={(event) => {
             const tile = event.target instanceof Element ? event.target.closest<HTMLElement>("li[data-album]") : null;

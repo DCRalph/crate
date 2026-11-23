@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal, Pause, Play } from "lucide-react";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
@@ -15,11 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import type { WebTrack } from "~/server/api/routers/library";
-import { useTRPC } from "~/trpc/react";
 import { BulkBar } from "./bulk-bar";
 import { Cover } from "./cover";
 import { LikeButton } from "./like-button";
 import { RowWave } from "./row-wave";
+import { useTrackRows } from "./track-rows";
 import { contextKit, dropdownKit, TrackActions } from "./track-actions";
 import { TrackInfoDialog } from "./track-info";
 
@@ -71,9 +70,7 @@ export function TrackTable<T extends WebTrack>({
   const { play, setPlaying } = usePlayer.getState();
   const playFrom = (index: number) => play(tracks, index, from);
   useNumbered(tracks.length, playFrom);
-  const trpc = useTRPC();
-  const ids = useMemo(() => [...new Set(tracks.map((track) => track.id))].slice(0, 500), [tracks]);
-  const extras = useQuery(trpc.library.trackRows.queryOptions({ trackIds: ids }, { enabled: ids.length > 0, staleTime: 60_000 }));
+  const extras = useTrackRows(useMemo(() => tracks.map((track) => track.id), [tracks]));
 
   const clear = () => setChosen({ rows: new Set(), anchor: 0 });
   const any = chosen.rows.size > 0;
@@ -200,10 +197,10 @@ export function TrackTable<T extends WebTrack>({
                         </TableCell>
                       ) : null}
                       <TableCell className={cn("py-0 max-lg:hidden", isCurrent ? "text-foreground" : "text-muted-foreground/70")}>
-                        {extras.data?.[track.id]?.peaks ? <RowWave peaks={extras.data[track.id]!.peaks!} /> : null}
+                        {extras[track.id]?.peaks ? <RowWave peaks={extras[track.id]!.peaks!} /> : null}
                       </TableCell>
                       <TableCell className={cn("text-muted-foreground t-num text-right text-[15px] font-normal", !plays && "max-sm:hidden")}>
-                        {(plays ? plays(track) : extras.data?.[track.id]?.plays) || null}
+                        {(plays ? plays(track) : extras[track.id]?.plays) || null}
                       </TableCell>
                       <TableCell className="py-0">
                         {/* A liked heart always shows; an empty one waits for the row to be hovered or focused. */}
