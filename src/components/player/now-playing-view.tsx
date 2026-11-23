@@ -62,7 +62,8 @@ function useFromLabel(from: string | null) {
   if (!from) return "The queue";
   const [kind, id] = from.split(":");
   if (kind === "album") return queue.find((item) => String(item.albumId) === id)?.albumName ?? "An album";
-  if (kind === "artist") return queue.find((item) => String(item.artistId) === id)?.artistName ?? "An artist";
+  // A track carries its full credit ("A, B feat. C"), so the artist's own name comes from their page, which played it.
+  if (kind === "artist") return queryClient.getQueryData(trpc.library.artist.queryKey({ id: Number(id) }))?.name ?? "An artist";
   if (kind === "most-played") return "Most played";
   if (kind === "liked") return "Liked";
   if (kind === "playlist") return queryClient.getQueryData(trpc.playlists.tree.queryKey())?.playlists.find((row) => String(row.id) === id)?.name ?? "A playlist";
@@ -124,7 +125,7 @@ export function NowPlayingView({
   useEffect(() => {
     if (!open || !layer) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const page = layer.parentElement?.querySelector("main");
+    const page = layer.parentElement?.querySelector("[data-glass-page]");
     page?.setAttribute("inert", "");
     panel.current?.focus({ preventScroll: true });
     return () => {
@@ -149,10 +150,13 @@ export function NowPlayingView({
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       // Its own keys work anywhere in it; a field, a menu or another dialog keeps them.
+      // Already taken by something on top (the queue sheet closing on Escape), or by a field, a menu or another dialog.
+      if (event.defaultPrevented) return;
       if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=dialog]:not([data-queue])")) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape" && !document.fullscreenElement) close();
-      if ((event.key === "f" || event.key === "F") && useNowPlayingView.getState().mode === "minimal") {
+      // Held down, F would go in and straight back out.
+      if ((event.key === "f" || event.key === "F") && !event.repeat && useNowPlayingView.getState().mode === "minimal") {
         event.preventDefault();
         toggleFullscreen();
       }

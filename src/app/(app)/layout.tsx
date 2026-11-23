@@ -23,13 +23,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Rail user={{ name: user.name, username: user.username ?? user.email, isAdmin: user.role === "admin" }} />
         <div className="min-h-0 min-w-0 px-1.5 pt-0.5 pb-1.5 md:py-3 md:pr-3 md:pl-0">
           <div className="glass glass-window relative isolate flex h-full flex-col overflow-hidden">
-            <Suspense>
-              <GroupTabs />
-            </Suspense>
-            {/* Reads the URL's query, which a prerendered shell doesn't have yet. */}
-            <Suspense>
-              <ContentScroller className="relative min-h-0 flex-1">{children}</ContentScroller>
-            </Suspense>
+            {/* The page and the row of tabs over it, which Now playing covers and takes out of reach. */}
+            <div data-glass-page className="flex min-h-0 flex-1 flex-col">
+              <Suspense>
+                <GroupTabs />
+              </Suspense>
+              {/* Reads the URL's query, which a prerendered shell doesn't have yet. */}
+              <Suspense>
+                <ContentScroller className="relative min-h-0 flex-1">{children}</ContentScroller>
+              </Suspense>
+            </div>
             {/* Where Now playing is drawn, over the page, when it is open. */}
             <div id={nowPlayingLayer} className="contents" />
             <div className="glass-bevel absolute inset-0 z-20" aria-hidden />
