@@ -129,6 +129,12 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
     await source.check();
   } catch (error) {
     const reason = error instanceof Error ? error.message : "The library source can't be read.";
+    console.error(`[scan] source check failed for "${lib.name}"`, {
+      libraryId: lib.id,
+      sourceType: lib.sourceType,
+      path: lib.path,
+      error: reason,
+    });
     return finish(`${reason} Nothing was changed.`);
   }
 

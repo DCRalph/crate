@@ -1,12 +1,13 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir, rmdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rmdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
 import { parseMountOptions, type NfsVersion } from "~/lib/library-source";
 
 const execFileAsync = promisify(execFile);
+const MOUNT_TIMEOUT_MS = 25_000;
 
 export type ResolvedSmbMountConfig = {
   host: string;
@@ -38,6 +39,15 @@ const encodeSmbPart = (value: string) => encodeURIComponent(value);
 
 /** Strips CR/LF from a CIFS credential value so it cannot inject extra lines into the credentials file. */
 const cleanCredLine = (value: string) => value.replace(/[\r\n]/g, "");
+
+/** Removes any embedded SMB credentials from text before logging or returning to the UI. */
+export function redactMountText(text: string): string {
+  return text.replace(/\/\/[^/\s]+@/g, "//***@").replace(/(password=)[^\s,]+/gi, "$1***");
+}
+
+function redactArgs(args: string[]): string[] {
+  return args.map(redactMountText);
+}
 
 /**
  * Builds the OS command to mount an SMB/CIFS share read-only.
@@ -92,7 +102,9 @@ export function buildSmbMountCommand(
     };
   }
 
-  throw new Error(`Mounting SMB shares directly is supported on macOS and Linux (this server is ${platform}). Mount the share on the host and add it as a local folder instead.`);
+  throw new Error(
+    `Mounting SMB shares directly is supported on macOS and Linux (this server is ${platform}). Mount the share on the host and add it as a local folder instead.`,
+  );
 }
 
 /**
@@ -138,7 +150,9 @@ export function buildNfsMountCommand(
     };
   }
 
-  throw new Error(`Mounting NFS shares directly is supported on macOS and Linux (this server is ${platform}). Mount the share on the host and add it as a local folder instead.`);
+  throw new Error(
+    `Mounting NFS shares directly is supported on macOS and Linux (this server is ${platform}). Mount the share on the host and add it as a local folder instead.`,
+  );
 }
 
 /**
@@ -155,61 +169,229 @@ export async function isMounted(dir: string): Promise<boolean> {
   return dirStat.dev !== parentStat.dev;
 }
 
-/** Translates OS mount failures into clear, actionable messages without leaking credentials. */
+type ExecError = {
+  code?: string | number;
+  errno?: number;
+  killed?: boolean;
+  signal?: string | null;
+  stderr?: string;
+  stdout?: string;
+  message?: string;
+};
+
+/** Pulls the most informative non-empty line from stderr/stdout with credentials redacted. */
+function extractStderrDetail(err: ExecError): string | null {
+  const text = `${err.stderr ?? ""}\n${err.stdout ?? ""}`.trim();
+  if (!text) return null;
+  const lines = redactMountText(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return null;
+  // Join up to two short lines so multi-line mount.nfs diagnostics stay readable.
+  return lines.slice(0, 2).join(" — ");
+}
+
+function withDetail(summary: string, detail: string | null): Error {
+  return new Error(detail ? `${summary} (${detail})` : summary);
+}
+
+/** Translates OS mount failures into clear, actionable messages while preserving sanitized diagnostic detail. */
 export function formatMountError(kind: "smb" | "nfs", error: unknown): Error {
-  const err = error as { code?: string; stderr?: string; message?: string };
-  const raw = `${err.stderr ?? ""} ${err.message ?? ""}`.trim();
+  const err = error as ExecError;
+  const detail = extractStderrDetail(err);
+  const raw = `${err.stderr ?? ""} ${err.stdout ?? ""} ${err.message ?? ""}`.trim();
   const lower = raw.toLowerCase();
 
-  if (err.code === "ENOENT") {
-    return new Error(
+  if (err.killed || lower.includes("timed out") || lower.includes("etimedout")) {
+    return withDetail(
+      kind === "nfs"
+        ? "Timed out connecting to the NFS server. Check that the host is reachable, NFS is running, and port 2049 (and 111 for NFSv3) is open."
+        : "Timed out connecting to the SMB server. Check that the host is reachable and port 445 is open.",
+      detail,
+    );
+  }
+  if (
+    err.code === "ENOENT" ||
+    lower.includes("helper program") ||
+    lower.includes("unknown filesystem type") ||
+    lower.includes("wrong fs type") ||
+    lower.includes("mount.nfs: not found") ||
+    lower.includes("mount.cifs: not found")
+  ) {
+    return withDetail(
       kind === "smb"
-        ? "Could not find the SMB mount tool on this server. On Linux, install `cifs-utils`."
-        : "Could not find the NFS mount tool on this server. On Linux, install `nfs-common`.",
+        ? "SMB mount support is missing on this server. On Debian/Ubuntu, install `cifs-utils`."
+        : "NFS mount support is missing on this server. On Debian/Ubuntu, install `nfs-common`.",
+      detail,
     );
   }
   if (lower.includes("authentication") || lower.includes("logon failure") || lower.includes("status_logon_failure") || lower.includes("error(13)")) {
-    return new Error("The share rejected the username or password.");
+    return withDetail("The share rejected the username or password.", detail);
   }
-  if (lower.includes("operation not permitted") || lower.includes("only root") || lower.includes("must be superuser")) {
-    return new Error(
+  if (lower.includes("operation not permitted") || lower.includes("only root") || lower.includes("must be superuser") || lower.includes("eperm")) {
+    return withDetail(
       kind === "nfs"
-        ? "This server does not have permission to mount NFS shares. Run with mount privileges (e.g. CAP_SYS_ADMIN), allow unprivileged ports (`insecure`) on the NFS export, or mount it on the host and add it as a local folder."
-        : "This server does not have permission to mount SMB shares. On Linux, mounting CIFS requires root or CAP_SYS_ADMIN — or mount the share on the host and add it as a local folder.",
+        ? "This server does not have permission to mount NFS shares. In Docker, add CAP_SYS_ADMIN (or mount the share on the host and add it as a local folder); on macOS, export with `insecure` or run with mount privileges."
+        : "This server does not have permission to mount SMB shares. On Linux/Docker, mounting CIFS requires root or CAP_SYS_ADMIN (or mount the share on the host and add it as a local folder).",
+      detail,
+    );
+  }
+  if (
+    lower.includes("protocol not supported") ||
+    lower.includes("version or transport protocol") ||
+    lower.includes("program/version mismatch") ||
+    lower.includes("rpc_progversmismatch")
+  ) {
+    return withDetail(
+      kind === "nfs"
+        ? "The NFS server rejected the requested NFS version or protocol. Try switching NFS version between Auto, NFSv4, and NFSv3."
+        : "The SMB server rejected the protocol version or mount options.",
+      detail,
+    );
+  }
+  if (
+    kind === "nfs" &&
+    (lower.includes("program not registered") || lower.includes("portmap") || lower.includes("rpcbind") || lower.includes("rpc:"))
+  ) {
+    return withDetail(
+      "The NFS RPC service isn't reachable on that host. Check that NFS is running and ports 2049 / 111 are open (or try NFSv4).",
+      detail,
     );
   }
   if (lower.includes("permission denied") || lower.includes("access denied") || lower.includes("eacces")) {
-    return new Error(
+    return withDetail(
       kind === "nfs"
-        ? "Access denied by the NFS server. Check the server's export rules for this host (and `insecure` if connecting from a non-root user)."
+        ? "Access denied by the NFS server. Check the export allowlist for this client's IP (and `insecure` if connecting from a non-root port)."
         : "Access denied by the SMB server. Check the username, password, domain, and share permissions.",
+      detail,
     );
   }
   if (lower.includes("no such file") || lower.includes("bad share") || lower.includes("tree connect failed") || lower.includes("not exported")) {
-    return new Error(kind === "smb" ? "The share name was not found on that server." : "That export path was not found on the NFS server.");
+    return withDetail(
+      kind === "smb"
+        ? "The share name was not found on that server."
+        : "That export path was not found on the NFS server. Check the export path (NFSv4 often exports relative to its pseudo-root, e.g. `/music` instead of `/export/music`).",
+      detail,
+    );
   }
-  if (lower.includes("timed out") || lower.includes("connection refused") || lower.includes("host is down") || lower.includes("no route") || lower.includes("could not resolve") || lower.includes("nodename nor servname")) {
-    return new Error("Could not reach the server. Check the host name, network, and firewall.");
+  if (lower.includes("connection refused") || lower.includes("econnrefused")) {
+    return withDetail(
+      kind === "nfs"
+        ? "Connection refused by the NFS server. Check that NFS is running and port 2049 is open."
+        : "Connection refused by the SMB server. Check that SMB is running and port 445 is open.",
+      detail,
+    );
+  }
+  if (
+    lower.includes("could not resolve") ||
+    lower.includes("nodename nor servname") ||
+    lower.includes("name or service not known") ||
+    lower.includes("temporary failure in name resolution") ||
+    lower.includes("failed to resolve")
+  ) {
+    return withDetail("Could not resolve that host name. Check the host name or use an IP address.", detail);
+  }
+  if (lower.includes("host is down") || lower.includes("no route") || lower.includes("network is unreachable")) {
+    return withDetail("Could not reach the server on the network. Check the host, VPN, and firewall.", detail);
+  }
+  if (lower.includes("stale file handle") || lower.includes("estale")) {
+    return withDetail("The share has a stale file handle. Try reconnecting the share.", detail);
   }
 
-  // Redact any embedded smb credentials if they ever appeared in stderr.
-  const sanitized = raw.replace(/\/\/[^/\s]+@/g, "//***@").split("\n")[0]?.trim();
+  const sanitized = detail ?? redactMountText(raw).split("\n")[0]?.trim();
   return new Error(sanitized || `Could not mount the ${kind.toUpperCase()} share.`);
+}
+
+/** Verifies a mounted directory (and optional subpath) is readable, translating POSIX errors with clear NFS/SMB hints. */
+async function verifyMountedDirectory(kind: "smb" | "nfs", mountPoint: string, subpath?: string): Promise<{ effective: string; entries: string[] }> {
+  const effective = subpath ? path.join(mountPoint, ...subpath.split("/")) : mountPoint;
+  let info;
+  try {
+    info = await stat(effective);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    console.error(`[storage:${kind}] stat failed after mount`, {
+      mountPoint,
+      subpath: subpath ?? "",
+      code,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    if (code === "ENOENT") {
+      throw new Error(
+        subpath
+          ? `Connected to the ${kind.toUpperCase()} share, but the subfolder "${subpath}" was not found.`
+          : `The ${kind.toUpperCase()} share mounted, but its root directory was not found.`,
+      );
+    }
+    if (code === "EACCES" || code === "EPERM") {
+      throw new Error(
+        kind === "nfs"
+          ? `Mounted the NFS export, but this server (uid ${process.getuid?.() ?? "?"}) lacks permission to read ${subpath ? `"${subpath}"` : "the exported directory"}. Check directory permissions and NFS squash/anonuid settings.`
+          : `Mounted the SMB share, but permission was denied reading ${subpath ? `"${subpath}"` : "the share root"}.`,
+      );
+    }
+    if (code === "ESTALE" || code === "EIO") {
+      throw new Error(`The ${kind.toUpperCase()} mount returned ${code}. Try reconnecting the share.`);
+    }
+    throw new Error(
+      `The ${kind.toUpperCase()} share mounted, but reading ${subpath ? `"${subpath}"` : "its folder"} failed (${code ?? "unknown error"}).`,
+    );
+  }
+
+  if (!info.isDirectory()) {
+    throw new Error(subpath ? `"${subpath}" inside the share is a file, not a folder.` : "The mounted share target is not a folder.");
+  }
+
+  try {
+    const entries = await readdir(effective);
+    return { effective, entries };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    console.error(`[storage:${kind}] readdir failed after mount`, {
+      mountPoint,
+      subpath: subpath ?? "",
+      code,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    if (code === "EACCES" || code === "EPERM") {
+      throw new Error(
+        kind === "nfs"
+          ? `Mounted the NFS export, but this server (uid ${process.getuid?.() ?? "?"}) lacks permission to list ${subpath ? `"${subpath}"` : "the exported directory"}. Check directory permissions and NFS squash/anonuid settings.`
+          : `Mounted the SMB share, but permission was denied listing ${subpath ? `"${subpath}"` : "the share root"}.`,
+      );
+    }
+    throw new Error(
+      `Mounted the ${kind.toUpperCase()} share, but listing its files failed (${code ?? (error instanceof Error ? error.message : "unknown error")}).`,
+    );
+  }
 }
 
 // Singleflight mount locks survive dev hot reloads on globalThis.
 const mountState = globalThis as unknown as { crateMountLocks?: Map<string, Promise<void>> };
 const mountLocks = (mountState.crateMountLocks ??= new Map());
 
-/** Runs a mount command cleanly (writing & removing any temporary credentials file). */
+/** Runs a mount command cleanly (writing & removing any temporary credentials file) and logs failures with diagnostics. */
 export async function executeMount(kind: "smb" | "nfs", mountPoint: string, command: MountCommand): Promise<void> {
   await mkdir(mountPoint, { recursive: true });
   if (command.credentialsFile) {
     await writeFile(command.credentialsFile.path, command.credentialsFile.content, { mode: 0o600 });
   }
+  const safeArgs = redactArgs(command.args);
   try {
-    await execFileAsync(command.bin, command.args, { timeout: 25_000 });
+    await execFileAsync(command.bin, command.args, { timeout: MOUNT_TIMEOUT_MS });
   } catch (error) {
+    const err = error as ExecError;
+    console.error(`[storage:${kind}] mount failed`, {
+      platform: process.platform,
+      uid: process.getuid?.(),
+      command: `${command.bin} ${safeArgs.join(" ")}`,
+      code: err.code ?? null,
+      signal: err.signal ?? null,
+      killed: Boolean(err.killed),
+      stderr: err.stderr ? redactMountText(err.stderr.trim()) : "",
+      stdout: err.stdout ? redactMountText(err.stdout.trim()) : "",
+    });
     throw formatMountError(kind, error);
   } finally {
     if (command.credentialsFile) {
@@ -224,10 +406,15 @@ export async function unmountPath(mountPoint: string): Promise<void> {
     const bin = process.platform === "darwin" ? "/sbin/umount" : "umount";
     try {
       await execFileAsync(bin, [mountPoint], { timeout: 15_000 });
-    } catch {
+    } catch (error) {
       // Fall back to lazy/force unmount if a file handle is still winding down.
       const flag = process.platform === "darwin" ? "-f" : "-l";
-      await execFileAsync(bin, [flag, mountPoint], { timeout: 15_000 }).catch(() => undefined);
+      await execFileAsync(bin, [flag, mountPoint], { timeout: 15_000 }).catch((fallbackError: unknown) => {
+        console.warn(`[storage:mount] unmount failed for ${mountPoint}`, {
+          firstError: error instanceof Error ? error.message : String(error),
+          fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        });
+      });
     }
   }
   // rmdir only deletes an empty directory, never touching files if unmount failed.
@@ -271,16 +458,8 @@ export async function ensureMounted(
     await inflight;
   }
 
-  const effectiveRoot = subpath ? path.join(mountPoint, ...subpath.split("/")) : mountPoint;
-  const info = await stat(effectiveRoot).catch(() => null);
-  if (!info?.isDirectory()) {
-    throw new Error(
-      subpath
-        ? `Connected to the share, but the subfolder "${subpath}" was not found.`
-        : "The share mounted, but its folder could not be read.",
-    );
-  }
-  return effectiveRoot;
+  const { effective } = await verifyMountedDirectory(kind, mountPoint, subpath);
+  return effective;
 }
 
 /**
@@ -299,18 +478,8 @@ export async function testNetworkMount(
   const credPath = path.join(root, `.cred-${randomBytes(8).toString("hex")}`);
   try {
     await executeMount(kind, tempDir, build(tempDir, credPath));
-    const effective = subpath ? path.join(tempDir, ...subpath.split("/")) : tempDir;
-    const info = await stat(effective).catch(() => null);
-    if (!info?.isDirectory()) {
-      throw new Error(
-        subpath
-          ? `Connected to the share, but the subfolder "${subpath}" was not found.`
-          : "The share mounted, but its folder could not be read.",
-      );
-    }
-    const { readdir } = await import("node:fs/promises");
-    const entries = (await readdir(effective)).filter((name) => !name.startsWith("."));
-    return { entries: entries.length };
+    const { entries } = await verifyMountedDirectory(kind, tempDir, subpath);
+    return { entries: entries.filter((name) => !name.startsWith(".")).length };
   } finally {
     await unmountPath(tempDir);
   }

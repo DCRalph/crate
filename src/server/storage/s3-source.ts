@@ -69,26 +69,72 @@ function clientFor(config: ResolvedS3Config): S3Client {
   return client;
 }
 
-/** Translates AWS SDK / network errors into concise admin-facing messages. */
+type S3LikeError = {
+  name?: string;
+  Code?: string;
+  $metadata?: { httpStatusCode?: number; requestId?: string };
+  message?: string;
+  code?: string;
+  cause?: { code?: string; message?: string };
+};
+
+/** Translates AWS SDK / network errors into concise admin-facing messages with diagnostic detail. */
 export function formatS3Error(bucket: string, error: unknown): Error {
-  const err = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number }; message?: string; code?: string };
+  const err = error as S3LikeError;
   const code = err.Code ?? err.name ?? "";
+  const netCode = err.code ?? err.cause?.code ?? "";
   const status = err.$metadata?.httpStatusCode;
+  const detail = err.message?.trim() || err.cause?.message?.trim() || "";
 
   if (code === "NoSuchBucket") return new Error(`Bucket "${bucket}" was not found.`);
   if (code === "InvalidAccessKeyId" || code === "SignatureDoesNotMatch") {
-    return new Error("The S3 access key or secret key was rejected.");
+    return new Error(`The S3 access key or secret key was rejected (${code}).`);
   }
   if (code === "AccessDenied" || status === 403) {
-    return new Error("Access denied by S3. Check the credentials and bucket permissions.");
+    return new Error(`Access denied by S3 for bucket "${bucket}". Check the credentials and bucket permissions (${code || 403}).`);
   }
   if (code === "PermanentRedirect" || code === "AuthorizationHeaderMalformed" || status === 301) {
-    return new Error("Wrong region or endpoint for this bucket.");
+    return new Error(`Wrong region or endpoint for bucket "${bucket}"${detail ? ` (${detail})` : ""}.`);
   }
-  if (err.code === "ECONNREFUSED" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT") {
-    return new Error("Could not reach the S3 endpoint. Check the endpoint URL and network.");
+  if (
+    netCode === "DEPTH_ZERO_SELF_SIGNED_CERT" ||
+    netCode === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" ||
+    netCode === "SELF_SIGNED_CERT_IN_CHAIN" ||
+    netCode === "CERT_HAS_EXPIRED" ||
+    netCode === "ERR_TLS_CERT_ALTNAME_INVALID"
+  ) {
+    return new Error(`TLS certificate error connecting to the S3 endpoint (${netCode}${detail ? `: ${detail}` : ""}).`);
   }
-  return new Error(err.message || "Could not connect to the S3 bucket.");
+  if (
+    netCode === "ECONNREFUSED" ||
+    netCode === "ENOTFOUND" ||
+    netCode === "ETIMEDOUT" ||
+    netCode === "EHOSTUNREACH" ||
+    netCode === "ECONNRESET" ||
+    code === "TimeoutError"
+  ) {
+    return new Error(`Could not reach the S3 endpoint (${netCode || code}). Check the endpoint URL, port, and network.`);
+  }
+  const tag = [status, code].filter(Boolean).join(" ");
+  if (detail && tag) return new Error(`Could not connect to S3 bucket "${bucket}" (${tag}: ${detail}).`);
+  return new Error(detail || `Could not connect to S3 bucket "${bucket}".`);
+}
+
+function logS3Failure(operation: string, config: ResolvedS3Config, error: unknown) {
+  const err = error as S3LikeError;
+  console.error(`[storage:s3] ${operation} failed`, {
+    bucket: config.bucket,
+    region: config.region,
+    endpoint: config.endpoint ?? null,
+    prefix: config.prefix ?? "",
+    forcePathStyle: config.forcePathStyle ?? Boolean(config.endpoint),
+    hasCredentials: Boolean(config.accessKeyId && config.secretAccessKey),
+    code: err.Code ?? err.name ?? null,
+    netCode: err.code ?? err.cause?.code ?? null,
+    httpStatus: err.$metadata?.httpStatusCode ?? null,
+    requestId: err.$metadata?.requestId ?? null,
+    message: err.message ?? String(error),
+  });
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -189,6 +235,7 @@ export class S3LibrarySource implements LibrarySource {
       }
       return { detail: `Connected to "${this.config.bucket}". Found ${res.IsTruncated ? "100+" : count} objects.` };
     } catch (error) {
+      logS3Failure("check", this.config, error);
       throw formatS3Error(this.config.bucket, error);
     }
   }
@@ -226,6 +273,7 @@ export class S3LibrarySource implements LibrarySource {
         continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
       } while (continuationToken);
     } catch (error) {
+      logS3Failure("listAudioFiles", this.config, error);
       throw formatS3Error(this.config.bucket, error);
     }
 

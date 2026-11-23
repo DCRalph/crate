@@ -90,15 +90,36 @@ describe("buildNfsMountCommand", () => {
 });
 
 describe("formatMountError", () => {
-  test("maps common mount failures and redacts credentials", () => {
+  test("maps common mount failures, preserves sanitized stderr detail, and redacts credentials", () => {
     expect(formatMountError("smb", { code: "ENOENT" }).message).toContain("cifs-utils");
     expect(formatMountError("nfs", { code: "ENOENT" }).message).toContain("nfs-common");
+    expect(
+      formatMountError("nfs", {
+        stderr: "mount: /data/mounts/test: bad option; for several filesystems (e.g. nfs, cifs) you might need a /sbin/mount.<type> helper program.",
+      }).message,
+    ).toContain("nfs-common");
+    expect(formatMountError("nfs", { killed: true, signal: "SIGTERM" }).message).toContain("Timed out connecting to the NFS server");
+    expect(formatMountError("nfs", { stderr: "mount.nfs: requested NFS version or transport protocol is not supported" }).message).toContain(
+      "NFS version",
+    );
+    expect(formatMountError("nfs", { stderr: "mount.nfs: RPC: Program not registered" }).message).toContain("RPC");
+    expect(formatMountError("nfs", { stderr: "mount.nfs: access denied by server while mounting 10.0.0.5:/music" }).message).toContain(
+      "export allowlist",
+    );
+    expect(formatMountError("nfs", { stderr: "mount.nfs: mounting 10.0.0.5:/bad failed, reason given by server: No such file or directory" }).message).toContain(
+      "pseudo-root",
+    );
+    expect(formatMountError("nfs", { stderr: "mount.nfs: Failed to resolve server nas.bad: Name or service not known" }).message).toContain(
+      "resolve",
+    );
     expect(formatMountError("smb", { stderr: "mount_smbfs: server rejected the connection: Authentication error" }).message).toContain(
       "username or password",
     );
     expect(formatMountError("nfs", { stderr: "mount.nfs: Operation not permitted" }).message).toContain("permission");
-    const redacted = formatMountError("smb", { stderr: "error mounting //alice:supersecret@nas.local/music" }).message;
+    const redacted = formatMountError("smb", { stderr: "error mounting //alice:supersecret@nas.local/music password=topsecret" }).message;
     expect(redacted).not.toContain("supersecret");
+    expect(redacted).not.toContain("topsecret");
     expect(redacted).toContain("//***@nas.local/music");
+    expect(redacted).toContain("password=***");
   });
 });

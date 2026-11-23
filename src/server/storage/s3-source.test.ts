@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { S3LibrarySource } from "./s3-source";
+import { formatS3Error, S3LibrarySource } from "./s3-source";
 
 type StoredObject = { body: Uint8Array<ArrayBuffer>; contentType: string; lastModified: Date };
 
@@ -313,5 +313,16 @@ describe("S3LibrarySource (against local mock S3)", () => {
     const chunks: Buffer[] = [];
     for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     expect(new Uint8Array(Buffer.concat(chunks))).toEqual(expected);
+  });
+
+  test("formatS3Error() includes TLS, network, auth, and HTTP status diagnostics", () => {
+    expect(formatS3Error("music", { cause: { code: "DEPTH_ZERO_SELF_SIGNED_CERT", message: "self-signed certificate" } }).message).toContain(
+      "TLS certificate error",
+    );
+    expect(formatS3Error("music", { code: "ECONNREFUSED" }).message).toContain("ECONNREFUSED");
+    expect(formatS3Error("music", { Code: "SignatureDoesNotMatch" }).message).toContain("SignatureDoesNotMatch");
+    expect(formatS3Error("music", { Code: "SlowDown", $metadata: { httpStatusCode: 503 }, message: "Reduce your request rate" }).message).toContain(
+      "503 SlowDown",
+    );
   });
 });

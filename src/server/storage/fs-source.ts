@@ -45,12 +45,45 @@ export class FsLibrarySource implements LibrarySource {
 
   async check(): Promise<{ detail?: string }> {
     const root = await this.resolveRoot();
-    const info = await stat(root).catch(() => null);
-    if (!info?.isDirectory()) {
-      throw new Error("The folder can't be read.");
+    let info;
+    try {
+      info = await stat(root);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      console.error(`[storage:${this.type}] stat failed during check`, {
+        path: this.canonicalPath,
+        root,
+        code: code ?? null,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      if (code === "ENOENT") throw new Error("The server can't find a folder at that path.");
+      if (code === "EACCES" || code === "EPERM") {
+        throw new Error(`Permission denied reading "${this.canonicalPath}" (uid ${process.getuid?.() ?? "?"}).`);
+      }
+      if (code === "ESTALE" || code === "EIO") {
+        throw new Error(`The mount returned ${code} while reading "${this.canonicalPath}". Try reconnecting the share.`);
+      }
+      throw new Error(`The folder can't be read (${code ?? (error instanceof Error ? error.message : "unknown error")}).`);
     }
-    const entries = await readdir(root).catch(() => null);
-    if (!entries) throw new Error("The folder can't be read.");
+    if (!info.isDirectory()) {
+      throw new Error("That path is a file, not a folder.");
+    }
+    let entries: string[];
+    try {
+      entries = await readdir(root);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      console.error(`[storage:${this.type}] readdir failed during check`, {
+        path: this.canonicalPath,
+        root,
+        code: code ?? null,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      if (code === "EACCES" || code === "EPERM") {
+        throw new Error(`Permission denied listing "${this.canonicalPath}" (uid ${process.getuid?.() ?? "?"}).`);
+      }
+      throw new Error(`The folder can't be listed (${code ?? (error instanceof Error ? error.message : "unknown error")}).`);
+    }
     const visible = entries.filter((name) => !name.startsWith(".")).length;
     return { detail: `Connected. Found ${visible} ${visible === 1 ? "item" : "items"} at the top level.` };
   }

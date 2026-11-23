@@ -244,10 +244,13 @@ async function checkReachable(prepared: PreparedSource): Promise<{ detail: strin
     }
     return await testSourceConnection({ type: "nfs", config: prepared.sourceConfig as StoredNfsConfig });
   } catch (error) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: error instanceof Error ? error.message : "Could not connect to that source.",
+    const message = error instanceof Error ? error.message : "Could not connect to that source.";
+    console.warn(`[libraries] connection check failed`, {
+      sourceType: prepared.sourceType,
+      path: prepared.path,
+      error: message,
     });
+    throw new TRPCError({ code: "BAD_REQUEST", message });
   }
 }
 
@@ -567,10 +570,14 @@ export const librariesRouter = router({
     try {
       return await openLibrarySource(found).check();
     } catch (error) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: error instanceof Error ? error.message : "Could not reconnect to the share.",
+      const message = error instanceof Error ? error.message : "Could not reconnect to the share.";
+      console.warn(`[libraries] reconnect failed`, {
+        libraryId: found.id,
+        sourceType: found.sourceType,
+        path: found.path,
+        error: message,
       });
+      throw new TRPCError({ code: "BAD_REQUEST", message });
     }
   }),
 
