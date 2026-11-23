@@ -25,3 +25,19 @@ export const localHostPatterns = [
   "*.local",
   "*.local:*",
 ];
+
+/**
+ * The same private ranges for `next dev`, which checks where a page was
+ * opened from before it will serve its development assets. Its patterns are
+ * stricter: a `*` is exactly one part of the name and there is no port. By
+ * range and not by this machine's addresses, because those change under a
+ * running server: a VPN that connects later (10.99.60.x, say) or a move to
+ * another network would otherwise leave pages that load and never work.
+ */
+export const localDevOrigins = [
+  "10.*.*.*",
+  "192.168.*.*",
+  ...range(16, 31).map((second) => `172.${second}.*.*`),
+  ...range(64, 127).map((second) => `100.${second}.*.*`),
+  "*.local",
+];
