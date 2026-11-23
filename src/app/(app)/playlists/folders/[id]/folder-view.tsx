@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
 import { usePendingTracks } from "~/components/library/pending-tracks";
+import { AudienceSetting } from "~/components/playlists/audience-picker";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection } from "~/components/shell/form";
@@ -22,8 +23,9 @@ import { useTRPC } from "~/trpc/react";
 import { CardSkeleton } from "~/components/shell/skeletons";
 
 /**
- * One folder: its name, where it sits, and what is directly inside it. A
- * folder that follows the disk shows the same, read-only.
+ * One folder: its name, where it sits, who can listen, and what is directly
+ * inside it. A folder that follows the disk shows the same, read-only, except
+ * that its owner and admins can still choose who listens.
  */
 export function FolderView({ id }: { id: number }) {
   const trpc = useTRPC();
@@ -111,6 +113,7 @@ export function FolderView({ id }: { id: number }) {
               onChange={(parentId) => update.mutate({ id, parentId }, { onSuccess: () => toast(`Moved ${folder.name}`) })}
             />
           </Field>
+          <AudienceSetting target={{ type: "folder", id }} />
         </FormSection>
       ) : (
         <FormSection
@@ -121,11 +124,14 @@ export function FolderView({ id }: { id: number }) {
               : `This folder belongs to ${folder.ownerName}.`
           }
         >
-          {folder.ruleId !== null ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/admin/folder-playlists/${folder.ruleId}`}>Open its folder rule</Link>
-            </Button>
-          ) : null}
+          <div className="grid gap-4">
+            {folder.canShare ? <AudienceSetting target={{ type: "folder", id }} /> : null}
+            {folder.ruleId !== null ? (
+              <Button variant="outline" size="sm" className="justify-self-start" asChild>
+                <Link href={`/admin/folder-playlists/${folder.ruleId}`}>Open its folder rule</Link>
+              </Button>
+            ) : null}
+          </div>
         </FormSection>
       )}
 

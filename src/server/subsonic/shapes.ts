@@ -115,7 +115,8 @@ export const toPlaylist = (row: PlaylistRow) => ({
   name: row.name,
   comment: row.comment,
   owner: row.ownerName,
-  public: row.isPublic,
+  // Subsonic only knows public or not: public is everyone on the server.
+  public: row.audience.kind === "everyone",
   songCount: row.trackCount,
   duration: row.duration,
   created: iso(row.createdAt),

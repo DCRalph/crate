@@ -22,6 +22,7 @@ export const activityActions = {
   "folder_rule.created": { label: "Folder rule added", tone: "neutral" },
   "folder_rule.updated": { label: "Folder rule changed", tone: "neutral" },
   "folder_rule.deleted": { label: "Folder rule removed", tone: "warn" },
+  "audience.changed": { label: "Who can listen changed", tone: "neutral" },
 } as const satisfies Record<string, { label: string; tone: "ok" | "warn" | "bad" | "neutral" }>;
 
 export type ActivityAction = keyof typeof activityActions;

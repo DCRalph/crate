@@ -1,7 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { canEditPlaylist, canSetPlaylistCover, getPlaylist, listPlaylists } from "~/server/library/queries";
+import { audienceSchema, audienceTargetSchema } from "~/lib/audience";
+import { canEditPlaylist, canSetPlaylistCover, canShare, getPlaylist, listPlaylists } from "~/server/library/queries";
+import { AudienceError, audienceSettings, setAudience, sharePeople } from "~/server/playlists/audience";
 import { choosePlaylistCover, CoverError, pinPlaylist } from "~/server/playlists/covers";
 import { createFolder, deleteFolder, FolderError, getPlaylistTree, updateFolder } from "~/server/playlists/folders";
 import { createPlaylist, deletePlaylist, duplicatePlaylist, PlaylistError, updatePlaylist } from "~/server/playlists/mutations";
@@ -17,6 +19,7 @@ async function write<T>(work: () => Promise<T>) {
       const codes = { 400: "BAD_REQUEST", 403: "FORBIDDEN", 404: "NOT_FOUND", 413: "PAYLOAD_TOO_LARGE" } as const;
       throw new TRPCError({ code: codes[error.status], message: error.message });
     }
+    if (error instanceof AudienceError) throw new TRPCError({ code: error.reason === "not_found" ? "NOT_FOUND" : "FORBIDDEN", message: error.message });
     if (error instanceof PlaylistError || error instanceof FolderError) {
       const code =
         error.reason === "not_found" ? "NOT_FOUND" : error.reason === "read_only" ? "FORBIDDEN" : error.reason === "changed" ? "CONFLICT" : "BAD_REQUEST";
@@ -55,12 +58,16 @@ export const playlistsRouter = router({
         fromDisk: folder.ruleId !== null,
         ruleId: ctx.scope.isAdmin ? folder.ruleId : null,
         canEdit: folder.ruleId === null && (mine(folder.ownerId) || ctx.scope.isAdmin),
+        canShare: canShare(ctx.scope, folder),
+        /** Who can listen to what is inside, unless something there sets its own. */
+        audience: folder.audience,
       })),
       playlists: playlists.map((row) => ({
         ...row,
         isMine: mine(row.ownerId),
         canEdit: canEditPlaylist(ctx.scope, row),
         canSetCover: canSetPlaylistCover(ctx.scope, row),
+        canShare: canShare(ctx.scope, row),
       })),
     };
   }),
@@ -72,21 +79,29 @@ export const playlistsRouter = router({
       ...found,
       isMine: found.ownerId === ctx.scope.user.id,
       canSetCover: canSetPlaylistCover(ctx.scope, found),
+      canShare: canShare(ctx.scope, found),
       tracks: found.tracks.map((row) => ({ ...toWebTrack(ctx.scope, row), position: row.position })),
     };
   }),
 
+  /** Makes a playlist. Without an `audience` of its own it follows the folder it is made in. */
   create: protectedProcedure
     .input(
       z.object({
         name,
         comment: comment.optional(),
-        isPublic: z.boolean().optional(),
+        audience: audienceSchema.nullable().default(null),
         folderId: id.nullable().optional(),
         trackIds: trackIds.optional(),
       }),
     )
-    .mutation(({ ctx, input }) => write(() => createPlaylist(ctx.scope, input))),
+    .mutation(({ ctx, input: { audience, ...input } }) =>
+      write(async () => {
+        const created = await createPlaylist(ctx.scope, input);
+        if (audience) await setAudience(ctx.scope, { type: "playlist", id: created }, audience, { headers: ctx.headers });
+        return created;
+      }),
+    ),
 
   update: protectedProcedure
     .input(
@@ -94,7 +109,6 @@ export const playlistsRouter = router({
         id,
         name: name.optional(),
         comment: comment.optional(),
-        isPublic: z.boolean().optional(),
         folderId: id.nullable().optional(),
       }),
     )
@@ -134,9 +148,16 @@ export const playlistsRouter = router({
     .input(z.object({ id, pinned: z.boolean() }))
     .mutation(({ ctx, input }) => write(() => pinPlaylist(ctx.scope, input.id, input.pinned))),
 
+  /** Makes a folder. Without an `audience` of its own it follows the folder it is made in. */
   createFolder: protectedProcedure
-    .input(z.object({ name, parentId: id.nullable().default(null) }))
-    .mutation(({ ctx, input }) => write(() => createFolder(ctx.scope, input))),
+    .input(z.object({ name, parentId: id.nullable().default(null), audience: audienceSchema.nullable().default(null) }))
+    .mutation(({ ctx, input: { audience, ...input } }) =>
+      write(async () => {
+        const created = await createFolder(ctx.scope, input);
+        if (audience) await setAudience(ctx.scope, { type: "folder", id: created }, audience, { headers: ctx.headers });
+        return created;
+      }),
+    ),
 
   updateFolder: protectedProcedure
     .input(z.object({ id, name: name.optional(), parentId: id.nullable().optional() }))
@@ -144,4 +165,19 @@ export const playlistsRouter = router({
 
   /** Removes the folder; what was in it moves up a level. */
   deleteFolder: protectedProcedure.input(z.object({ id })).mutation(({ ctx, input }) => write(() => deleteFolder(ctx.scope, input.id))),
+
+  /**
+   * Who can listen to a playlist, a folder or (for admins) the top of what a
+   * folder rule makes: its own setting and what it follows without one.
+   * Only its owner and admins can ask.
+   */
+  audience: protectedProcedure.input(z.object({ target: audienceTargetSchema })).query(({ ctx, input }) => write(() => audienceSettings(ctx.scope, input.target))),
+
+  /** Gives an item its own audience, or (null) makes it follow its folder again. Listen only: nobody else can edit. */
+  setAudience: protectedProcedure
+    .input(z.object({ target: audienceTargetSchema, audience: audienceSchema.nullable() }))
+    .mutation(({ ctx, input }) => write(() => setAudience(ctx.scope, input.target, input.audience, { headers: ctx.headers }))),
+
+  /** The people a playlist or folder can be shared with: every other account, id and name only. */
+  people: protectedProcedure.query(({ ctx }) => sharePeople(ctx.scope)),
 });

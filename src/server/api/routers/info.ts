@@ -1,10 +1,12 @@
 import { TRPCError } from "@trpc/server";
-import { and, count, eq, max } from "drizzle-orm";
+import { and, count, eq, inArray, max } from "drizzle-orm";
 import { z } from "zod";
 
+import { describeAudience } from "~/lib/audience";
 import { db } from "~/server/db";
 import { folderRule, library, playEvent, playlistFolder, track } from "~/server/db/app-schema";
-import { getPlaylist, listTracks } from "~/server/library/queries";
+import { user } from "~/server/db/schema";
+import { canShare, getPlaylist, listTracks } from "~/server/library/queries";
 import { folderPaths } from "~/server/playlists/folders";
 import { protectedProcedure, router } from "../trpc";
 
@@ -67,13 +69,15 @@ export const infoRouter = router({
   /**
    * Everything known about one playlist. The counts, length, size and
    * formats are of the tracks the caller can play, which for someone else's
-   * public playlist may be fewer than it holds.
+   * shared playlist may be fewer than it holds. Chosen people are named only
+   * to the owner and admins.
    */
   playlist: protectedProcedure.input(z.object({ id })).query(async ({ ctx, input }) => {
     const found = await getPlaylist(ctx.scope, input.id);
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Playlist not found." });
 
-    const [folders, [rule]] = await Promise.all([
+    const chosen = found.audience.kind === "people" && canShare(ctx.scope, found) ? found.audience.userIds : [];
+    const [folders, [rule], people] = await Promise.all([
       found.folderId === null
         ? []
         : db.select({ id: playlistFolder.id, name: playlistFolder.name, parentId: playlistFolder.parentId }).from(playlistFolder),
@@ -84,6 +88,7 @@ export const infoRouter = router({
             .from(folderRule)
             .innerJoin(library, eq(library.id, folderRule.libraryId))
             .where(eq(folderRule.id, found.ruleId)),
+      chosen.length ? db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, chosen)) : [],
     ]);
 
     const formats = new Map<string, number>();
@@ -97,7 +102,10 @@ export const infoRouter = router({
       isMine: found.ownerId === ctx.scope.user.id,
       /** The folders it sits in, outermost first: "Mixes / 2025". Null at the top level. */
       folderPath: found.folderId === null ? null : (folderPaths(folders).get(found.folderId) ?? null),
-      isPublic: found.isPublic,
+      whoCanListen: describeAudience(found.audience, {
+        ownerName: found.ownerId === ctx.scope.user.id ? undefined : found.ownerName,
+        people: new Map(people.map((person) => [person.id, person.name])),
+      }),
       /** Made by a folder rule, so it follows a folder on disk. */
       fromDisk: found.fromFolder,
       /** Which folder that is, when the caller reaches the library it is in. `path` is inside the library, "" for all of it. */

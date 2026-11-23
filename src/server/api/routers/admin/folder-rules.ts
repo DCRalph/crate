@@ -2,10 +2,12 @@ import { TRPCError } from "@trpc/server";
 import { count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { audienceSchema } from "~/lib/audience";
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, folderRuleModes, library, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
+import { ruleAudiences, setAudience } from "~/server/playlists/audience";
 import { planRule, syncFolderRules } from "~/server/playlists/folder-rules";
 import { assertPlace, FolderError } from "~/server/playlists/folders";
 import { openLibrarySource } from "~/server/storage";
@@ -50,7 +52,8 @@ const rules = () => {
       libraryPath: library.path,
       path: folderRule.path,
       mode: folderRule.mode,
-      isPublic: folderRule.isPublic,
+      /** Who can listen to the top of what it makes. Null follows the folder it is put in. */
+      audience: folderRule.audience,
       ownerId: folderRule.ownerId,
       ownerName: sql<string>`coalesce(${user.username}, ${user.name})`,
       parentFolderId: folderRule.parentFolderId,
@@ -99,8 +102,8 @@ export const folderRulesRouter = router({
 
   /** Adds a rule and builds what it stands for straight away from what is already scanned. */
   create: adminProcedure
-    .input(z.object({ libraryId: id, path: rulePath, mode, isPublic: z.boolean(), parentFolderId: id.nullable().default(null) }))
-    .mutation(async ({ ctx, input }) => {
+    .input(z.object({ libraryId: id, path: rulePath, mode, audience: audienceSchema.nullable(), parentFolderId: id.nullable().default(null) }))
+    .mutation(async ({ ctx, input: { audience, ...input } }) => {
       const [lib] = await db.select().from(library).where(eq(library.id, input.libraryId));
       if (!lib) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
       const exists = await openLibrarySource(lib).hasFolder(input.path);
@@ -119,12 +122,17 @@ export const folderRulesRouter = router({
         detail: { mode: input.mode },
         headers: ctx.headers,
       });
+      if (audience) await setAudience(ctx.scope, { type: "rule", id: created!.id }, audience, { headers: ctx.headers });
       return created!;
     }),
 
-  /** Changes how a rule builds, who sees the result, or where it sits, then rebuilds. The folder it follows is fixed. */
+  /**
+   * Changes how a rule builds or where it sits, then rebuilds. The folder it
+   * follows is fixed. Who can listen is `playlists.setAudience`, for the
+   * rule's default and for anything it makes.
+   */
   update: adminProcedure
-    .input(z.object({ id, mode: mode.optional(), isPublic: z.boolean().optional(), parentFolderId: id.nullable().optional() }))
+    .input(z.object({ id, mode: mode.optional(), parentFolderId: id.nullable().optional() }))
     .mutation(async ({ ctx, input: { id: ruleId, ...change } }) => {
       const [found] = await rules().where(eq(folderRule.id, ruleId));
       if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found." });
@@ -139,6 +147,9 @@ export const folderRulesRouter = router({
         headers: ctx.headers,
       });
     }),
+
+  /** What a rule has made, each folder and playlist with its own audience and who can listen now. */
+  made: adminProcedure.input(z.object({ id })).query(({ input }) => ruleAudiences(input.id)),
 
   /** Rebuilds a rule from what is scanned now, without waiting for the next scan. */
   sync: adminProcedure.input(z.object({ id })).mutation(async ({ input }) => {

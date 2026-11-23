@@ -19,6 +19,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
+import { audienceBadge } from "~/lib/audience";
 import { count, formatLength } from "~/lib/format";
 import { defaultPlayRange } from "~/lib/most-played";
 import { buildTree, itemsUnder, type Tree, type TreeNode } from "~/lib/tree";
@@ -302,7 +303,8 @@ function PlaylistLine({ playlist, depth }: { playlist: PlaylistRow; depth: numbe
         </Link>
         {playlist.pinnedAt ? <Pin className="text-brand size-3.5 shrink-0 fill-current" aria-label="Pinned" /> : null}
         {playlist.readOnly ? <Badge variant="outline">From disk</Badge> : null}
-        {playlist.isPublic && !playlist.readOnly ? <Badge variant="outline">Public</Badge> : null}
+        {/* Who else can listen, for the people who choose that. */}
+        {playlist.canShare && audienceBadge(playlist.audience) ? <Badge variant="outline">{audienceBadge(playlist.audience)}</Badge> : null}
       </div>
       <span className="text-muted-foreground text-right tabular-nums">{playlist.trackCount}</span>
       <span className="text-muted-foreground text-right tabular-nums max-sm:hidden">{formatLength(playlist.duration)}</span>

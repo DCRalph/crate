@@ -3,7 +3,7 @@ import { and, asc, between, desc, eq, inArray, isNotNull, sql, type SQL } from "
 
 import { inScope, type Scope } from "~/server/access";
 import { db } from "~/server/db";
-import { album, annotation, artist, library, track } from "~/server/db/app-schema";
+import { album, annotation, artist, library, playlist, track } from "~/server/db/app-schema";
 import { coverFile } from "~/server/library/cover";
 import { readPlayQueue, savePlayQueue } from "~/server/library/play-queue";
 import {
@@ -25,6 +25,7 @@ import { scanProgress } from "~/server/library/scanner";
 import { recordPlay } from "~/server/logs";
 import { fileResponse, transcodeResponse } from "~/server/media/stream";
 import { decideStream } from "~/server/media/transcode";
+import { AudienceError, setAudience } from "~/server/playlists/audience";
 import { namedByFolder, withoutFolderName } from "~/server/playlists/folders";
 import { createPlaylist, deletePlaylist, PlaylistError, updatePlaylist } from "~/server/playlists/mutations";
 import { openLibrarySource } from "~/server/storage";
@@ -91,9 +92,26 @@ async function playlistWrite<T>(work: () => Promise<T>) {
   try {
     return await work();
   } catch (error) {
-    if (error instanceof PlaylistError) throw new SubsonicError(error.reason === "not_found" ? 70 : 50, error.message);
+    if (error instanceof PlaylistError || error instanceof AudienceError) throw new SubsonicError(error.reason === "not_found" ? 70 : 50, error.message);
     throw error;
   }
+}
+
+/**
+ * Applies Subsonic's `public` flag, which reads true when everyone can listen
+ * (see `toPlaylist`): true makes everyone the playlist's own setting, false
+ * makes it the owner's alone. A flag that already matches is left alone, so a
+ * client that sends it back with every change doesn't undo a folder's setting
+ * or a list of chosen people.
+ */
+async function applyPublic(ctx: Context, playlistId: number) {
+  const flag = ctx.params.get("public");
+  if (flag === undefined) return;
+  const [row] = await listPlaylists(ctx.scope, eq(playlist.id, playlistId));
+  if (!row) throw new PlaylistError("not_found");
+  const isPublic = flag === "true";
+  if ((row.audience.kind === "everyone") === isPublic) return;
+  await setAudience(ctx.scope, { type: "playlist", id: playlistId }, { kind: isPublic ? "everyone" : "owner" }, { headers: ctx.request.headers, ip: ctx.ip });
 }
 
 async function playlistPayload(ctx: Context, id: number) {
@@ -383,28 +401,28 @@ export const handlers: Record<string, Handler> = {
     const existing = params.get("playlistId");
     // With a playlistId this replaces that playlist's songs; otherwise it makes a new one.
     const id = await playlistWrite(async () => {
-      if (!existing) return createPlaylist(scope, { name: params.required("name"), trackIds });
-      const playlistId = writablePlaylistId(existing);
-      await updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds });
+      const playlistId = existing ? writablePlaylistId(existing) : await createPlaylist(scope, { name: params.required("name"), trackIds });
+      if (existing) await updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds });
+      await applyPublic(ctx, playlistId);
       return playlistId;
     });
     return playlistPayload(ctx, id);
   },
 
-  updatePlaylist: async ({ scope, params }) => {
-    const isPublic = params.get("public");
+  updatePlaylist: async (ctx) => {
+    const { scope, params } = ctx;
     const playlistId = writablePlaylistId(params.required("playlistId"));
     const name = params.get("name");
-    await playlistWrite(async () =>
-      updatePlaylist(scope, playlistId, {
+    await playlistWrite(async () => {
+      await updatePlaylist(scope, playlistId, {
         // A client that renames usually sends back the name it was given, folders included.
         name: name === undefined ? undefined : await withoutFolderName(playlistId, name),
         comment: params.get("comment"),
-        isPublic: isPublic === undefined ? undefined : isPublic === "true",
         addTrackIds: params.all("songIdToAdd").map((value) => idOf(value, "track")),
         removeIndexes: params.all("songIndexToRemove").map(Number).filter(Number.isInteger),
-      }),
-    );
+      });
+      await applyPublic(ctx, playlistId);
+    });
     return {};
   },
 

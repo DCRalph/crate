@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { DataTable, useDataTable, type DataTableColumn } from "~/components/data-table";
 import { LocalTime } from "~/components/local-time";
+import { audienceBadge } from "~/lib/audience";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
@@ -26,7 +27,7 @@ const columns: DataTableColumn<Row>[] = [
   { id: "owner", header: "Owner", sortable: true, filterable: true },
   { id: "folder", header: "Folder", showFrom: 760, cell: (row) => <span className="text-muted-foreground">{row.folder ?? "Top level"}</span> },
   { id: "trackCount", header: "Tracks", type: "number", align: "right", sortable: true },
-  { id: "isPublic", header: "Public", type: "boolean", filterable: true, showFrom: 620 },
+  { id: "audience", header: "Who can listen", showFrom: 620, cell: (row) => <span className="text-muted-foreground">{audienceBadge(row.audience) ?? "Owner only"}</span> },
   { id: "fromDisk", header: "From disk", type: "boolean", filterable: true, showFrom: 620 },
   {
     id: "updatedAt",

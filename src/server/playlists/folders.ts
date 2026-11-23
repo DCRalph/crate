@@ -1,11 +1,12 @@
 import "server-only";
 import { asc, eq, sql } from "drizzle-orm";
 
+import { seenBy } from "~/lib/audience";
 import type { Scope } from "~/server/access";
 import { db } from "~/server/db";
 import { folderRule, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
-import { listPlaylists } from "~/server/library/queries";
+import { listPlaylists, loadAudiences } from "~/server/library/queries";
 
 // The folders people sort their playlists into. Folders hold folders and
 // playlists; a playlist is always a leaf.
@@ -40,10 +41,11 @@ const allFolders = () =>
 /**
  * The playlist tree as a scope sees it: every playlist it can see, its own
  * folders, and other people's folders only where they lead to a playlist it
- * can see. Admins see every folder.
+ * can see. Admins see every folder. Each folder says who can listen to it.
  */
 export async function getPlaylistTree(scope: Scope) {
-  const [playlists, folders] = await Promise.all([listPlaylists(scope), allFolders()]);
+  const [audiences, folders] = await Promise.all([loadAudiences(), allFolders()]);
+  const playlists = await listPlaylists(scope, undefined, audiences);
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const leading = new Set<number>();
   for (const item of playlists) {
@@ -51,7 +53,12 @@ export async function getPlaylistTree(scope: Scope) {
   }
   return {
     playlists,
-    folders: folders.filter((folder) => scope.isAdmin || folder.ownerId === scope.user.id || leading.has(folder.id)),
+    folders: folders
+      .filter((folder) => scope.isAdmin || folder.ownerId === scope.user.id || leading.has(folder.id))
+      .map((folder) => {
+        const audience = audiences.folder(folder.id);
+        return { ...folder, audience: scope.isAdmin || folder.ownerId === scope.user.id ? audience : seenBy(audience, scope.user.id) };
+      }),
   };
 }
 

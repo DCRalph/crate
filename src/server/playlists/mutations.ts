@@ -28,11 +28,12 @@ async function editable(scope: Scope, id: number) {
   return row;
 }
 
-/** Makes a playlist for this user, optionally in one of their folders and already holding tracks. */
-export async function createPlaylist(
-  scope: Scope,
-  input: { name: string; trackIds?: number[]; isPublic?: boolean; comment?: string; folderId?: number | null },
-) {
+/**
+ * Makes a playlist for this user, optionally in one of their folders and
+ * already holding tracks. It starts with no audience of its own, so it follows
+ * its folder; `setAudience` gives it one.
+ */
+export async function createPlaylist(scope: Scope, input: { name: string; trackIds?: number[]; comment?: string; folderId?: number | null }) {
   await assertPlace(scope.user.id, input.folderId ?? null);
   const trackIds = await visibleTrackIds(scope, input.trackIds ?? []);
   return db.transaction(async (tx) => {
@@ -41,7 +42,6 @@ export async function createPlaylist(
       .values({
         name: input.name,
         ownerId: scope.user.id,
-        isPublic: input.isPublic ?? false,
         comment: input.comment || null,
         folderId: input.folderId ?? null,
       })
@@ -52,12 +52,14 @@ export async function createPlaylist(
 }
 
 /**
- * Changes a playlist's details, its folder and its tracks. `removeIndexes` are positions in the
- * list as this user sees it (tracks they can't reach are skipped when counting),
- * removed before `addTrackIds` are appended. `trackIds` replaces the visible
- * tracks outright. Tracks the user can't see are always left in place.
- * `expect` names the track the caller believes is at a position; if the list
- * has moved on since they looked, nothing is changed.
+ * Changes a playlist's details, its folder and its tracks. `removeIndexes` are
+ * positions in the list as this user sees it (tracks they can't reach are
+ * skipped when counting), removed before `addTrackIds` are appended.
+ * `trackIds` replaces the visible tracks outright. Tracks the user can't see
+ * are always left in place. `expect` names the track the caller believes is
+ * at a position; if the list has moved on since they looked, nothing is
+ * changed. Who can listen is `setAudience`'s, since it is logged and allowed
+ * on playlists from disk too.
  */
 export async function updatePlaylist(
   scope: Scope,
@@ -65,7 +67,6 @@ export async function updatePlaylist(
   change: {
     name?: string;
     comment?: string;
-    isPublic?: boolean;
     folderId?: number | null;
     trackIds?: number[];
     addTrackIds?: number[];
@@ -78,7 +79,7 @@ export async function updatePlaylist(
   const adding = await visibleTrackIds(scope, change.trackIds ?? change.addTrackIds ?? []);
 
   await db.transaction(async (tx) => {
-    const details = { name: change.name, comment: change.comment, isPublic: change.isPublic, folderId: change.folderId };
+    const details = { name: change.name, comment: change.comment, folderId: change.folderId };
     if (Object.values(details).some((value) => value !== undefined)) {
       await tx.update(playlist).set({ ...details, updatedAt: new Date() }).where(eq(playlist.id, id));
     }

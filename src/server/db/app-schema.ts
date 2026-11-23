@@ -14,11 +14,14 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
+import type { Audience } from "~/lib/audience";
 import { librarySourceTypes, type StoredSourceConfig } from "~/lib/library-source";
 import { user } from "./schema";
 
 const id = () => integer("id").primaryKey().generatedAlwaysAsIdentity();
 const createdAt = () => timestamp("created_at").defaultNow().notNull();
+/** Who can listen (see src/lib/audience.ts), when the row sets its own. Null follows the folder it sits in. */
+const audience = () => jsonb("audience").$type<Audience>();
 
 /** What the last scan of a library did. */
 export type ScanResult = {
@@ -233,7 +236,8 @@ export const folderRule = pgTable("folder_rule", {
   ownerId: text("owner_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  isPublic: boolean("is_public").default(true).notNull(),
+  /** Who can listen to the top of what it makes, unless something there sets its own. Null follows the folder it is put in. */
+  audience: audience(),
   /** The owner's folder that what this rule makes sits inside. Null puts it at the top. */
   parentFolderId: integer("parent_folder_id").references((): AnyPgColumn => playlistFolder.id, { onDelete: "set null" }),
   createdAt: createdAt(),
@@ -253,6 +257,8 @@ export const playlistFolder = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     parentId: integer("parent_id").references((): AnyPgColumn => playlistFolder.id, { onDelete: "cascade" }),
+    /** Who can listen to what is inside. Unused on folders a rule made: theirs are in `ruleItemAudience`. */
+    audience: audience(),
     /** Set on folders a folder rule made, with the disk folder each stands for. Those follow the disk, so nobody edits them. */
     ruleId: integer("rule_id").references(() => folderRule.id, { onDelete: "cascade" }),
     sourcePath: text("source_path"),
@@ -274,8 +280,11 @@ export const playlist = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    /** Visible to everyone. They still only see the tracks their libraries allow. */
-    isPublic: boolean("is_public").default(false).notNull(),
+    /**
+     * Who can listen. Others still only see the tracks their libraries allow.
+     * Unused on playlists a rule made: theirs are in `ruleItemAudience`.
+     */
+    audience: audience(),
     comment: text("comment"),
     /** Where it sits in its owner's tree. Null is the top level. */
     folderId: integer("folder_id").references(() => playlistFolder.id, { onDelete: "set null" }),
@@ -299,6 +308,25 @@ export const playlist = pgTable(
     index("playlist_owner_idx").on(t.ownerId),
     index("playlist_folder_idx").on(t.folderId),
   ],
+);
+
+/**
+ * An audience someone gave one folder or playlist a folder rule made. Kept by
+ * the rule and the disk path the item stands for rather than by its row, so
+ * it outlives rebuilds that replace the row, and comes back with a folder that
+ * goes missing for a scan.
+ */
+export const ruleItemAudience = pgTable(
+  "rule_item_audience",
+  {
+    ruleId: integer("rule_id")
+      .notNull()
+      .references(() => folderRule.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["folder", "playlist"] }).notNull(),
+    sourcePath: text("source_path").notNull(),
+    audience: jsonb("audience").$type<Audience>().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.ruleId, t.kind, t.sourcePath] })],
 );
 
 /** A playlist someone has pinned to the top of their own Playlists page. */

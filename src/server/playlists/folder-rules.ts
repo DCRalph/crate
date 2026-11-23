@@ -104,7 +104,8 @@ async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
   for (const row of rows) oldTracks.set(row.playlistId, [...(oldTracks.get(row.playlistId) ?? []), row.trackId]);
 
   for (const item of plan.playlists) {
-    const details = { name: item.name, folderId: placeOf(item.folderPath), isPublic: rule.isPublic };
+    // Who can listen isn't copied here: it is worked out from the rule and the tree when asked (see resolve-audience.ts).
+    const details = { name: item.name, folderId: placeOf(item.folderPath) };
     const current = oldPlaylists.get(item.sourcePath);
     if (!current) {
       const [created] = await tx
@@ -114,7 +115,7 @@ async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
       await setPlaylistTracks(tx, created!.id, item.trackIds);
       continue;
     }
-    if (current.name !== details.name || current.folderId !== details.folderId || current.isPublic !== details.isPublic) {
+    if (current.name !== details.name || current.folderId !== details.folderId) {
       await tx.update(playlist).set(details).where(eq(playlist.id, current.id));
     }
     const now = oldTracks.get(current.id) ?? [];
