@@ -11,6 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { Deck } from "@/components/deck";
 import { ServerProvider } from "@/lib/api";
+import { watchCar } from "@/lib/car";
 import { useDownloads } from "@/lib/downloads";
 import { watchNetwork } from "@/lib/network";
 import { usePlayer } from "@/lib/player";
@@ -38,6 +39,7 @@ export default function RootLayout() {
     // Settings first: they say which connections downloads may use.
     useSettings.getState().load();
     watchNetwork();
+    watchCar();
     useDownloads.getState().load();
     // What the server has that this phone should know about: changes to downloaded playlists, and a queue from another device.
     const sync = () => {

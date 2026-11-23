@@ -8,6 +8,8 @@ const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), 
 // iCloud for settings needs a signing profile that carries the capability, which a free
 // Apple account can't have. `ICLOUD=0` builds without it, and the app then says it has none.
 const icloud = process.env.ICLOUD !== "0";
+// `CARPLAY=1` adds the drawn car screen (`plugins/with-carplay.js`). Simulator only: a phone build with it will not sign.
+const carplay = process.env.CARPLAY === "1";
 
 /**
  * Crate for iOS. It talks to servers people run themselves, usually at home
@@ -43,6 +45,8 @@ const config: ExpoConfig = {
     // Music carries on with the screen locked. The app never records.
     ["expo-audio", { enableBackgroundPlayback: true, microphonePermission: false }],
     ["expo-splash-screen", { backgroundColor: "#0e2b2f", image: "./assets/splash.png", imageWidth: 180 }],
+    // Before the scene plugin in this list, so that it runs after it and adds the car's scene to the phone's.
+    ...(carplay ? ["./plugins/with-carplay"] : []),
     // iOS 27 kills an app at launch that doesn't start from a scene, and this Expo's template doesn't yet. Goes with SDK 58.
     "./plugins/with-scene-lifecycle",
   ],
