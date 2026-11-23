@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -31,7 +32,12 @@ export function DataTablePagination<TRow>({
   pageSizeOptions?: number[];
 }) {
   const { page, pageSize, setPage, setPageSize } = api;
+  const [sizesOpen, setSizesOpen] = useState(false);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // A page past the end (rows were deleted, or the address is an old one) goes back to the last page there is.
+  useEffect(() => {
+    if (!isLoading && total > 0 && page > pageCount) setPage(pageCount);
+  }, [isLoading, total, page, pageCount, setPage]);
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
 
@@ -41,7 +47,7 @@ export function DataTablePagination<TRow>({
         <span className={cn("tabular-nums", isLoading && "invisible")}>
           {from.toLocaleString()} to {to.toLocaleString()} of {total.toLocaleString()}
         </span>
-        <Popover>
+        <Popover open={sizesOpen} onOpenChange={setSizesOpen}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2">
               {pageSize} / page
@@ -54,7 +60,10 @@ export function DataTablePagination<TRow>({
                 variant={size === pageSize ? "secondary" : "ghost"}
                 size="sm"
                 className="justify-start"
-                onClick={() => setPageSize(size)}
+                onClick={() => {
+                  setPageSize(size);
+                  setSizesOpen(false);
+                }}
               >
                 {size} / page
               </Button>

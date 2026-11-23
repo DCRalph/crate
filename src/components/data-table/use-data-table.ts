@@ -121,6 +121,26 @@ function useStoredHidden(key: string, defaults: string[]) {
   return [hidden, setHidden] as const;
 }
 
+const isDay = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+const dayStart = (day: string) => new Date(`${day}T00:00:00`).toISOString();
+const dayEnd = (day: string) => new Date(`${day}T23:59:59.999`).toISOString();
+
+/**
+ * A date filter holds the days that were picked ("2026-11-22"), and the
+ * server compares moments. Each day becomes the moment it starts or ends
+ * where the person is: "after" a day is after it ends, "before" is before it
+ * starts, and "between" runs from the start of the first to the end of the last.
+ */
+function asMoments(filter: ColumnFilter): ColumnFilter {
+  const { operator, value } = filter;
+  if (operator === "after" && isDay(value)) return { ...filter, value: dayEnd(value) };
+  if (operator === "before" && isDay(value)) return { ...filter, value: dayStart(value) };
+  if (operator === "between" && Array.isArray(value) && isDay(value[0]) && isDay(value[1])) {
+    return { ...filter, value: [dayStart(value[0]), dayEnd(value[1])] };
+  }
+  return filter;
+}
+
 /** Debounce any serialisable value. */
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -200,7 +220,9 @@ export function useDataTable<TRow>(
   const [page, setPageState] = useState<number>(() =>
     urlKey ? Number(searchParams.get(param("page"))) || 1 : 1,
   );
-  const [pageSize, setPageSizeState] = useState<number>(initialPageSize);
+  const [pageSize, setPageSizeState] = useState<number>(() =>
+    urlKey ? Number(searchParams.get(param("size"))) || initialPageSize : initialPageSize,
+  );
 
   // --- column visibility (persisted to localStorage) ---
   const defaultHidden = useMemo(
@@ -304,12 +326,13 @@ export function useDataTable<TRow>(
     [selected, getRowId],
   );
 
-  // --- debounced query input ---
-  const criteria = useMemo(
-    () => ({ search: search.trim() || undefined, sort, filters }),
-    [search, sort, filters],
+  // --- query input ---
+  // Only typing waits: a sort or a filter is one deliberate click, and is asked for at once.
+  const debouncedSearch = useDebouncedValue(search.trim() || undefined, debounceMs);
+  const debouncedCriteria = useMemo(
+    () => ({ search: debouncedSearch, sort, filters: filters.map(asMoments) }),
+    [debouncedSearch, sort, filters],
   );
-  const debouncedCriteria = useDebouncedValue(criteria, debounceMs);
 
   const queryInput = useMemo<ListInput>(
     () => ({ ...debouncedCriteria, page, pageSize }),
@@ -358,13 +381,15 @@ export function useDataTable<TRow>(
     setOrDelete("sort", serializeSort(sort));
     setOrDelete("filters", filters.length ? JSON.stringify(filters) : "");
     setOrDelete("page", page > 1 ? String(page) : "");
+    // Kept beside the page, or coming Back would count the page in a different size and could land past the end.
+    setOrDelete("size", pageSize !== initialPageSize ? String(pageSize) : "");
 
     const qs = next.toString();
     const url = qs
       ? `${window.location.pathname}?${qs}`
       : window.location.pathname;
     window.history.replaceState(null, "", url);
-  }, [search, sort, filters, page, urlKey, param]);
+  }, [search, sort, filters, page, pageSize, initialPageSize, urlKey, param]);
 
   return {
     search,

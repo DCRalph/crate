@@ -15,7 +15,7 @@ import type { RouterOutputs } from "~/trpc/react";
 // is set up and changed with the same parts.
 
 /** What a page passes through to a select's button: its id or label, and how it sits. */
-type TriggerProps = Pick<ComponentProps<typeof SelectTrigger>, "id" | "size" | "className" | "aria-label">;
+type TriggerProps = Pick<ComponentProps<typeof SelectTrigger>, "id" | "size" | "className" | "aria-label" | "disabled">;
 
 const roles = [
   { value: "user", label: "User" },

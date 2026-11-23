@@ -101,8 +101,8 @@ async function setTrackArtists(tx: Tx, trackId: number, artistIds: number[]) {
   await tx.insert(trackArtist).values(artistIds.map((artistId, position) => ({ trackId, artistId, position })));
 }
 
-/** Removes artists nothing is credited to any more. */
-async function removeUnusedArtists() {
+/** Removes artists nothing is credited to any more. Run after a scan, and after a library is removed. */
+export async function removeUnusedArtists() {
   const unused = (table: typeof album | typeof track | typeof trackArtist) =>
     notExists(db.select({ one: sql`1` }).from(table).where(eq(table.artistId, artist.id)));
   await db.delete(artist).where(and(unused(album), unused(track), unused(trackArtist)));

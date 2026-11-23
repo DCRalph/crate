@@ -160,7 +160,15 @@ const activityColumns: DataTableColumn<ActivityRow>[] = [
     id: "detail",
     header: "Detail",
     showFrom: 900,
-    cell: (row) => <span className={`${muted} block max-w-72 truncate text-xs`}>{describeDetail(row.action, row.detail)}</span>,
+    // Cut to fit the column; the whole of it is in the tooltip.
+    cell: (row) => {
+      const detail = describeDetail(row.action, row.detail);
+      return (
+        <span title={detail} className={`${muted} block max-w-72 truncate text-xs`}>
+          {detail}
+        </span>
+      );
+    },
   },
   { id: "ip", header: "Address", showFrom: 1000, cell: (row) => <Address ip={row.ip} /> },
 ];

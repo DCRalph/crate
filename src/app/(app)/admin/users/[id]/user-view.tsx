@@ -15,6 +15,7 @@ import { LoadError, SectionHeading } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
+import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 import { LibraryAccessTable, PasswordField, QualitySelect, RoleSelect } from "../user-fields";
 import { CardSkeleton } from "~/components/shell/skeletons";
@@ -48,13 +49,23 @@ export function UserView({ id }: { id: string }) {
   const revoke = useMutation(trpc.admin.users.revokeAppPassword.mutationOptions({ onSuccess: refresh, onError }));
   const remove = useMutation(
     trpc.admin.users.delete.mutationOptions({
-      onSuccess: async () => {
-        await refresh();
+      // Not awaited: the page shows a placeholder from here until it has left (see below).
+      onSuccess: () => {
+        void refresh();
         router.push("/admin/users");
       },
       onError,
     }),
   );
+
+  // Deleted and on the way out. Asking for the account again would only say it isn't there.
+  if (remove.isSuccess) {
+    return (
+      <Page maxWidth="max-w-4xl">
+        <CardSkeleton sections={2} />
+      </Page>
+    );
+  }
 
   if (user.isError) {
     return (
@@ -73,6 +84,10 @@ export function UserView({ id }: { id: string }) {
   }
   const name = data.username ?? data.name;
   const isAdmin = data.role === "admin";
+  // Folder rules belong to whoever made them, so theirs go too, with every playlist those rules made for everyone.
+  const goes = data.ruleCount
+    ? `Their account, playlists and app passwords go, and so do the ${count(data.ruleCount, "folder rule")} they set up, with the playlists made from ${data.ruleCount === 1 ? "it" : "them"}.`
+    : "Their account, playlists and app passwords go.";
 
   return (
     <Page maxWidth="max-w-4xl" className="flex flex-col gap-6">
@@ -94,7 +109,14 @@ export function UserView({ id }: { id: string }) {
         <NameForm key={data.name} id={id} name={data.name} />
         <div>
           <SettingRow label="Role" detail="Admins manage users and libraries, and reach every library.">
-            <RoleSelect size="sm" aria-label="Role" className="w-28" value={isAdmin ? "admin" : "user"} onChange={(role) => update.mutate({ id, role })} />
+            <RoleSelect
+              size="sm"
+              aria-label="Role"
+              className="w-28"
+              disabled={data.isSelf}
+              value={isAdmin ? "admin" : "user"}
+              onChange={(role) => update.mutate({ id, role }, { onSuccess: () => toast(role === "admin" ? `${name} is now an admin` : `${name} is no longer an admin`) })}
+            />
           </SettingRow>
           <SettingRow label="Streaming quality" detail="Anything above the limit is converted down before it is sent.">
             <QualitySelect
@@ -102,12 +124,13 @@ export function UserView({ id }: { id: string }) {
               aria-label="Streaming quality"
               className="w-28"
               value={data.maxBitRate}
-              onChange={(maxBitRate) => update.mutate({ id, maxBitRate })}
+              onChange={(maxBitRate) => update.mutate({ id, maxBitRate }, { onSuccess: () => toast("Streaming quality saved") })}
             />
           </SettingRow>
           <SettingRow label="Disabled" detail="Signs them out everywhere and stops their apps.">
             <Switch
               aria-label="Disabled"
+              disabled={data.isSelf}
               checked={data.banned}
               onCheckedChange={(banned) => update.mutate({ id, banned }, { onSuccess: () => toast(banned ? `Disabled ${name}` : `Enabled ${name}`) })}
             />
@@ -139,14 +162,17 @@ export function UserView({ id }: { id: string }) {
         />
       </section>
 
-      <FormSection title="Delete user" description="Their account, playlists and app passwords go. Their plays stay in the logs.">
+      <FormSection
+        title="Delete user"
+        description={data.isSelf ? "This is your own account. Another admin can delete it." : `${goes} Their plays stay in the logs.`}
+      >
         <Button
           variant="outline"
-          disabled={remove.isPending}
+          disabled={remove.isPending || data.isSelf}
           onClick={async () => {
             const ok = await confirm({
               title: `Delete ${name}?`,
-              description: "Their account, playlists and app passwords go. Their plays stay in the logs.",
+              description: `${goes} Their plays stay in the logs.`,
               confirmLabel: "Delete",
               variant: "destructive",
             });

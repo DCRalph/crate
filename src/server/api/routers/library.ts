@@ -152,7 +152,7 @@ export const libraryRouter = router({
   /** Called by the web player once a track has mostly played. */
   recordPlay: protectedProcedure.input(z.object({ trackId: z.number().int() })).mutation(async ({ ctx, input }) => {
     const [found] = await listTracks(ctx.scope, { where: eq(track.id, input.trackId) });
-    if (!found) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Track not found." });
     await recordPlay({
       userId: ctx.scope.user.id,
       username: ctx.scope.user.username,

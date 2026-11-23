@@ -1,14 +1,14 @@
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { TRPCError } from "@trpc/server";
-import { and, asc, count, eq, ne, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
-import { album, folderRule, library, libraryAccess, track } from "~/server/db/app-schema";
+import { album, folderRule, library, libraryAccess, playlist, track } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
-import { scanProgress, startScan } from "~/server/library/scanner";
+import { removeUnusedArtists, scanProgress, startScan } from "~/server/library/scanner";
 import { adminProcedure, router } from "../../trpc";
 
 const id = z.number().int();
@@ -162,12 +162,24 @@ export const librariesRouter = router({
    * Renames a library, or points it at the folder its files have moved to.
    * Tracks keep their ids through a move, so playlists, likes and play counts
    * survive; a scan then picks up anything that differs in the new place.
+   * A folder holding none of the library's files is refused: scanning it
+   * would remove every track, and their likes and playlist places with them.
    */
   update: adminProcedure.input(z.object({ id, name: name.optional(), path: folderPath.optional() })).mutation(async ({ ctx, input }) => {
     const found = await findLibrary(input.id);
     const folder = input.path === undefined ? found.path : await usableFolder(input.path, input.id);
     const moved = folder !== found.path;
     if (moved && scanProgress()) throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
+    if (moved) {
+      const sample = await db.select({ path: track.path }).from(track).where(eq(track.libraryId, input.id)).limit(25);
+      const there = await Promise.all(sample.map((file) => stat(folder + file.path.slice(found.path.length)).then(() => true, () => false)));
+      if (sample.length && !there.includes(true)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "None of this library's files are in that folder. Pick the folder they were moved to, or add it as a new library.",
+        });
+      }
+    }
 
     await db.transaction(async (tx) => {
       await tx.update(library).set({ name: input.name, path: folder }).where(eq(library.id, input.id));
@@ -186,11 +198,21 @@ export const librariesRouter = router({
     if (moved) startScan({ libraryIds: [input.id], actor: ctx.actor });
   }),
 
-  /** Removes the library and its tracks from the server. Files on disk are untouched. */
+  /**
+   * Removes the library and its tracks from the server, along with the
+   * playlists its folder rules made. Left to the database those would only
+   * lose their rule and stay behind, empty and read-only. Files on disk are untouched.
+   */
   delete: adminProcedure.input(z.object({ id })).mutation(async ({ ctx, input }) => {
     if (scanProgress()) throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
-    const [removed] = await db.delete(library).where(eq(library.id, input.id)).returning();
-    if (!removed) throw new TRPCError({ code: "NOT_FOUND" });
+    const removed = await db.transaction(async (tx) => {
+      const rules = tx.select({ id: folderRule.id }).from(folderRule).where(eq(folderRule.libraryId, input.id));
+      await tx.delete(playlist).where(inArray(playlist.ruleId, rules));
+      const [row] = await tx.delete(library).where(eq(library.id, input.id)).returning();
+      return row;
+    });
+    if (!removed) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
+    await removeUnusedArtists();
     await recordActivity({ action: "library.deleted", actor: ctx.actor, target: removed.name, detail: { path: removed.path }, headers: ctx.headers });
   }),
 

@@ -331,6 +331,7 @@ export function DataTable<TRow>({
                   return (
                     <TableHead
                       key={column.id}
+                      aria-sort={isSorted ? (sortState.desc ? "descending" : "ascending") : undefined}
                       className={cn(
                         "",
                         alignClass(column.align),

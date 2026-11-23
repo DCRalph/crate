@@ -20,11 +20,16 @@ const columns: DataTableColumn<Rule>[] = [
     id: "folder",
     header: "Folder",
     hideable: false,
+    // The row is clickable for the mouse; this link is the same destination for the keyboard, and for a new tab.
     cell: (rule) => (
-      <span className="font-mono text-xs">
+      <Link
+        href={`/admin/folder-playlists/${rule.id}`}
+        className="font-mono text-xs outline-none hover:underline focus-visible:underline"
+        onClick={(event) => event.stopPropagation()}
+      >
         <span className="text-muted-foreground">{rule.libraryName}/</span>
         {rule.path || <span className="text-muted-foreground font-sans">whole library</span>}
-      </span>
+      </Link>
     ),
   },
   { id: "mode", header: "Makes", cell: (rule) => ruleModes[rule.mode].label },

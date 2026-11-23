@@ -87,6 +87,7 @@ export function LibraryFolderPicker({ libraryId, value, onChange }: { libraryId:
         />
       </div>
       <ul aria-label="Folder" className="max-h-64 overflow-y-auto p-1">
+        {shown.length ? null : <li className="text-muted-foreground px-2 py-1.5 text-sm">No folder called that.</li>}
         {shown.map((folder) => {
           const depth = folder.path ? folder.path.split("/").length : 0;
           const selected = folder.path === value;
