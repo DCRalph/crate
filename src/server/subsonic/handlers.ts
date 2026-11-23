@@ -132,10 +132,31 @@ async function publicChange(ctx: Context, playlistId: number) {
  * playlist no more shared than it was.
  */
 async function writeWithPublic(ctx: Context, playlistId: number, write: () => Promise<unknown>) {
-  const change = await publicChange(ctx, playlistId);
-  if (change && !change.widens) await change.apply();
-  await write();
-  if (change?.widens) await change.apply();
+  await oneAtATime(playlistId, async () => {
+    const change = await publicChange(ctx, playlistId);
+    if (change && !change.widens) await change.apply();
+    await write();
+    if (change?.widens) await change.apply();
+  });
+}
+
+/** The Subsonic writes under way, by playlist. */
+const writing = new Map<number, Promise<unknown>>();
+
+/**
+ * Runs Subsonic writes to one playlist one after another, so two clients
+ * saving it at once can't interleave a decision about who can listen with
+ * the other's tracks. Crate runs as one server, so a queue in it is enough.
+ */
+async function oneAtATime<T>(playlistId: number, work: () => Promise<T>) {
+  const before = writing.get(playlistId) ?? Promise.resolve();
+  const turn = before.catch(() => {}).then(work);
+  writing.set(playlistId, turn);
+  try {
+    return await turn;
+  } finally {
+    if (writing.get(playlistId) === turn) writing.delete(playlistId);
+  }
 }
 
 async function playlistPayload(ctx: Context, id: number) {

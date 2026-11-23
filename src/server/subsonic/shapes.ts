@@ -9,11 +9,15 @@ import { SubsonicError } from "./respond";
 const prefixes = { tr: "track", al: "album", ar: "artist", pl: "playlist" } as const;
 export type IdType = (typeof prefixes)[keyof typeof prefixes];
 
-/** "al-12" to { type: "album", id: 12 }. Anything else is "not found". */
+/** The largest id a row can have: ids are Postgres integers. */
+const maxId = 2_147_483_647;
+
+/** "al-12" to { type: "album", id: 12 }. Anything else, an id too big to be a row's included, is "not found". */
 export function parseId(value: string): { type: IdType; id: number } {
   const match = /^(tr|al|ar|pl)-(\d+)$/.exec(value);
-  if (!match) throw new SubsonicError(70);
-  return { type: prefixes[match[1] as keyof typeof prefixes], id: Number(match[2]) };
+  const id = match ? Number(match[2]) : NaN;
+  if (!match || !(id <= maxId)) throw new SubsonicError(70);
+  return { type: prefixes[match[1] as keyof typeof prefixes], id };
 }
 
 /** The numeric id from a prefixed id that must be of one type. */
