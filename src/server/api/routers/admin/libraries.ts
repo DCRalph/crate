@@ -4,40 +4,311 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, count, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { env } from "~/env";
+import {
+  canonicalSourcePath,
+  isValidHost,
+  isValidShareName,
+  nfsVersions,
+  normalizeEndpoint,
+  normalizeExportPath,
+  normalizeSubpath,
+  parseMountOptions,
+  publicSourceConfig,
+  sourcesOverlap,
+  type LibrarySourceType,
+  type StoredNfsConfig,
+  type StoredS3Config,
+  type StoredSmbConfig,
+  type StoredSourceConfig,
+} from "~/lib/library-source";
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
 import { album, folderRule, library, libraryAccess, playlist, track } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
 import { removeUnusedArtists, scanProgress, startScan } from "~/server/library/scanner";
+import { decryptSecret, encryptSecret } from "~/server/storage/crypto";
+import { openLibrarySource, resolveS3Config, testSourceConnection, unmountLibrary } from "~/server/storage";
+import { buildNfsMountCommand, buildSmbMountCommand, mountsRoot } from "~/server/storage/mount";
+import { S3LibrarySource } from "~/server/storage/s3-source";
 import { adminProcedure, router } from "../../trpc";
 
 const id = z.number().int();
 const name = z.string().trim().min(1, "Give it a name.").max(60);
-const folderPath = z.string().trim().min(1, "Enter the folder's path.");
 
-/** True when one path is the other, or sits inside it. */
-const overlaps = (a: string, b: string) => {
-  const inside = (child: string, parent: string) => child === parent || child.startsWith(parent + path.sep);
-  return inside(a, b) || inside(b, a);
+const localSourceInput = z.object({
+  type: z.literal("local"),
+  path: z.string().trim().min(1, "Enter the folder's path."),
+});
+
+const s3SourceInput = z.object({
+  type: z.literal("s3"),
+  bucket: z.string().trim().min(1, "Enter the bucket name.").max(255),
+  region: z.string().trim().min(1, "Enter the region.").max(64).default("us-east-1"),
+  endpoint: z.string().trim().max(500).optional(),
+  prefix: z.string().trim().max(500).optional(),
+  accessKeyId: z.string().trim().max(255).optional(),
+  secretAccessKey: z.string().max(500).optional(),
+  clearCredentials: z.boolean().optional(),
+  forcePathStyle: z.boolean().optional(),
+});
+
+const smbSourceInput = z.object({
+  type: z.literal("smb"),
+  host: z.string().trim().min(1, "Enter the server host or IP.").max(253),
+  share: z.string().trim().min(1, "Enter the share name.").max(255),
+  subpath: z.string().trim().max(500).optional(),
+  port: z.number().int().min(1).max(65535).nullable().optional(),
+  username: z.string().trim().max(255).optional(),
+  password: z.string().max(500).optional(),
+  clearPassword: z.boolean().optional(),
+  domain: z.string().trim().max(255).optional(),
+});
+
+const nfsSourceInput = z.object({
+  type: z.literal("nfs"),
+  host: z.string().trim().min(1, "Enter the server host or IP.").max(253),
+  exportPath: z.string().trim().min(1, "Enter the export path.").max(500),
+  subpath: z.string().trim().max(500).optional(),
+  version: z.enum(nfsVersions).default("auto"),
+  options: z.string().trim().max(500).optional(),
+});
+
+const sourceInput = z.discriminatedUnion("type", [localSourceInput, s3SourceInput, smbSourceInput, nfsSourceInput]);
+type SourceInput = z.infer<typeof sourceInput>;
+
+type PreparedSource = {
+  sourceType: LibrarySourceType;
+  path: string;
+  sourceConfig: StoredSourceConfig | null;
 };
 
-/**
- * Checks a folder can hold a library: a full path, a real folder, and not
- * inside (or around) another library, since a file in two libraries would have
- * two owners and access is per library. Returns the path tidied up.
- */
-async function usableFolder(input: string, exceptLibraryId?: number) {
-  if (!path.isAbsolute(input)) throw new TRPCError({ code: "BAD_REQUEST", message: "Use a full path, starting with /." });
-  const folder = path.resolve(input);
-  const info = await stat(folder).catch(() => null);
-  if (!info?.isDirectory()) throw new TRPCError({ code: "BAD_REQUEST", message: "The server can't find a folder at that path." });
+/** Validates and normalizes source settings, encrypting any new secrets while preserving existing ones when left blank. */
+function prepareSource(input: SourceInput, existing?: { sourceType: LibrarySourceType; sourceConfig: StoredSourceConfig | null }): PreparedSource {
+  if (input.type === "local") {
+    if (!path.isAbsolute(input.path)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Use a full path, starting with /." });
+    }
+    const folder = path.resolve(input.path);
+    const managedMounts = mountsRoot(env.DATA_DIR);
+    if (folder === managedMounts || folder.startsWith(`${managedMounts}${path.sep}`)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Pick a folder outside Crate's managed mounts directory." });
+    }
+    return { sourceType: "local", path: folder, sourceConfig: null };
+  }
+
+  if (input.type === "s3") {
+    if (!/^[a-zA-Z0-9._-]+$/.test(input.bucket)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Bucket names may only contain letters, numbers, dots, hyphens, and underscores." });
+    }
+    let endpoint: string | null;
+    try {
+      endpoint = normalizeEndpoint(input.endpoint);
+    } catch (error) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Invalid endpoint URL." });
+    }
+    const prefix = normalizeSubpath(input.prefix ?? "");
+    if (prefix === null) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The prefix can't contain \"..\" or control characters." });
+    }
+
+    const prev = existing?.sourceType === "s3" ? (existing.sourceConfig as StoredS3Config | null) : null;
+    let accessKeyId: string | null = null;
+    let secretAccessKeyEnc: string | null = null;
+
+    if (!input.clearCredentials) {
+      accessKeyId = input.accessKeyId?.trim() || null;
+      const newSecret = input.secretAccessKey?.trim() || null;
+      if (newSecret && !accessKeyId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter an access key ID along with the secret access key." });
+      }
+      if (accessKeyId) {
+        if (newSecret) {
+          secretAccessKeyEnc = encryptSecret(newSecret);
+        } else if (prev?.secretAccessKeyEnc) {
+          secretAccessKeyEnc = prev.secretAccessKeyEnc;
+        } else {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the secret access key for this access key ID." });
+        }
+      }
+    }
+
+    const config: StoredS3Config = {
+      bucket: input.bucket,
+      region: input.region,
+      endpoint,
+      prefix,
+      accessKeyId,
+      secretAccessKeyEnc,
+      forcePathStyle: input.forcePathStyle ?? Boolean(endpoint),
+    };
+    return {
+      sourceType: "s3",
+      path: canonicalSourcePath({ type: "s3", bucket: config.bucket, endpoint, prefix }),
+      sourceConfig: config,
+    };
+  }
+
+  if (input.type === "smb") {
+    if (!isValidHost(input.host)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid host name or IP address." });
+    }
+    if (!isValidShareName(input.share)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid SMB share name (without slashes)." });
+    }
+    const subpath = normalizeSubpath(input.subpath ?? "");
+    if (subpath === null) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The subfolder can't contain \"..\" or control characters." });
+    }
+
+    const prev = existing?.sourceType === "smb" ? (existing.sourceConfig as StoredSmbConfig | null) : null;
+    const username = input.username?.trim() || null;
+    const domain = username ? input.domain?.trim() || null : null;
+    let passwordEnc: string | null = null;
+    if (username && !input.clearPassword) {
+      const newPassword = input.password || null;
+      if (newPassword) passwordEnc = encryptSecret(newPassword);
+      else if (prev?.passwordEnc) passwordEnc = prev.passwordEnc;
+    }
+
+    const port = input.port && input.port !== 445 ? input.port : null;
+    const config: StoredSmbConfig = {
+      host: input.host.trim(),
+      share: input.share.trim(),
+      subpath,
+      port,
+      username,
+      passwordEnc,
+      domain,
+    };
+    return {
+      sourceType: "smb",
+      path: canonicalSourcePath({ type: "smb", host: config.host, share: config.share, subpath, port }),
+      sourceConfig: config,
+    };
+  }
+
+  if (!isValidHost(input.host)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid host name or IP address." });
+  }
+  const exportPath = normalizeExportPath(input.exportPath);
+  if (!exportPath) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid NFS export path, starting with /." });
+  }
+  const subpath = normalizeSubpath(input.subpath ?? "");
+  if (subpath === null) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "The subfolder can't contain \"..\" or control characters." });
+  }
+  const parsedOpts = parseMountOptions(input.options);
+  if (parsedOpts === null) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Mount options must be comma-separated key or key=value pairs." });
+  }
+
+  const config: StoredNfsConfig = {
+    host: input.host.trim(),
+    exportPath,
+    subpath,
+    version: input.version,
+    options: parsedOpts.length ? parsedOpts.join(",") : null,
+  };
+  return {
+    sourceType: "nfs",
+    path: canonicalSourcePath({ type: "nfs", host: config.host, exportPath, subpath }),
+    sourceConfig: config,
+  };
+}
+
+/** Checks that a prepared source does not overlap any other library. */
+async function assertNoOverlap(prepared: PreparedSource, exceptLibraryId?: number) {
   const others = await db
-    .select()
+    .select({ id: library.id, name: library.name, path: library.path, sourceType: library.sourceType, sourceConfig: library.sourceConfig })
     .from(library)
     .where(exceptLibraryId === undefined ? undefined : ne(library.id, exceptLibraryId));
-  const clash = others.find((other) => overlaps(folder, other.path));
-  if (clash) throw new TRPCError({ code: "CONFLICT", message: `That folder overlaps the ${clash.name} library.` });
-  return folder;
+  const clash = others.find((other) => sourcesOverlap(prepared, other));
+  if (clash) {
+    throw new TRPCError({ code: "CONFLICT", message: `That source overlaps the ${clash.name} library.` });
+  }
+}
+
+/** Verifies a prepared source can be reached right now, turning failures into BAD_REQUEST errors. */
+async function checkReachable(prepared: PreparedSource): Promise<{ detail: string }> {
+  try {
+    if (prepared.sourceType === "local") {
+      return await testSourceConnection({ type: "local", path: prepared.path });
+    }
+    if (prepared.sourceType === "s3") {
+      return await testSourceConnection({ type: "s3", config: resolveS3Config(prepared.sourceConfig as StoredS3Config) });
+    }
+    if (prepared.sourceType === "smb") {
+      return await testSourceConnection({ type: "smb", config: prepared.sourceConfig as StoredSmbConfig });
+    }
+    return await testSourceConnection({ type: "nfs", config: prepared.sourceConfig as StoredNfsConfig });
+  } catch (error) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: error instanceof Error ? error.message : "Could not connect to that source.",
+    });
+  }
+}
+
+/** Verifies at least one sampled track from a moved library exists at the new location. */
+async function verifySampleTracksExist(prepared: PreparedSource, relPaths: string[]): Promise<boolean> {
+  if (!relPaths.length) return true;
+  if (prepared.sourceType === "local") {
+    const found = await Promise.all(
+      relPaths.map((rel) => stat(path.join(prepared.path, ...rel.split("/"))).then((info) => info.isFile(), () => false)),
+    );
+    return found.includes(true);
+  }
+  if (prepared.sourceType === "s3") {
+    const s3 = new S3LibrarySource(resolveS3Config(prepared.sourceConfig as StoredS3Config));
+    const found = await Promise.all(relPaths.map((rel) => s3.fileExists(rel)));
+    return found.includes(true);
+  }
+  // For SMB / NFS, temporarily mount the new target and check sample files inside it.
+  const cfg = prepared.sourceConfig;
+  if (prepared.sourceType === "smb") {
+    const smb = cfg as StoredSmbConfig;
+    const password = smb.passwordEnc ? decryptSecret(smb.passwordEnc) : null;
+    return checkSampleInTempMount(
+      "smb",
+      (mountPoint, credFilePath) => buildSmbMountCommand({ ...smb, password }, mountPoint, { credFilePath }),
+      smb.subpath,
+      relPaths,
+    );
+  }
+  const nfs = cfg as StoredNfsConfig;
+  return checkSampleInTempMount(
+    "nfs",
+    (mountPoint) => buildNfsMountCommand(nfs, mountPoint),
+    nfs.subpath,
+    relPaths,
+  );
+}
+
+async function checkSampleInTempMount(
+  kind: "smb" | "nfs",
+  build: (mountPoint: string, credFilePath: string) => ReturnType<typeof buildSmbMountCommand>,
+  subpath: string | undefined,
+  relPaths: string[],
+): Promise<boolean> {
+  const { randomBytes } = await import("node:crypto");
+  const { mkdir } = await import("node:fs/promises");
+  const { executeMount, unmountPath } = await import("~/server/storage/mount");
+  const root = mountsRoot(env.DATA_DIR);
+  await mkdir(root, { recursive: true });
+  const tempDir = path.join(root, `move-${randomBytes(8).toString("hex")}`);
+  const credPath = path.join(root, `.cred-${randomBytes(8).toString("hex")}`);
+  try {
+    await executeMount(kind, tempDir, build(tempDir, credPath));
+    const effective = subpath ? path.join(tempDir, ...subpath.split("/")) : tempDir;
+    const results = await Promise.all(
+      relPaths.map((rel) => stat(path.join(effective, ...rel.split("/"))).then((info) => info.isFile(), () => false)),
+    );
+    return results.includes(true);
+  } finally {
+    await unmountPath(tempDir);
+  }
 }
 
 async function findLibrary(libraryId: number) {
@@ -67,6 +338,8 @@ const counts = () => {
       id: library.id,
       name: library.name,
       path: library.path,
+      sourceType: library.sourceType,
+      sourceConfig: library.sourceConfig,
       createdAt: library.createdAt,
       lastScanAt: library.lastScanAt,
       lastScan: library.lastScan,
@@ -82,35 +355,49 @@ const counts = () => {
     .leftJoin(people, eq(people.libraryId, library.id));
 };
 
+function serializeLibrary<T extends { sourceType: LibrarySourceType; sourceConfig: StoredSourceConfig | null }>(row: T) {
+  const { sourceConfig, ...rest } = row;
+  return {
+    ...rest,
+    source: publicSourceConfig(row.sourceType, sourceConfig),
+  };
+}
+
 export const librariesRouter = router({
   /** Every library with its counts, and the scan that is running, if one is. */
-  list: adminProcedure.query(async () => ({ libraries: await counts().orderBy(library.name), scan: scanProgress() })),
+  list: adminProcedure.query(async () => ({
+    libraries: (await counts().orderBy(library.name)).map(serializeLibrary),
+    scan: scanProgress(),
+  })),
 
   /** Just the names, for pickers. */
-  options: adminProcedure.query(() => db.select({ id: library.id, name: library.name, path: library.path }).from(library).orderBy(library.name)),
+  options: adminProcedure.query(() =>
+    db
+      .select({ id: library.id, name: library.name, path: library.path, sourceType: library.sourceType })
+      .from(library)
+      .orderBy(library.name),
+  ),
 
   /** One library: its counts, everyone with what they can do in it, and the scan that is running, if one is. */
   byId: adminProcedure.input(z.object({ id })).query(async ({ input }) => {
     const [found] = await counts().where(eq(library.id, input.id));
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
-    const [access] = await Promise.all([
-      db
-        .select({
-          userId: user.id,
-          username: sql<string>`coalesce(${user.username}, ${user.name})`,
-          name: user.name,
-          isAdmin: sql<boolean>`${user.role} = 'admin'`,
-          granted: sql<boolean>`${libraryAccess.userId} is not null`,
-          canDownload: sql<boolean>`coalesce(${libraryAccess.canDownload}, false)`,
-        })
-        .from(user)
-        .leftJoin(libraryAccess, and(eq(libraryAccess.userId, user.id), eq(libraryAccess.libraryId, input.id)))
-        .orderBy(asc(sql`lower(coalesce(${user.username}, ${user.name}))`)),
-    ]);
-    return { ...found, access, scan: scanProgress() };
+    const access = await db
+      .select({
+        userId: user.id,
+        username: sql<string>`coalesce(${user.username}, ${user.name})`,
+        name: user.name,
+        isAdmin: sql<boolean>`${user.role} = 'admin'`,
+        granted: sql<boolean>`${libraryAccess.userId} is not null`,
+        canDownload: sql<boolean>`coalesce(${libraryAccess.canDownload}, false)`,
+      })
+      .from(user)
+      .leftJoin(libraryAccess, and(eq(libraryAccess.userId, user.id), eq(libraryAccess.libraryId, input.id)))
+      .orderBy(asc(sql`lower(coalesce(${user.username}, ${user.name}))`));
+    return { ...serializeLibrary(found), access, scan: scanProgress() };
   }),
 
-  /** Folders at a path on the server, for picking a library's folder. Hidden folders are left out. */
+  /** Folders at a path on the server, for picking a local library's folder. Hidden folders are left out. */
   browse: adminProcedure.input(z.object({ path: z.string().default("/") })).query(async ({ input }) => {
     const here = path.resolve(path.isAbsolute(input.path) ? input.path : "/");
     const entries = await readdir(here, { withFileTypes: true }).catch(() => null);
@@ -151,58 +438,146 @@ export const librariesRouter = router({
     return [...folders].map(([folder, tracks]) => ({ path: folder, tracks })).sort((a, b) => sorter.compare(a.path, b.path));
   }),
 
-  create: adminProcedure.input(z.object({ name, path: folderPath })).mutation(async ({ ctx, input }) => {
-    const folder = await usableFolder(input.path);
-    const [created] = await db.insert(library).values({ name: input.name, path: folder }).returning({ id: library.id });
-    await recordActivity({ action: "library.created", actor: ctx.actor, target: input.name, detail: { path: folder }, headers: ctx.headers });
+  /** Tests whether a local folder, S3 bucket, SMB share, or NFS share is reachable before saving. */
+  testConnection: adminProcedure
+    .input(z.object({ source: sourceInput, libraryId: id.optional() }))
+    .mutation(async ({ input }) => {
+      const existing = input.libraryId === undefined ? undefined : await findLibrary(input.libraryId);
+      const prepared = prepareSource(input.source, existing);
+      return checkReachable(prepared);
+    }),
+
+  create: adminProcedure.input(z.object({ name, source: sourceInput })).mutation(async ({ ctx, input }) => {
+    const prepared = prepareSource(input.source);
+    await assertNoOverlap(prepared);
+    await checkReachable(prepared);
+    const [created] = await db
+      .insert(library)
+      .values({
+        name: input.name,
+        path: prepared.path,
+        sourceType: prepared.sourceType,
+        sourceConfig: prepared.sourceConfig,
+      })
+      .returning({ id: library.id });
+    await recordActivity({
+      action: "library.created",
+      actor: ctx.actor,
+      target: input.name,
+      detail: { sourceType: prepared.sourceType, path: prepared.path },
+      headers: ctx.headers,
+    });
     startScan({ libraryIds: [created!.id], actor: ctx.actor });
     return created!;
   }),
 
   /**
-   * Renames a library, or points it at the folder its files have moved to.
-   * Tracks keep their ids through a move, so playlists, likes and play counts
-   * survive; a scan then picks up anything that differs in the new place.
-   * A folder holding none of the library's files is refused: scanning it
-   * would remove every track, and their likes and playlist places with them.
+   * Renames a library, updates its source credentials/settings, or points it at
+   * where its files moved. Tracks keep their ids through a move, so playlists,
+   * likes and play counts survive; a scan then picks up anything that differs.
    */
-  update: adminProcedure.input(z.object({ id, name: name.optional(), path: folderPath.optional() })).mutation(async ({ ctx, input }) => {
-    const found = await findLibrary(input.id);
-    const folder = input.path === undefined ? found.path : await usableFolder(input.path, input.id);
-    const moved = folder !== found.path;
-    if (moved && scanProgress()) throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
-    if (moved) {
-      const sample = await db.select({ path: track.path }).from(track).where(eq(track.libraryId, input.id)).limit(25);
-      const there = await Promise.all(sample.map((file) => stat(folder + file.path.slice(found.path.length)).then(() => true, () => false)));
-      if (sample.length && !there.includes(true)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "None of this library's files are in that folder. Pick the folder they were moved to, or add it as a new library.",
-        });
-      }
-    }
+  update: adminProcedure
+    .input(z.object({ id, name: name.optional(), source: sourceInput.optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const found = await findLibrary(input.id);
+      let prepared: PreparedSource = {
+        sourceType: found.sourceType,
+        path: found.path,
+        sourceConfig: found.sourceConfig,
+      };
+      let configChanged = false;
 
-    await db.transaction(async (tx) => {
-      await tx.update(library).set({ name: input.name, path: folder }).where(eq(library.id, input.id));
-      if (!moved) return;
-      const rest = (column: typeof track.path | typeof album.coverPath) => sql`${folder} || substr(${column}, char_length(${found.path}) + 1)`;
-      await tx.update(track).set({ path: rest(track.path) }).where(eq(track.libraryId, input.id));
-      await tx.update(album).set({ coverPath: rest(album.coverPath) }).where(eq(album.libraryId, input.id));
-    });
-    await recordActivity({
-      action: "library.updated",
-      actor: ctx.actor,
-      target: input.name ?? found.name,
-      detail: { ...(input.name && input.name !== found.name ? { name: input.name } : {}), ...(moved ? { path: folder, was: found.path } : {}) },
-      headers: ctx.headers,
-    });
-    if (moved) startScan({ libraryIds: [input.id], actor: ctx.actor });
+      if (input.source) {
+        if (input.source.type !== found.sourceType) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A library's source type can't be changed. Add a new library instead." });
+        }
+        prepared = prepareSource(input.source, found);
+        configChanged = JSON.stringify(prepared.sourceConfig) !== JSON.stringify(found.sourceConfig);
+      }
+
+      const moved = prepared.path !== found.path;
+      if ((moved || configChanged) && scanProgress()) {
+        throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
+      }
+
+      if (moved) {
+        await assertNoOverlap(prepared, input.id);
+        await checkReachable(prepared);
+        const sample = await db.select({ relPath: track.relPath }).from(track).where(eq(track.libraryId, input.id)).limit(25);
+        const hasMatch = await verifySampleTracksExist(
+          prepared,
+          sample.map((row) => row.relPath),
+        );
+        if (!hasMatch) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "None of this library's files are at that location. Pick where they were moved to, or add it as a new library.",
+          });
+        }
+      } else if (configChanged) {
+        await checkReachable(prepared);
+      }
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(library)
+          .set({ name: input.name, path: prepared.path, sourceConfig: prepared.sourceConfig })
+          .where(eq(library.id, input.id));
+        if (!moved) return;
+        const rest = (column: typeof track.path | typeof album.coverPath) =>
+          sql`${prepared.path} || substr(${column}, char_length(${found.path}) + 1)`;
+        await tx.update(track).set({ path: rest(track.path) }).where(eq(track.libraryId, input.id));
+        await tx.update(album).set({ coverPath: rest(album.coverPath) }).where(eq(album.libraryId, input.id));
+      });
+
+      // Unmount the old SMB/NFS share so the next scan or stream remounts with the new settings.
+      if ((moved || configChanged) && (found.sourceType === "smb" || found.sourceType === "nfs")) {
+        await unmountLibrary(found.id);
+      }
+
+      await recordActivity({
+        action: "library.updated",
+        actor: ctx.actor,
+        target: input.name ?? found.name,
+        detail: {
+          ...(input.name && input.name !== found.name ? { name: input.name } : {}),
+          ...(moved ? { path: prepared.path, was: found.path } : {}),
+          ...(configChanged && !moved ? { sourceUpdated: true } : {}),
+        },
+        headers: ctx.headers,
+      });
+
+      if (moved || (configChanged && found.lastScan?.error)) {
+        startScan({ libraryIds: [input.id], actor: ctx.actor });
+      }
+    }),
+
+  /**
+   * Re-mounts an SMB or NFS library (useful if a NAS rebooted and left a stale mount).
+   */
+  reconnect: adminProcedure.input(z.object({ id })).mutation(async ({ input }) => {
+    const found = await findLibrary(input.id);
+    if (found.sourceType !== "smb" && found.sourceType !== "nfs") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Only SMB and NFS libraries need reconnecting." });
+    }
+    if (scanProgress()?.libraryId === input.id) {
+      throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
+    }
+    await unmountLibrary(found.id);
+    try {
+      return await openLibrarySource(found).check();
+    } catch (error) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error instanceof Error ? error.message : "Could not reconnect to the share.",
+      });
+    }
   }),
 
   /**
    * Removes the library and its tracks from the server, along with the
    * playlists its folder rules made. Left to the database those would only
-   * lose their rule and stay behind, empty and read-only. Files on disk are untouched.
+   * lose their rule and stay behind, empty and read-only. Source files are untouched.
    */
   delete: adminProcedure.input(z.object({ id })).mutation(async ({ ctx, input }) => {
     if (scanProgress()) throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
@@ -213,8 +588,17 @@ export const librariesRouter = router({
       return row;
     });
     if (!removed) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
+    if (removed.sourceType === "smb" || removed.sourceType === "nfs") {
+      await unmountLibrary(removed.id);
+    }
     await removeUnusedArtists();
-    await recordActivity({ action: "library.deleted", actor: ctx.actor, target: removed.name, detail: { path: removed.path }, headers: ctx.headers });
+    await recordActivity({
+      action: "library.deleted",
+      actor: ctx.actor,
+      target: removed.name,
+      detail: { sourceType: removed.sourceType, path: removed.path },
+      headers: ctx.headers,
+    });
   }),
 
   /**

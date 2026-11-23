@@ -1,5 +1,3 @@
-import { stat } from "node:fs/promises";
-import path from "node:path";
 import { TRPCError } from "@trpc/server";
 import { count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -10,6 +8,7 @@ import { folderRule, folderRuleModes, library, playlist, playlistFolder } from "
 import { user } from "~/server/db/schema";
 import { planRule, syncFolderRules } from "~/server/playlists/folder-rules";
 import { assertPlace, FolderError } from "~/server/playlists/folders";
+import { openLibrarySource } from "~/server/storage";
 import { adminProcedure, router } from "../../trpc";
 
 const id = z.number().int();
@@ -104,8 +103,8 @@ export const folderRulesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const [lib] = await db.select().from(library).where(eq(library.id, input.libraryId));
       if (!lib) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
-      const folder = await stat(path.join(lib.path, input.path)).catch(() => null);
-      if (!folder?.isDirectory()) throw new TRPCError({ code: "BAD_REQUEST", message: "There is no folder at that path in the library." });
+      const exists = await openLibrarySource(lib).hasFolder(input.path);
+      if (!exists) throw new TRPCError({ code: "BAD_REQUEST", message: "There is no folder at that path in the library." });
       await checkPlace(ctx.scope.user.id, input.parentFolderId);
 
       const [created] = await db

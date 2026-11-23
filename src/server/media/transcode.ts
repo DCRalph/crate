@@ -24,11 +24,15 @@ const isTranscodeFormat = (format: string): format is TranscodeFormat => Object.
  * write it to standard output, starting `offsetSeconds` in. Only the first
  * audio stream is taken, so cover art in the file is left behind.
  */
-export function transcodeArgs(filePath: string, options: { format: TranscodeFormat; bitRate: number; offsetSeconds?: number }) {
+export function transcodeArgs(
+  input: string,
+  options: { format: TranscodeFormat; bitRate: number; offsetSeconds?: number; preInputArgs?: string[] },
+) {
   return [
     "-v", "error", "-nostdin",
+    ...(options.preInputArgs ?? []),
     ...(options.offsetSeconds ? ["-ss", String(options.offsetSeconds)] : []),
-    "-i", filePath,
+    "-i", input,
     "-map", "0:a:0", "-vn",
     "-b:a", `${options.bitRate}k`,
     ...transcodeFormats[options.format].args,

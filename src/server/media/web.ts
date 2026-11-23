@@ -5,7 +5,8 @@ import { callerOf } from "~/server/auth/caller";
 import { findTrackFile } from "~/server/library/queries";
 import { logAccess } from "~/server/logs";
 import { clientIp } from "~/server/request-origin";
-import { fileResponse, transcodeResponse } from "./stream";
+import { openLibrarySource } from "~/server/storage";
+import { transcodeResponse } from "./stream";
 import { decideWebStream, parseWebStreamParams } from "./transcode";
 
 /** The scope of whoever a media request is from (the website, or a paired device of the native app), or null. */
@@ -57,11 +58,18 @@ export async function webTrackResponse(request: Request, idParam: string, mode: 
   }
   if (refused || !file) return new Response(refused?.message, { status: refused?.status });
 
+  const source = openLibrarySource({
+    id: file.libraryId,
+    path: file.libraryPath,
+    sourceType: file.sourceType,
+    sourceConfig: file.sourceConfig,
+  });
+
   if (mode === "download") {
-    return fileResponse(request, file.path, file.contentType, { downloadName: `${file.artistName} - ${file.title}.${file.suffix}` });
+    return source.fileResponse(request, file, { downloadName: `${file.artistName} - ${file.title}.${file.suffix}` });
   }
   const decision = decideWebStream(file, prefs, scope.maxBitRate);
-  return decision.transcode
-    ? transcodeResponse(request, file.path, { ...decision, offsetSeconds })
-    : fileResponse(request, file.path, file.contentType);
+  if (!decision.transcode) return source.fileResponse(request, file);
+  const { input, preInputArgs } = await source.ffmpegInput(file.relPath);
+  return transcodeResponse(request, input, { ...decision, offsetSeconds, preInputArgs });
 }

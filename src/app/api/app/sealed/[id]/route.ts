@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 
 import { scopeFor } from "~/server/access";
@@ -9,6 +8,7 @@ import { logAccess } from "~/server/logs";
 import { seal, sealingKey } from "~/server/media/sealed";
 import { decideWebStream, parseWebStreamParams, transcodeArgs } from "~/server/media/transcode";
 import { clientIp } from "~/server/request-origin";
+import { openLibrarySource } from "~/server/storage";
 
 /**
  * A track sealed for one device of the native app: GET /api/app/sealed/12 with
@@ -43,15 +43,22 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   });
   if (!file) return new Response("Not found.", { status: 404 });
 
+  const librarySource = openLibrarySource({
+    id: file.libraryId,
+    path: file.libraryPath,
+    sourceType: file.sourceType,
+    sourceConfig: file.sourceConfig,
+  });
   const decision = decideWebStream(file, parseWebStreamParams(new URL(request.url).searchParams), scope.maxBitRate);
   let source: Readable;
   if (decision.transcode) {
-    const ffmpeg = spawn("ffmpeg", transcodeArgs(file.path, decision), { stdio: ["ignore", "pipe", "inherit"] });
+    const { input, preInputArgs } = await librarySource.ffmpegInput(file.relPath);
+    const ffmpeg = spawn("ffmpeg", transcodeArgs(input, { ...decision, preInputArgs }), { stdio: ["ignore", "pipe", "inherit"] });
     // The app stopped the download: stop converting the rest.
     request.signal.addEventListener("abort", () => ffmpeg.kill("SIGKILL"));
     source = ffmpeg.stdout;
   } else {
-    source = createReadStream(file.path, { highWaterMark: 256 * 1024 });
+    source = await librarySource.openReadStream(file.relPath, request.signal);
   }
 
   const sealed = Readable.toWeb(Readable.from(seal(source, key))) as unknown as ReadableStream<Uint8Array>;

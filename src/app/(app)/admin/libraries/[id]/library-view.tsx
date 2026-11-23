@@ -7,27 +7,41 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderTree, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import { FolderBrowser } from "~/components/admin/folder-browser";
+import { ruleModes } from "~/components/admin/folder-rule-parts";
+import {
+  isSourceReady,
+  LibrarySourceFields,
+  SourceBadge,
+  stateFromLibrary,
+  toSourcePayload,
+  type SourceFormState,
+} from "~/components/admin/library-source-fields";
 import { ScanStatus, useScanAnnouncements } from "~/components/admin/scan";
 import { useConfirm } from "~/components/confirm-provider";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection } from "~/components/shell/form";
 import { ListRow, ListRows } from "~/components/shell/list-row";
 import { Page } from "~/components/shell/page";
+import { CardSkeleton } from "~/components/shell/skeletons";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { count } from "~/lib/format";
-import { ruleModes } from "~/components/admin/folder-rule-parts";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
-import { CardSkeleton } from "~/components/shell/skeletons";
 
 type Library = RouterOutputs["admin"]["libraries"]["byId"];
 const number = new Intl.NumberFormat("en");
 
-/** One library: its name and folder, its scans, who can reach it, the folder rules on it, and removing it. */
+const untouchedFilesCopy = {
+  local: "The files on disk are not touched.",
+  s3: "The files in the bucket are not touched.",
+  smb: "The files on the share are not touched.",
+  nfs: "The files on the share are not touched.",
+} as const;
+
+/** One library: its name and source, its scans, who can reach it, the folder rules on it, and removing it. */
 export function LibraryView({ id }: { id: number }) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -51,6 +65,12 @@ export function LibraryView({ id }: { id: number }) {
         setTimeout(refresh, 1500);
         setTimeout(refresh, 4000);
       },
+      onError,
+    }),
+  );
+  const reconnect = useMutation(
+    trpc.admin.libraries.reconnect.mutationOptions({
+      onSuccess: (res) => toast(res.detail ?? "Reconnected to share."),
       onError,
     }),
   );
@@ -92,10 +112,11 @@ export function LibraryView({ id }: { id: number }) {
     );
   }
   const scanning = !!data.scan;
+  const isNetworkMount = data.sourceType === "smb" || data.sourceType === "nfs";
   // Its folder rules go with it, and so do the playlists they made, so the warning counts them.
   const removes = `Its albums and tracks go from the server and from any playlists${
     data.ruleCount ? `, and so do its ${count(data.ruleCount, "folder rule")} and the playlists made from ${data.ruleCount === 1 ? "it" : "them"}` : ""
-  }. The files on disk are not touched.`;
+  }. ${untouchedFilesCopy[data.sourceType]}`;
 
   return (
     <Page maxWidth="max-w-4xl" className="flex flex-col gap-6">
@@ -115,20 +136,25 @@ export function LibraryView({ id }: { id: number }) {
             <Button variant="outline" size="sm" disabled={scanning || scan.isPending} onClick={() => scan.mutate({ id, full: true })}>
               Rescan every file
             </Button>
+            {isNetworkMount ? (
+              <Button variant="outline" size="sm" disabled={scanning || reconnect.isPending} onClick={() => reconnect.mutate({ id })}>
+                {reconnect.isPending ? "Reconnecting..." : "Reconnect share"}
+              </Button>
+            ) : null}
           </FormActions>
         </div>
       </FormSection>
 
       {/* Keyed by what is saved, so the fields start from it again after each save. */}
-      <Details key={`${data.name}\n${data.path}`} library={data} disabled={scanning} />
+      <Details key={`${data.name}\n${data.path}\n${JSON.stringify(data.source)}`} library={data} disabled={scanning} />
 
       <FormSection title="Who can reach it" description="Access lets someone browse and play. Download adds saving the original files. Admins reach every library.">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead >Person</TableHead>
-              <TableHead className={`w-24 text-center`}>Access</TableHead>
-              <TableHead className={`w-24 text-center`}>Download</TableHead>
+              <TableHead>Person</TableHead>
+              <TableHead className="w-24 text-center">Access</TableHead>
+              <TableHead className="w-24 text-center">Download</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -222,52 +248,78 @@ export function LibraryView({ id }: { id: number }) {
   );
 }
 
-/** The library's name and the folder it reads. Pointing it at a new folder is for when the files have moved. */
+/** The library's name and source settings. Changing the location is for when the files have moved. */
 function Details({ library, disabled }: { library: Library; disabled: boolean }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const initialSource = stateFromLibrary(library);
   const [name, setName] = useState(library.name);
-  const [path, setPath] = useState(library.path);
-  const [browsing, setBrowsing] = useState(false);
+  const [source, setSource] = useState<SourceFormState>(() => initialSource);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const test = useMutation(
+    trpc.admin.libraries.testConnection.mutationOptions({
+      onSuccess: (res) => setTestResult({ ok: true, message: res.detail }),
+      onError: (error) => setTestResult({ ok: false, message: error.message }),
+    }),
+  );
+
   const save = useMutation(
     trpc.admin.libraries.update.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.admin.pathFilter());
-        toast(path.trim() === library.path ? "Saved" : "Saved. Scanning the new folder.");
+        toast("Saved");
       },
     }),
   );
-  const moved = path.trim() !== library.path;
-  const changed = moved || name.trim() !== library.name;
+
+  const sourceChanged = JSON.stringify(source) !== JSON.stringify(initialSource);
+  const changed = sourceChanged || name.trim() !== library.name;
+  const ready = isSourceReady(source);
+
+  const updateSource = (next: SourceFormState) => {
+    setSource(next);
+    setTestResult(null);
+  };
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        save.mutate({ id: library.id, name, path: moved ? path : undefined });
+        save.mutate({ id: library.id, name, source: sourceChanged ? toSourcePayload(source) : undefined });
       }}
     >
-      <FormSection title="Details" className="grid gap-4">
+      <FormSection
+        title="Details"
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <SourceBadge type={library.sourceType} />
+            <span className="font-mono text-xs">{library.path}</span>
+          </span>
+        }
+        className="grid gap-4"
+      >
         <Field label="Name" htmlFor="library-name">
           <Input id="library-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={60} />
         </Field>
-        <Field
-          label="Folder"
-          htmlFor="library-path"
-          error={save.error?.message}
-          hint="Change this only when the files have moved. Tracks keep their place in playlists, their likes and their play counts."
-        >
-          <div className="flex gap-2">
-            <Input id="library-path" className="font-mono" autoCapitalize="none" spellCheck={false} value={path} onChange={(event) => setPath(event.target.value)} />
-            <Button type="button" variant="outline" aria-expanded={browsing} onClick={() => setBrowsing(!browsing)}>
-              Browse
-            </Button>
-          </div>
-        </Field>
-        {browsing ? <FolderBrowser value={path} onChange={setPath} /> : null}
+        <LibrarySourceFields
+          state={source}
+          onChange={updateSource}
+          mode="edit"
+          error={save.error?.message ?? (testResult && !testResult.ok ? testResult.message : null)}
+        />
+        {testResult?.ok ? <p className="text-muted-foreground text-xs">{testResult.message}</p> : null}
         <FormActions>
-          <Button type="submit" disabled={!name.trim() || !path.trim() || !changed || save.isPending || (moved && disabled)}>
-            {moved ? "Save and scan" : "Save"}
+          <Button type="submit" disabled={!name.trim() || !ready || !changed || save.isPending || (sourceChanged && disabled)}>
+            Save
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!ready || test.isPending || save.isPending}
+            onClick={() => test.mutate({ source: toSourcePayload(source), libraryId: library.id })}
+          >
+            {test.isPending ? "Testing..." : "Test connection"}
           </Button>
           {changed ? (
             <Button
@@ -275,7 +327,8 @@ function Details({ library, disabled }: { library: Library; disabled: boolean })
               variant="outline"
               onClick={() => {
                 setName(library.name);
-                setPath(library.path);
+                setSource(initialSource);
+                setTestResult(null);
               }}
             >
               Discard

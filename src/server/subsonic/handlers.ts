@@ -26,6 +26,7 @@ import { fileResponse, transcodeResponse } from "~/server/media/stream";
 import { decideStream } from "~/server/media/transcode";
 import { namedByFolder, withoutFolderName } from "~/server/playlists/folders";
 import { createPlaylist, deletePlaylist, PlaylistError, updatePlaylist } from "~/server/playlists/mutations";
+import { openLibrarySource } from "~/server/storage";
 import { SubsonicError, type Payload } from "./respond";
 import {
   idOf,
@@ -185,15 +186,23 @@ async function sendTrack(ctx: Context, mode: "stream" | "download") {
   if (!file) throw new SubsonicError(70, "Song not found.");
   ctx.log.trackId = id;
 
+  const source = openLibrarySource({
+    id: file.libraryId,
+    path: file.libraryPath,
+    sourceType: file.sourceType,
+    sourceConfig: file.sourceConfig,
+  });
+
   if (mode === "download") {
     if (!scope.downloadLibraryIds.has(file.libraryId)) throw new SubsonicError(50, "Downloads are turned off for this library.");
-    return fileResponse(request, file.path, file.contentType, { downloadName: `${file.artistName} - ${file.title}.${file.suffix}` });
+    return source.fileResponse(request, file, { downloadName: `${file.artistName} - ${file.title}.${file.suffix}` });
   }
 
   noteNowPlaying(ctx, id);
   const decision = decideStream(file, { format: params.get("format"), maxBitRate: params.int("maxBitRate") }, scope.maxBitRate);
-  if (!decision.transcode) return fileResponse(request, file.path, file.contentType);
-  return transcodeResponse(request, file.path, { ...decision, offsetSeconds: params.int("timeOffset") });
+  if (!decision.transcode) return source.fileResponse(request, file);
+  const { input, preInputArgs } = await source.ffmpegInput(file.relPath);
+  return transcodeResponse(request, input, { ...decision, offsetSeconds: params.int("timeOffset"), preInputArgs });
 }
 
 const empty = (key: string) => async () => ({ [key]: {} });

@@ -50,10 +50,10 @@ export async function fileResponse(
  */
 export function transcodeResponse(
   request: Request,
-  filePath: string,
-  options: { format: TranscodeFormat; bitRate: number; offsetSeconds?: number },
+  input: string,
+  options: { format: TranscodeFormat; bitRate: number; offsetSeconds?: number; preInputArgs?: string[] },
 ): Response {
-  const ffmpeg = spawn("ffmpeg", transcodeArgs(filePath, options), { stdio: ["ignore", "pipe", "inherit"] });
+  const ffmpeg = spawn("ffmpeg", transcodeArgs(input, options), { stdio: ["ignore", "pipe", "inherit"] });
   // The listener stopped or skipped: stop encoding the rest.
   request.signal.addEventListener("abort", () => ffmpeg.kill("SIGKILL"));
   ffmpeg.on("error", (error) => console.error("[transcode] ffmpeg failed to start:", error));

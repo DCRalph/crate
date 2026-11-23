@@ -7,6 +7,7 @@ import {
   album,
   annotation,
   artist,
+  library,
   playEvent,
   playlist,
   playlistPin,
@@ -80,20 +81,27 @@ export async function listTracks(scope: Scope, options: Page & { where?: SQL; or
     .offset(options.offset ?? 0);
 }
 
-/** One track with the file path the media routes need, or undefined when it isn't in scope. */
+/** One track with the file and library source details the media routes need, or undefined when it isn't in scope. */
 export async function findTrackFile(scope: Scope, id: number) {
   const [row] = await db
     .select({
       id: track.id,
       path: track.path,
+      relPath: track.relPath,
+      size: track.size,
+      mtimeMs: track.mtimeMs,
       title: track.title,
       artistName: track.artistCredit,
       suffix: track.suffix,
       contentType: track.contentType,
       bitRate: track.bitRate,
       libraryId: track.libraryId,
+      libraryPath: library.path,
+      sourceType: library.sourceType,
+      sourceConfig: library.sourceConfig,
     })
     .from(track)
+    .innerJoin(library, eq(library.id, track.libraryId))
     .where(and(eq(track.id, id), inScope(track.libraryId, scope)));
   return row;
 }

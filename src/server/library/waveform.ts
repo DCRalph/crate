@@ -4,9 +4,10 @@ import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import { track, trackWaveform } from "~/server/db/app-schema";
+import { getLibrarySource, type LibrarySource } from "~/server/storage";
 import { loudnessMeter, toPeaks, waveformSampleRate, waveformSlices } from "./peaks";
 
-type FileRow = { id: number; path: string; size: number; mtimeMs: number };
+type FileRow = { id: number; path: string; relPath: string; size: number; mtimeMs: number };
 
 /** How long a stored waveform is: base64 of one byte a slice. One of another length was drawn at a different detail. */
 const storedLength = 4 * Math.ceil(waveformSlices / 3);
@@ -15,11 +16,17 @@ const storedLength = 4 * Math.ceil(waveformSlices / 3);
 const readers = 4;
 
 /** Decodes a file and measures it. Null when ffmpeg can't read it. */
-function readPeaks(file: string) {
+async function readPeaks(source: LibrarySource, relPath: string) {
+  let target: { input: string; preInputArgs?: string[] };
+  try {
+    target = await source.ffmpegInput(relPath);
+  } catch {
+    return null;
+  }
   return new Promise<Uint8Array | null>((resolve) => {
     const ffmpeg = spawn(
       "ffmpeg",
-      ["-v", "error", "-i", file, "-map", "0:a:0", "-ac", "1", "-ar", String(waveformSampleRate), "-f", "s16le", "-"],
+      ["-v", "error", ...(target.preInputArgs ?? []), "-i", target.input, "-map", "0:a:0", "-ac", "1", "-ar", String(waveformSampleRate), "-f", "s16le", "-"],
       { stdio: ["ignore", "pipe", "ignore"] },
     );
     const meter = loudnessMeter();
@@ -30,8 +37,8 @@ function readPeaks(file: string) {
 }
 
 /** Works out one track's waveform and keeps it. A file that can't be read is kept as empty, so it isn't tried again until it changes. */
-async function draw(file: FileRow) {
-  const peaks = await readPeaks(file.path);
+async function draw(source: LibrarySource, file: FileRow) {
+  const peaks = await readPeaks(source, file.relPath);
   const values = { peaks: peaks ? Buffer.from(peaks).toString("base64") : "", size: file.size, mtimeMs: file.mtimeMs };
   await db
     .insert(trackWaveform)
@@ -47,8 +54,10 @@ async function draw(file: FileRow) {
  * waveform from the moment it is imported.
  */
 export async function drawWaveforms(libraryId: number, onProgress: (done: number, total: number) => void) {
+  const source = await getLibrarySource(libraryId);
+  if (!source) return;
   const missing = await db
-    .select({ id: track.id, path: track.path, size: track.size, mtimeMs: track.mtimeMs })
+    .select({ id: track.id, path: track.path, relPath: track.relPath, size: track.size, mtimeMs: track.mtimeMs })
     .from(track)
     .leftJoin(trackWaveform, eq(trackWaveform.trackId, track.id))
     .where(
@@ -69,7 +78,7 @@ export async function drawWaveforms(libraryId: number, onProgress: (done: number
   await Promise.all(
     Array.from({ length: readers }, async () => {
       for (let file = missing[next++]; file; file = missing[next++]) {
-        await draw(file).catch((error: unknown) => console.warn(`[waveform] could not draw ${file.path}:`, error));
+        await draw(source, file).catch((error: unknown) => console.warn(`[waveform] could not draw ${file.path}:`, error));
         onProgress(++done, missing.length);
       }
     }),
@@ -83,7 +92,12 @@ export async function drawWaveforms(libraryId: number, onProgress: (done: number
 export async function waveformOf(trackId: number) {
   const [saved] = await db.select({ peaks: trackWaveform.peaks }).from(trackWaveform).where(eq(trackWaveform.trackId, trackId));
   if (saved) return saved.peaks ? [...Buffer.from(saved.peaks, "base64")] : null;
-  const [file] = await db.select({ id: track.id, path: track.path, size: track.size, mtimeMs: track.mtimeMs }).from(track).where(eq(track.id, trackId));
-  const peaks = file ? await draw(file) : null;
+  const [file] = await db
+    .select({ id: track.id, libraryId: track.libraryId, path: track.path, relPath: track.relPath, size: track.size, mtimeMs: track.mtimeMs })
+    .from(track)
+    .where(eq(track.id, trackId));
+  if (!file) return null;
+  const source = await getLibrarySource(file.libraryId);
+  const peaks = source ? await draw(source, file) : null;
   return peaks ? [...peaks] : null;
 }

@@ -1,12 +1,10 @@
 import "server-only";
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
-import path from "node:path";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import { folderRule, library, playlist, playlistFolder, playlistTrack, track, type FolderRuleMode } from "~/server/db/app-schema";
+import { openLibrarySource } from "~/server/storage";
 import { planTree, type TreePlan } from "./plan-tree";
-import { decodePlaylistFile, parsePlaylistFile, playlistFilePattern, type PlaylistFile } from "./playlist-file";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Rule = typeof folderRule.$inferSelect;
@@ -23,48 +21,24 @@ export async function setPlaylistTracks(tx: Tx, playlistId: number, trackIds: nu
 }
 
 /**
- * The `.m3u` and `.m3u8` files under a folder of a library, read and parsed.
- * The scanner only records audio, so the folders are read here, the way the
- * scanner reads them: hidden entries are skipped and symlinks are followed.
- * A folder or file that can't be read is left out.
- */
-async function findPlaylistFiles(libraryPath: string, folder: string): Promise<PlaylistFile[]> {
-  const found: PlaylistFile[] = [];
-  // Stops a link back up the tree looping forever.
-  const visited = new Set<string>();
-
-  async function walk(dir: string) {
-    const real = await realpath(path.join(libraryPath, dir)).catch(() => null);
-    if (!real || visited.has(real)) return;
-    visited.add(real);
-
-    for (const entry of await readdir(real, { withFileTypes: true }).catch(() => [])) {
-      if (entry.name.startsWith(".")) continue;
-      const relPath = dir ? `${dir}/${entry.name}` : entry.name;
-      const full = path.join(libraryPath, relPath);
-      // stat follows symlinks, so linked files and folders count as what they point to.
-      const info = entry.isSymbolicLink() ? await stat(full).catch(() => null) : entry;
-      if (info?.isDirectory()) await walk(relPath);
-      else if (info?.isFile() && playlistFilePattern.test(entry.name)) {
-        const bytes = await readFile(full).catch(() => null);
-        if (bytes) found.push({ relPath, entries: parsePlaylistFile(decodePlaylistFile(bytes), { dir, libraryPath }) });
-      }
-    }
-  }
-
-  await walk(folder);
-  return found;
-}
-
-/**
  * What a rule on this folder would make right now, from what is already
- * scanned and, in `tree` mode, the playlist files on disk. Also the preview
- * shown before one is saved.
+ * scanned and, in `tree` mode, the playlist files in the library. Also the
+ * preview shown before one is saved.
  */
 export async function planRule(rule: { libraryId: number; path: string; mode: FolderRuleMode }): Promise<TreePlan> {
-  const [lib] = await db.select({ name: library.name, path: library.path }).from(library).where(eq(library.id, rule.libraryId));
+  const [lib] = await db
+    .select({
+      id: library.id,
+      name: library.name,
+      path: library.path,
+      sourceType: library.sourceType,
+      sourceConfig: library.sourceConfig,
+    })
+    .from(library)
+    .where(eq(library.id, rule.libraryId));
   if (!lib) return { folders: [], playlists: [] };
-  const playlistFiles = rule.mode === "tree" ? await findPlaylistFiles(lib.path, rule.path) : [];
+  const source = openLibrarySource(lib);
+  const playlistFiles = rule.mode === "tree" ? await source.listPlaylistFiles(rule.path) : [];
   const prefix = rule.path ? `${rule.path}/` : "";
   const tracks = await db
     .select({ id: track.id, relPath: track.relPath })

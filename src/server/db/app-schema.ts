@@ -14,6 +14,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
+import { librarySourceTypes, type StoredSourceConfig } from "~/lib/library-source";
 import { user } from "./schema";
 
 const id = () => integer("id").primaryKey().generatedAlwaysAsIdentity();
@@ -30,12 +31,16 @@ export type ScanResult = {
   error?: string;
 };
 
-/** A root folder of music. Access is granted per library. */
+/** A music library: a local folder, S3 bucket, SMB share, or NFS export. Access is granted per library. */
 export const library = pgTable("library", {
   id: id(),
   name: text("name").notNull(),
-  /** Absolute path on the server. */
+  /** Canonical path on the server or remote URI (`s3://...`, `smb://...`, `nfs://...`). */
   path: text("path").notNull().unique(),
+  /** Where this library's files live. */
+  sourceType: text("source_type", { enum: librarySourceTypes }).default("local").notNull(),
+  /** Source-specific settings (null for local folders). Secrets inside are encrypted at rest. */
+  sourceConfig: jsonb("source_config").$type<StoredSourceConfig | null>(),
   createdAt: createdAt(),
   lastScanAt: timestamp("last_scan_at"),
   lastScan: jsonb("last_scan").$type<ScanResult>(),

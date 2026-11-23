@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
+import { SourceBadge } from "~/components/admin/library-source-fields";
 import { ScanStatus, useScanAnnouncements } from "~/components/admin/scan";
 import { DataTable, useDataTable, type DataTableColumn } from "~/components/data-table";
 import { Page } from "~/components/shell/page";
@@ -30,7 +31,17 @@ const columns: DataTableColumn<Row>[] = [
       </Link>
     ),
   },
-  { id: "path", header: "Folder", showFrom: 860, cell: (row) => <span className="text-muted-foreground font-mono text-xs">{row.path}</span> },
+  {
+    id: "path",
+    header: "Source",
+    showFrom: 860,
+    cell: (row) => (
+      <span className="flex items-center gap-2">
+        <SourceBadge type={row.sourceType} />
+        <span className="text-muted-foreground font-mono text-xs">{row.path}</span>
+      </span>
+    ),
+  },
   { id: "albumCount", header: "Albums", type: "number", align: "right", showFrom: 620 },
   { id: "trackCount", header: "Tracks", type: "number", align: "right" },
   { id: "userCount", header: "Users", type: "number", align: "right", showFrom: 700 },

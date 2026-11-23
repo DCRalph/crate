@@ -3,13 +3,13 @@ import { createHash } from "node:crypto";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { and, asc, desc, eq, min } from "drizzle-orm";
-import { parseFile, selectCover } from "music-metadata";
 import sharp from "sharp";
 
 import { env } from "~/env";
 import { inScope, type Scope } from "~/server/access";
 import { db } from "~/server/db";
-import { album, playlist, playlistTrack, track } from "~/server/db/app-schema";
+import { album, library, playlist, playlistTrack, track } from "~/server/db/app-schema";
+import { openLibrarySource, type LibrarySource } from "~/server/storage";
 import { FIELDS, layoutFields, paint, paletteFor, seedOf, swatch, type Rgb } from "./gradient";
 import { albumsWith, listPlaylists } from "./queries";
 
@@ -57,20 +57,46 @@ async function albumFor(type: "album" | "track" | "artist", id: number, scope: S
 }
 
 /** Where an album's art is read from. `embedded` means the picture inside that audio file. */
-type ArtSource = { path: string; mtimeMs: number; embedded: boolean };
+type ArtSource = {
+  source: LibrarySource;
+  path: string;
+  relPath?: string;
+  size?: number;
+  mtimeMs: number;
+  embedded: boolean;
+};
 
 /** An album's art: the image file beside its tracks, or else whatever its first track carries. */
 async function artSource(albumId: number): Promise<ArtSource | null> {
-  const [row] = await db.select({ coverPath: album.coverPath }).from(album).where(eq(album.id, albumId));
-  const coverInfo = row?.coverPath ? await stat(row.coverPath).catch(() => null) : null;
-  if (row?.coverPath && coverInfo) return { path: row.coverPath, mtimeMs: Math.round(coverInfo.mtimeMs), embedded: false };
+  const [row] = await db
+    .select({
+      coverPath: album.coverPath,
+      libraryId: library.id,
+      libraryPath: library.path,
+      sourceType: library.sourceType,
+      sourceConfig: library.sourceConfig,
+    })
+    .from(album)
+    .innerJoin(library, eq(library.id, album.libraryId))
+    .where(eq(album.id, albumId));
+  if (!row) return null;
+
+  const source = openLibrarySource({
+    id: row.libraryId,
+    path: row.libraryPath,
+    sourceType: row.sourceType,
+    sourceConfig: row.sourceConfig,
+  });
+
+  const coverInfo = row.coverPath ? await source.statCover(row.coverPath).catch(() => null) : null;
+  if (row.coverPath && coverInfo) return { source, path: row.coverPath, mtimeMs: coverInfo.mtimeMs, embedded: false };
   const [first] = await db
-    .select({ path: track.path, mtimeMs: track.mtimeMs })
+    .select({ path: track.path, relPath: track.relPath, size: track.size, mtimeMs: track.mtimeMs })
     .from(track)
     .where(eq(track.albumId, albumId))
     .orderBy(asc(track.discNumber), asc(track.trackNumber), asc(track.id))
     .limit(1);
-  return first ? { ...first, embedded: true } : null;
+  return first ? { source, ...first, embedded: true } : null;
 }
 
 const cachePath = (key: string, extension: "jpg" | "none") =>
@@ -95,14 +121,15 @@ async function albumArt(source: ArtSource, edge: number): Promise<string | null>
   if (await exists(missing)) return null;
 
   await mkdir(cacheDir, { recursive: true });
-  let input: string | Uint8Array = source.path;
+  let input: string | Uint8Array | null;
   if (source.embedded) {
-    const picture = selectCover((await parseFile(source.path).catch(() => null))?.common.picture);
-    if (!picture) {
-      await writeFile(missing, "");
-      return null;
-    }
-    input = picture.data;
+    input = await source.source.readEmbeddedCover(source.relPath!, source.size ?? 0).catch(() => null);
+  } else {
+    input = await source.source.readCoverInput(source.path).catch(() => null);
+  }
+  if (!input) {
+    await writeFile(missing, "");
+    return null;
   }
 
   try {

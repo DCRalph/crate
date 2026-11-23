@@ -1,15 +1,14 @@
 import "server-only";
-import { readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { and, asc, eq, inArray, notExists, sql } from "drizzle-orm";
-import { parseFile } from "music-metadata";
 
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
 import { album, artist, library, track, trackArtist, type ScanResult } from "~/server/db/app-schema";
 import { syncFolderRules } from "~/server/playlists/folder-rules";
+import { openLibrarySource, type LibrarySource, type ScannedFile } from "~/server/storage";
 import { artistKey, fromFileName, readCredit, splitJoint, type Credit } from "./artists";
-import { audioTypes, coverFilePattern, suffixOf } from "./audio";
+import { audioTypes, suffixOf } from "./audio";
 import { drawWaveforms } from "./waveform";
 
 type Library = typeof library.$inferSelect;
@@ -30,48 +29,6 @@ const state = globalThis as unknown as { crateScan?: ScanProgress | null };
 
 export function scanProgress(): ScanProgress | null {
   return state.crateScan ?? null;
-}
-
-type FoundFile = { path: string; size: number; mtimeMs: number; coverPath: string | null };
-
-/** Every audio file under `root`, each with the cover image in its folder if there is one. */
-async function listAudioFiles(root: string, onFound: () => void): Promise<FoundFile[]> {
-  const found: FoundFile[] = [];
-  // Symlinked folders are followed; this stops a link back up the tree looping forever.
-  const visited = new Set<string>();
-
-  async function walk(dir: string) {
-    const real = await realpath(dir);
-    if (visited.has(real)) return;
-    visited.add(real);
-
-    const entries = await readdir(dir, { withFileTypes: true });
-    const cover = entries.find((entry) => coverFilePattern.test(entry.name));
-    const coverPath = cover ? path.join(dir, cover.name) : null;
-    const subdirs: string[] = [];
-
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      const full = path.join(dir, entry.name);
-      // stat follows symlinks, so linked files and folders count as what they point to.
-      const info = entry.isSymbolicLink() ? await stat(full).catch(() => null) : null;
-      const isDir = info ? info.isDirectory() : entry.isDirectory();
-      const isFile = info ? info.isFile() : entry.isFile();
-      if (isDir) subdirs.push(full);
-      else if (isFile && suffixOf(entry.name) in audioTypes) {
-        const fileInfo = info ?? (await stat(full));
-        found.push({ path: full, size: fileInfo.size, mtimeMs: Math.round(fileInfo.mtimeMs), coverPath });
-        onFound();
-      }
-    }
-    for (const subdir of subdirs) {
-      // An unreadable folder shouldn't end the scan of everything else.
-      await walk(subdir).catch((error: unknown) => console.warn(`[scan] skipped ${subdir}:`, error));
-    }
-  }
-
-  await walk(root);
-  return found;
 }
 
 /** Runs `work` over `items`, `limit` at a time. */
@@ -166,10 +123,16 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
   const result = { added: 0, updated: 0, removed: 0, failed: 0 };
   const finish = (error?: string): ScanResult => ({ ...result, durationMs: Date.now() - startedAt, error });
 
-  const root = await stat(lib.path).catch(() => null);
-  if (!root?.isDirectory()) return finish("The folder can't be read. Nothing was changed.");
+  let source: LibrarySource;
+  try {
+    source = openLibrarySource(lib);
+    await source.check();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "The library source can't be read.";
+    return finish(`${reason} Nothing was changed.`);
+  }
 
-  const files = await listAudioFiles(lib.path, () => progress.total++);
+  const files = await source.listAudioFiles(() => progress.total++);
   const existing = new Map(
     (
       await db
@@ -178,9 +141,10 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
         .where(eq(track.libraryId, lib.id))
     ).map((row) => [row.path, row]),
   );
-  // An empty folder where there used to be music is almost always an unmounted
-  // drive. Removing every track would also empty playlists, so stop instead.
-  if (files.length === 0 && existing.size > 0) return finish("No audio files were found, so nothing was removed. Is the drive mounted?");
+  // An empty source where there used to be music is almost always an unmounted
+  // drive, disconnected share, or wrong bucket prefix. Removing every track
+  // would also empty playlists, so stop instead.
+  if (files.length === 0 && existing.size > 0) return finish("No audio files were found, so nothing was removed. Is the source reachable?");
 
   progress.phase = "reading";
   const artistIds = new Map<string, Promise<number>>();
@@ -230,7 +194,7 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
         if (!albumCovers.get(known.albumId)) albumCovers.set(known.albumId, file.coverPath);
         return;
       }
-      const tags = await readTags(file.path);
+      const tags = await readTags(source, file, lib.name);
       const trackArtistIds = await Promise.all(tags.artist.names.map(artistId));
       const trackAlbumId = await albumId({
         artistId: await artistId(tags.albumArtist.names[0]!),
@@ -241,7 +205,7 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
       });
       if (!albumCovers.get(trackAlbumId)) albumCovers.set(trackAlbumId, file.coverPath);
 
-      const suffix = suffixOf(file.path);
+      const suffix = suffixOf(file.relPath);
       const values = {
         libraryId: lib.id,
         albumId: trackAlbumId,
@@ -262,7 +226,7 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
         suffix,
         contentType: audioTypes[suffix] ?? "application/octet-stream",
         path: file.path,
-        relPath: path.relative(lib.path, file.path).split(path.sep).join("/"),
+        relPath: file.relPath,
         mtimeMs: file.mtimeMs,
       };
       await db.transaction(async (tx) => {
@@ -328,13 +292,17 @@ const named = (name: string): Credit => ({ credit: name, names: [name] });
  * credits come with everyone on them: from the tags' own list when a file has
  * one, otherwise from splitting the one string (see artists.ts).
  */
-async function readTags(file: string) {
-  let { common, format } = await parseFile(file, { skipCovers: true });
+async function readTags(source: LibrarySource, file: ScannedFile, libraryName: string) {
+  const mimeType = audioTypes[suffixOf(file.relPath)];
+  let { common, format } = await source.parseMetadata(file.relPath, { size: file.size, mimeType }, { skipCovers: true });
   // Some files (VBR MP3 without a header, raw AAC) only give a length when read through.
-  if (!format.duration) ({ common, format } = await parseFile(file, { skipCovers: true, duration: true }));
+  if (!format.duration) ({ common, format } = await source.parseMetadata(file.relPath, { size: file.size, mimeType }, { skipCovers: true, duration: true }));
 
   // A file with no tags usually still says who and what it is in its name.
-  const fileName = fromFileName(path.basename(file, path.extname(file)));
+  const baseName = path.posix.basename(file.relPath, path.posix.extname(file.relPath));
+  const parentDir = path.posix.dirname(file.relPath);
+  const folderName = parentDir === "." ? libraryName : path.posix.basename(parentDir);
+  const fileName = fromFileName(baseName);
   const albumArtist = readCredit(common.albumartist, common.albumartists);
   const tagged = readCredit(common.artist, common.artists) ?? albumArtist;
   const artist = tagged ?? readCredit(fileName.artist) ?? named("Unknown Artist");
@@ -348,7 +316,7 @@ async function readTags(file: string) {
     // With no album tag the folder is the album, and a folder of loose files is by whoever is in it.
     albumArtist: albumArtist ?? (common.compilation || !album ? named("Various Artists") : artist),
     // Untagged files are usually already sorted into folders, so the folder is the album.
-    album: album || path.basename(path.dirname(file)),
+    album: album || folderName,
     year: tagNumber(common.year),
     genre: common.genre?.[0]?.trim() || null,
     trackNumber: common.track.no ?? null,
