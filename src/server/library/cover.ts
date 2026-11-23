@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { and, asc, desc, eq, min } from "drizzle-orm";
@@ -11,6 +11,7 @@ import { db } from "~/server/db";
 import { album, library, playlist, playlistTrack, track } from "~/server/db/app-schema";
 import { openLibrarySource, type LibrarySource } from "~/server/storage";
 import { FIELDS, layoutFields, paint, paletteFor, seedOf, swatch, type Rgb } from "./gradient";
+import { drawLabel, labelFor } from "./label-cover";
 import { albumsWith, listPlaylists } from "./queries";
 
 const cacheDir = path.resolve(env.DATA_DIR, "covers");
@@ -23,6 +24,8 @@ const MAX_SIZE = 1200;
 const CANVAS = 512;
 /** Part of every generated cover's cache key. Raise it when the generator's look changes, and the old ones are left behind. */
 const GENERATOR = 1;
+/** The same, for the record labels drawn for albums with no art. */
+const LABEL_GENERATOR = 1;
 
 export type CoverTarget =
   | { type: "album" | "track" | "artist"; id: number }
@@ -105,7 +108,8 @@ const exists = async (file: string) => !!(await stat(file).catch(() => null));
 
 /** Puts a finished cover in the cache. Written beside and renamed, so a concurrent request never reads half a file. */
 async function store(cached: string, image: Buffer) {
-  const partial = `${cached}.${process.pid}.${Date.now()}.tmp`;
+  // Unique per write: two requests for the same new cover can arrive in the same millisecond.
+  const partial = `${cached}.${randomUUID()}.tmp`;
   await writeFile(partial, image);
   await rename(partial, cached);
   return cached;
@@ -146,6 +150,29 @@ async function albumArt(source: ArtSource, edge: number): Promise<string | null>
   }
 }
 
+/**
+ * A cached JPEG of the record label drawn for an album with no art, at `edge`
+ * pixels. Keyed on the album's artist credit and name, which are all it is
+ * drawn from. Null when the album is gone.
+ */
+async function labelArt(albumId: number, edge: number): Promise<string | null> {
+  const [row] = await db.select({ artistCredit: album.artistCredit, name: album.name }).from(album).where(eq(album.id, albumId));
+  if (!row) return null;
+  const cached = cachePath(["label", LABEL_GENERATOR, row.artistCredit, row.name, edge].join("\0"), "jpg");
+  if (await exists(cached)) return cached;
+
+  await mkdir(cacheDir, { recursive: true });
+  const svg = drawLabel(labelFor(row.artistCredit, row.name), edge);
+  // Flat colours with hard edges: full colour resolution keeps the edges clean where the default would fringe them.
+  return store(cached, await sharp(Buffer.from(svg)).jpeg({ quality: 90, chromaSubsampling: "4:4:4" }).toBuffer());
+}
+
+/** An album's cover: its art, or the record label drawn for it when it has none. */
+async function albumCover(albumId: number, edge: number): Promise<string | null> {
+  const source = await artSource(albumId);
+  return (source ? await albumArt(source, edge) : null) ?? labelArt(albumId, edge);
+}
+
 /** The colour an album's art reads as, or null when it has no art or the art has no colour. */
 async function artColour(source: ArtSource): Promise<Rgb | null> {
   const art = await albumArt(source, 64);
@@ -158,17 +185,17 @@ async function artColour(source: ArtSource): Promise<Rgb | null> {
 }
 
 /**
- * A playlist's cover. In order: a picture its owner uploaded, the art of an
+ * A playlist's cover. In order: a picture its owner uploaded, the cover of an
  * album they picked, or a grainy gradient made here. `preview` skips the
  * first two and makes the gradient for that seed, so the choices can be shown
  * before one is taken. Null when the scope can't see the playlist.
  *
  * A gradient's seed is the playlist's id, its name and its chosen number, and
  * its colours come from the first few albums in it that the scope can see, or
- * from the seed when none of them has art. The cache key holds everything the
- * picture depends on, so renaming the playlist, picking another number,
- * changing which albums lead it, or replacing their art each gives a new
- * cover; nothing else does.
+ * from the seed when none of them has art (a label drawn for an album without
+ * art is never sampled). The cache key holds everything the picture depends
+ * on, so renaming the playlist, picking another number, changing which albums
+ * lead it, or replacing their art each gives a new cover; nothing else does.
  */
 async function playlistCover(id: number, edge: number, scope: Scope, preview?: number): Promise<string | null> {
   const [found] = await listPlaylists(scope, eq(playlist.id, id));
@@ -190,9 +217,9 @@ async function playlistCover(id: number, edge: number, scope: Scope, preview?: n
       .select({ id: album.id })
       .from(album)
       .where(and(eq(album.id, found.coverAlbumId), inScope(album.libraryId, scope)));
-    const source = visible ? await artSource(visible.id) : null;
-    const art = source ? await albumArt(source, edge) : null;
-    if (art) return art;
+    // The same cover the album shows everywhere else, so what was picked is what appears.
+    const cover = visible ? await albumCover(visible.id, edge) : null;
+    if (cover) return cover;
   }
   const number = preview ?? found.coverSeed;
 
@@ -227,16 +254,16 @@ async function playlistCover(id: number, edge: number, scope: Scope, preview?: n
 /**
  * A JPEG of the cover for an album, track, artist or playlist, at most `size`
  * pixels on its long edge. Returns the path of a cached file, or null when
- * there is no art (or no access). Albums, tracks and artists show album art;
- * a playlist's cover is generated (see `playlistCover`). The cache is keyed
- * on what each picture is made from (for art, the source file and its
- * modified time), so replacing a cover needs no invalidation.
+ * the scope can't see it. Albums, tracks and artists show album art, or a
+ * record label drawn for an album with none (see `label-cover.ts`); a
+ * playlist's cover is generated (see `playlistCover`). The cache is keyed on
+ * what each picture is made from (for art, the source file and its modified
+ * time), so replacing a cover needs no invalidation.
  */
 export async function coverFile(target: CoverTarget, size: number | null, scope: Scope): Promise<string | null> {
   const edge = Math.min(size && size > 0 ? size : MAX_SIZE, MAX_SIZE);
   if (target.type === "playlist") return playlistCover(target.id, edge, scope, target.seed);
 
   const albumId = await albumFor(target.type, target.id, scope);
-  const source = albumId ? await artSource(albumId) : null;
-  return source ? albumArt(source, edge) : null;
+  return albumId ? albumCover(albumId, edge) : null;
 }

@@ -25,6 +25,7 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Tracks.** One table of every track, with search, sorting and filters. Any track or playlist has Get info.
 - **Any format in the browser.** The browser says what it can play; anything else (AIFF, for one) is converted on the way out, and a file that fails as it is gets retried as a conversion.
 - **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art. Its owner can pick another generated one, the art of an album in the playlist, or upload a picture.
+- **Albums without art** get a cover drawn for them: a record whose label is in a colour of its own and carries the album's first letter. It is the same every time, on the website, in the iOS app and in Subsonic apps, and its tracks and artists show it too.
 - **Playlists page.** A folder tree or a grid of covers, with any playlist pinned to the top of your own list.
 - **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
 - **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most.
@@ -38,7 +39,7 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 Two APIs sit on one core, so access rules and logging apply to both without being written twice.
 
 - `src/server/access.ts`: `scopeFor(user)` works out which libraries a user reaches. Every library query takes that scope.
-- `src/server/library/queries.ts`: every read of the library. `scanner.ts` keeps the database in line with the folders (new and changed files only, unless asked for a full rescan). `cover.ts` resizes and caches cover art under `DATA_DIR`.
+- `src/server/library/queries.ts`: every read of the library. `scanner.ts` keeps the database in line with the folders (new and changed files only, unless asked for a full rescan). `cover.ts` resizes and caches cover art under `DATA_DIR`, and draws a record label (`label-cover.ts`) for albums that have none. The label's letter is drawn from outlines taken out of the font by `scripts/label-glyphs.ts`, so no font is needed on the server.
 - `src/server/subsonic/`: the Subsonic API. `handle.ts` signs the caller in and writes the access log, `handlers.ts` has one function per method, `shapes.ts` is how rows look to clients, `respond.ts` renders JSON or XML.
 - `src/server/api/`: the tRPC API the website uses. `routers/admin/` is admin-only, enforced in `trpc.ts`, not by hiding the menu.
 - `src/server/list/` and `src/components/data-table/`: the two halves of every admin table. The table sends its search, sort, filters and page; `buildListQuery` turns them into a query using a column map that is also the allowlist.

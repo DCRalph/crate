@@ -9,8 +9,9 @@ import { webScope } from "~/server/media/web";
 const params = z.object({ type: z.enum(["album", "track", "artist", "playlist"]), id: z.coerce.number().int() });
 
 /**
- * Cover art for the website: /api/cover/album/12?size=300. 404 when there is none.
- * Album art is kept by the browser for a day. A playlist's cover is generated
+ * Cover art for the website: /api/cover/album/12?size=300. 404 when there is none
+ * the caller can see. An album's cover (its art, or the record label drawn for
+ * one without) is kept by the browser for a day. A playlist's cover is generated
  * and changes when the playlist is renamed or its music does, so the browser
  * asks each time and is told when the one it has is still right.
  */
@@ -21,7 +22,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ type: strin
   if (!target.success) return new Response("Not found.", { status: 404 });
 
   const query = new URL(request.url).searchParams;
-  const size = Number(query.get("size")) || null;
+  // Whole pixels; anything that rounds to nothing means the default.
+  const size = Math.round(Number(query.get("size"))) || null;
   // `seed` asks for one particular generated playlist cover, so choices can be shown before one is picked.
   const seed = query.has("seed") ? Number(query.get("seed")) : undefined;
   const { type, id } = target.data;
