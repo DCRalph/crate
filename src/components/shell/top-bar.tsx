@@ -19,6 +19,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { authClient } from "~/lib/auth-client";
+import { site } from "~/lib/site";
 import { cn } from "~/lib/utils";
 import { Mark } from "./mark";
 import { adminNav, libraryNav, navGroupFor, navItemFor, youNav, type NavItem } from "./navigation";
@@ -64,7 +65,7 @@ export function TopBar({ user }: { user: HeaderUser }) {
   return (
     <header className="bg-muted shrink-0">
       <div className="border-strip flex flex-wrap items-end gap-x-3 border-b-[3px] px-3 pt-2.5 sm:px-4">
-        <Link href="/albums" aria-label="Albums" className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
+        <Link href="/albums" aria-label={`${site.name}, to albums`} className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
           <Mark lit={playing} />
         </Link>
         <div className="mb-2 flex min-w-0 flex-1 items-center justify-end gap-2 md:order-3 md:flex-none">

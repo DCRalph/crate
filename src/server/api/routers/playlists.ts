@@ -18,7 +18,8 @@ async function write<T>(work: () => Promise<T>) {
       throw new TRPCError({ code: codes[error.status], message: error.message });
     }
     if (error instanceof PlaylistError || error instanceof FolderError) {
-      const code = error.reason === "not_found" ? "NOT_FOUND" : error.reason === "read_only" ? "FORBIDDEN" : "BAD_REQUEST";
+      const code =
+        error.reason === "not_found" ? "NOT_FOUND" : error.reason === "read_only" ? "FORBIDDEN" : error.reason === "changed" ? "CONFLICT" : "BAD_REQUEST";
       throw new TRPCError({ code, message: error.message });
     }
     throw error;
@@ -105,8 +106,10 @@ export const playlistsRouter = router({
 
   /** `index` is the track's place in the list as the user sees it. */
   removeTrack: protectedProcedure
-    .input(z.object({ id, index: z.number().int().min(0) }))
-    .mutation(({ ctx, input }) => write(() => updatePlaylist(ctx.scope, input.id, { removeIndexes: [input.index] }))),
+    .input(z.object({ id, index: z.number().int().min(0), trackId: id }))
+    .mutation(({ ctx, input }) =>
+      write(() => updatePlaylist(ctx.scope, input.id, { removeIndexes: [input.index], expect: { index: input.index, trackId: input.trackId } })),
+    ),
 
   /** Replaces the tracks with `trackIds` in that order, which is how reordering is saved. */
   setTracks: protectedProcedure

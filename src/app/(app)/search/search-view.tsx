@@ -9,6 +9,7 @@ import { Cover } from "~/components/library/cover";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError, SectionHeading } from "~/components/shell/states";
+import { cn } from "~/lib/utils";
 import { useTRPC } from "~/trpc/react";
 
 /** Lower case with accents dropped, so "cafe" finds "Café". */
@@ -44,15 +45,18 @@ export function SearchView() {
       </Page>
     );
   }
-  if (!results.data) {
+  const found = results.data;
+  const nothing = found ? !found.artists.length && !found.albums.length && !found.tracks.length && !playlists.length : false;
+  // The last search's results stay up while the next loads, unless there were none: "nothing for daft" would be said before anyone had looked.
+  if (!found || (results.isPlaceholderData && nothing)) {
     return (
       <Page>
         <TrackTableSkeleton covers />
       </Page>
     );
   }
-  const { artists, albums, tracks } = results.data;
-  if (!artists.length && !albums.length && !tracks.length && !playlists.length) {
+  const { artists, albums, tracks } = found;
+  if (nothing) {
     return (
       <Page>
         <Empty>Nothing in the crate for &quot;{query}&quot;. Try fewer words.</Empty>
@@ -61,7 +65,7 @@ export function SearchView() {
   }
 
   return (
-    <Page className="flex flex-col gap-8">
+    <Page className={cn("flex flex-col gap-8 transition-opacity", results.isPlaceholderData && "opacity-60")}>
       {artists.length ? (
         <section>
           <SectionHeading title="Artists" />

@@ -13,8 +13,10 @@ import { assertPlace } from "./folders";
 
 /** Thrown when a playlist isn't there (or isn't visible), or can't be edited by this user. */
 export class PlaylistError extends Error {
-  constructor(public reason: "not_found" | "read_only") {
-    super(reason === "not_found" ? "Playlist not found." : "This playlist can't be edited.");
+  constructor(public reason: "not_found" | "read_only" | "changed") {
+    super(
+      reason === "not_found" ? "Playlist not found." : reason === "read_only" ? "This playlist can't be edited." : "The playlist changed. Try again.",
+    );
   }
 }
 
@@ -54,6 +56,8 @@ export async function createPlaylist(
  * list as this user sees it (tracks they can't reach are skipped when counting),
  * removed before `addTrackIds` are appended. `trackIds` replaces the visible
  * tracks outright. Tracks the user can't see are always left in place.
+ * `expect` names the track the caller believes is at a position; if the list
+ * has moved on since they looked, nothing is changed.
  */
 export async function updatePlaylist(
   scope: Scope,
@@ -66,6 +70,7 @@ export async function updatePlaylist(
     trackIds?: number[];
     addTrackIds?: number[];
     removeIndexes?: number[];
+    expect?: { index: number; trackId: number };
   },
 ) {
   const row = await editable(scope, id);
@@ -93,8 +98,10 @@ export async function updatePlaylist(
     const kept = current.filter((trackId) => {
       if (!visible.has(trackId)) return true;
       const index = seen++;
+      if (change.expect?.index === index && change.expect.trackId !== trackId) throw new PlaylistError("changed");
       return change.trackIds ? false : !remove.has(index);
     });
+    if (change.expect && change.expect.index >= seen) throw new PlaylistError("changed");
     await setPlaylistTracks(tx, id, [...kept, ...adding]);
   });
 }

@@ -34,7 +34,21 @@ export function PlaylistView({ id }: { id: number }) {
 
   const refresh = () => queryClient.invalidateQueries(trpc.playlists.pathFilter());
   const onError = (error: { message: string }) => toast.error(error.message);
-  const removeTrack = useMutation(trpc.playlists.removeTrack.mutationOptions({ onSuccess: refresh, onError }));
+  // One at a time and in order, so a second removal is counted against the list the first one left.
+  const removeTrack = useMutation(
+    trpc.playlists.removeTrack.mutationOptions({
+      scope: { id: "playlist-tracks" },
+      onError,
+      onSettled: refresh,
+    }),
+  );
+  /** Takes a row out at once, then tells the server which track it was, so a list that has moved on can't lose a different one. */
+  const remove = (index: number) => {
+    const track = playlist.data?.tracks[index];
+    if (!track) return;
+    queryClient.setQueryData(trpc.playlists.byId.queryKey({ id }), (old) => old && { ...old, tracks: old.tracks.filter((_, i) => i !== index) });
+    removeTrack.mutate({ id, index, trackId: track.id }, { onSuccess: () => toast(`Removed ${track.title}`) });
+  };
   const copy = useMutation(
     trpc.playlists.duplicate.mutationOptions({
       onSuccess: async (copyId) => {
@@ -66,7 +80,7 @@ export function PlaylistView({ id }: { id: number }) {
     <Page maxWidth="max-w-5xl" title="trail">
       <PageCrumb label={data.name} />
       <Hero
-        cover={<Cover type="playlist" id={id} size={480} className="w-40 sm:w-48" />}
+        cover={<Cover type="playlist" id={id} version={data.coverKey} size={480} className="w-40 sm:w-48" />}
         title={data.name}
         note={data.comment}
         band={[
@@ -141,7 +155,7 @@ export function PlaylistView({ id }: { id: number }) {
           tracks={data.tracks}
           showAlbum
           showCover
-          onRemove={data.canEdit ? (index) => removeTrack.mutate({ id, index }) : undefined}
+          onRemove={data.canEdit ? remove : undefined}
         />
       ) : (
         <Empty>{data.canEdit ? "No tracks yet. Add some from any track's menu." : "No tracks."}</Empty>

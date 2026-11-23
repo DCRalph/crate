@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import { openerOf } from "~/lib/focus";
 import { cn } from "~/lib/utils";
 
 export type ConfirmOptions = {
@@ -36,16 +37,26 @@ type PendingState = {
   resolve: (value: boolean) => void;
 };
 
+/**
+ * One confirmation dialog for the whole app, asked for with `useConfirm`.
+ * The question stays in place while the dialog fades out, so it doesn't
+ * change into a blank one on the way, and the keyboard goes back to the
+ * control that asked.
+ */
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = useState<PendingState | null>(null);
+  const [open, setOpen] = useState(false);
   const resolvedRef = useRef(false);
+  const opener = useRef<HTMLElement | null>(null);
 
   const confirm = useCallback<ConfirmFn>((input) => {
     const options: ConfirmOptions =
       typeof input === "string" ? { description: input } : input;
+    opener.current = openerOf(document.activeElement);
     return new Promise<boolean>((resolve) => {
       resolvedRef.current = false;
       setPending({ options, resolve });
+      setOpen(true);
     });
   }, []);
 
@@ -53,7 +64,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
     pending?.resolve(value);
-    setPending(null);
+    setOpen(false);
   };
 
   const variant = pending?.options.variant ?? "default";
@@ -62,12 +73,17 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       {children}
       <AlertDialog
-        open={pending !== null}
-        onOpenChange={(open) => {
-          if (!open) close(false);
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) close(false);
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (opener.current?.isConnected) opener.current.focus();
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               {pending?.options.title ?? "Are you sure?"}

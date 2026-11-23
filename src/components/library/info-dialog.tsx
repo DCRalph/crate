@@ -1,14 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { Skeleton } from "~/components/ui/skeleton";
+import { openerOf } from "~/lib/focus";
 
 /**
  * The frame both Get info dialogs share: the thing's name as the title, an
  * optional line under it, and its facts as children. The children are only
  * mounted while it is open, so a query inside them waits until someone asks.
+ * Closing it gives the keyboard back to the control that opened it.
  */
 export function InfoDialog({
   open,
@@ -23,10 +25,27 @@ export function InfoDialog({
   description?: string;
   children: ReactNode;
 }) {
+  // What had the keyboard as the dialog opened, noted during that render: by the time an effect runs, focus has
+  // already moved into the dialog. It is opened from menus, so this is the menu's button.
+  const [wasOpen, setWasOpen] = useState(open);
+  // It can also be mounted already open, in which case the note is taken as it mounts.
+  const [opener, setOpener] = useState(() => (open ? openerOf(document.activeElement) : null));
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOpener(openerOf(document.activeElement));
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* With no line under the title, the dialog is told it has no description rather than left pointing at one. */}
-      <DialogContent className="sm:max-w-md" {...(description ? {} : { "aria-describedby": undefined })}>
+      <DialogContent
+        className="sm:max-w-md"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (opener?.isConnected) opener.focus();
+        }}
+        {...(description ? {} : { "aria-describedby": undefined })}
+      >
         {/* Room for the close button beside a long title. */}
         <DialogHeader className="px-6 sm:pl-0">
           <DialogTitle>{title}</DialogTitle>

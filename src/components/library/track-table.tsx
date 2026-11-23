@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Info, ListEnd, ListPlus, ListStart, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
+import { Disc3, Download, Info, ListEnd, ListPlus, ListStart, MicVocal, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
@@ -82,7 +82,10 @@ export function TrackTable({
                 <TableRow
                   key={`${track.id}-${index}`}
                   className={cn("group select-none", isCurrent && "bg-muted hover:bg-muted font-semibold")}
-                  onDoubleClick={() => play(tracks, index)}
+                  // A double click on the heart, the menu or a link is two clicks on that, not a request to play the row.
+                  onDoubleClick={(event) => {
+                    if (!(event.target instanceof Element && event.target.closest("button, a"))) play(tracks, index);
+                  }}
                 >
                   <TableCell className="pl-4">
                     <button
@@ -126,7 +129,7 @@ export function TrackTable({
                     {/* A liked heart always shows; an empty one waits for the row to be hovered or focused. */}
                     <LikeButton
                       track={track}
-                      className={cn(!track.starred && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100")}
+                      className={cn(!track.starred && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-pressed:opacity-100 pointer-coarse:opacity-100")}
                     />
                   </TableCell>
                   <TableCell className="text-muted-foreground text-right font-normal tabular-nums">{formatDuration(track.duration)}</TableCell>
@@ -208,6 +211,7 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
                 <Plus />
                 New playlist
               </DropdownMenuItem>
+              {playlists.isPending ? <DropdownMenuItem disabled>Loading playlists</DropdownMenuItem> : null}
               {editable.length ? <DropdownMenuSeparator /> : null}
               {editable.map((playlist) => (
                 <DropdownMenuItem
@@ -221,6 +225,18 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+          <DropdownMenuItem asChild>
+            <Link href={`/albums/${track.albumId}`}>
+              <Disc3 />
+              Go to album
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={`/artists/${track.artistId}`}>
+              <MicVocal />
+              Go to artist
+            </Link>
+          </DropdownMenuItem>
           {track.canDownload ? (
             <DropdownMenuItem asChild>
               <a href={`/api/download/${track.id}`} download>

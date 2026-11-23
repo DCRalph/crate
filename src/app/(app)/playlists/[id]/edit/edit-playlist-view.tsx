@@ -25,7 +25,6 @@ import { useTRPC, type RouterOutputs } from "~/trpc/react";
 import { CardSkeleton } from "~/components/shell/skeletons";
 
 type Playlist = RouterOutputs["playlists"]["byId"];
-type Track = Playlist["tracks"][number];
 
 /** Everything about one playlist that can change: its name, where it sits, who sees it, and the order of its tracks. */
 export function EditPlaylistView({ id }: { id: number }) {
@@ -48,14 +47,23 @@ export function EditPlaylistView({ id }: { id: number }) {
   );
   const remove = useMutation(
     trpc.playlists.delete.mutationOptions({
-      onSuccess: async () => {
-        await refresh();
+      // Not awaited: the page shows a placeholder from here until it has left (see below).
+      onSuccess: () => {
+        void refresh();
         router.push("/playlists");
       },
       onError,
     }),
   );
 
+  // Deleted and on the way out. Asking for the playlist again would only say it isn't there.
+  if (remove.isSuccess) {
+    return (
+      <Page maxWidth="max-w-4xl">
+        <CardSkeleton sections={3} />
+      </Page>
+    );
+  }
   if (playlist.isError) {
     return (
       <Page maxWidth="max-w-4xl">
@@ -129,7 +137,14 @@ export function EditPlaylistView({ id }: { id: number }) {
         </div>
       </FormSection>
 
-      <Tracks key={data.tracks.map((track) => track.id).join(",")} playlist={data} />
+      {/* Starts over when tracks come or go, not when they only change places: a move must keep its row, and the keyboard's place on it. */}
+      <Tracks
+        key={data.tracks
+          .map((track) => track.id)
+          .sort((a, b) => a - b)
+          .join(",")}
+        playlist={data}
+      />
 
       <FormSection title="Copy or delete" description="A copy starts with the same tracks. Deleting removes the playlist; the tracks stay in the library.">
         <FormActions>
@@ -138,6 +153,7 @@ export function EditPlaylistView({ id }: { id: number }) {
           </Button>
           <Button
             variant="outline"
+            disabled={remove.isPending}
             onClick={async () => {
               const ok = await confirm({
                 title: `Delete ${data.name}?`,
@@ -200,26 +216,29 @@ function Details({ playlist }: { playlist: Playlist }) {
 
 /**
  * The tracks in order. Drag a row by its handle, or use the arrows, to move
- * it; each change is saved as it is made. The list is the person's own copy
- * of the order until the server has confirmed it.
+ * it; each change is saved as it is made, one after another. The list is the
+ * person's own copy of the order, and only goes back to the server's when a
+ * save fails. Each row keeps the key it started with, so moving one doesn't
+ * rebuild it and the arrow just pressed can be pressed again.
  */
 function Tracks({ playlist }: { playlist: Playlist }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [order, setOrder] = useState<Track[]>(playlist.tracks);
+  const [order, setOrder] = useState(() => playlist.tracks.map((track, key) => ({ ...track, key })));
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const save = useMutation(
     trpc.playlists.setTracks.mutationOptions({
+      scope: { id: "playlist-tracks" },
       onError: (error) => {
         toast.error(error.message);
         // Back to what the server has.
-        setOrder(playlist.tracks);
+        setOrder(playlist.tracks.map((track, key) => ({ ...track, key })));
       },
       onSettled: () => queryClient.invalidateQueries(trpc.playlists.pathFilter()),
     }),
   );
-  const apply = (next: Track[]) => {
+  const apply = (next: typeof order) => {
     setOrder(next);
     save.mutate({ id: playlist.id, trackIds: next.map((track) => track.id) });
   };
@@ -239,7 +258,7 @@ function Tracks({ playlist }: { playlist: Playlist }) {
         <ol className="flex flex-col">
           {order.map((track, index) => (
             <li
-              key={`${track.id}-${index}`}
+              key={track.key}
               draggable
               onDragStart={(event) => {
                 setDragging(index);

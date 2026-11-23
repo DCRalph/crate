@@ -130,7 +130,8 @@ export function TracksView() {
           </span>
         ),
       },
-      { id: "duration", header: "Time", align: "right", sortable: true, cell: (row) => <span className="text-muted-foreground tabular-nums">{formatDuration(row.duration)}</span> },
+      // Left off the narrowest screens, where the title needs the room more.
+      { id: "duration", header: "Time", align: "right", sortable: true, showFrom: 430, cell: (row) => <span className="text-muted-foreground tabular-nums">{formatDuration(row.duration)}</span> },
       {
         id: "actions",
         header: "",

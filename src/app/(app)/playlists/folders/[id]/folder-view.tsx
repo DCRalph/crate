@@ -8,6 +8,7 @@ import { Folder, ListMusic } from "lucide-react";
 import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
+import { usePendingTracks } from "~/components/library/pending-tracks";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection } from "~/components/shell/form";
@@ -35,14 +36,24 @@ export function FolderView({ id }: { id: number }) {
   const update = useMutation(trpc.playlists.updateFolder.mutationOptions({ onSuccess: refresh, onError }));
   const remove = useMutation(
     trpc.playlists.deleteFolder.mutationOptions({
-      onSuccess: async () => {
-        await refresh();
+      // Not awaited: the page shows a placeholder from here until it has left (see below).
+      onSuccess: () => {
+        void refresh();
         router.push("/playlists");
       },
       onError,
     }),
   );
   const [name, setName] = useState<string | null>(null);
+
+  // Removed and on the way out. The tree no longer has this folder, which isn't worth saying.
+  if (remove.isSuccess) {
+    return (
+      <Page maxWidth="max-w-2xl">
+        <CardSkeleton sections={2} />
+      </Page>
+    );
+  }
 
   if (tree.isError) {
     return (
@@ -128,7 +139,9 @@ export function FolderView({ id }: { id: number }) {
                 <Link href={`/playlists/folders/new?parent=${id}`}>New folder</Link>
               </Button>
               <Button variant="secondary" size="sm" asChild>
-                <Link href={`/playlists/new?folder=${id}`}>New playlist</Link>
+                <Link href={`/playlists/new?folder=${id}`} onClick={() => usePendingTracks.getState().clear()}>
+                  New playlist
+                </Link>
               </Button>
             </div>
           ) : null

@@ -131,7 +131,11 @@ const DataTableRow = memo(function DataTableRow<TRow>({
       data-state={selected ? "selected" : undefined}
       className={cn("border-border", clickable && "cursor-pointer")}
       onClick={clickable ? () => handlers.current.onRowClick?.(row) : undefined}
-      onDoubleClick={() => handlers.current.onRowDoubleClick?.(row)}
+      // A double click on a control in the row is two clicks on that control.
+      onDoubleClick={(event) => {
+        if (event.target instanceof Element && event.target.closest("button, a, input, [role=checkbox]")) return;
+        handlers.current.onRowDoubleClick?.(row);
+      }}
       draggable={draggable || undefined}
       onDragStart={
         draggable
@@ -369,7 +373,8 @@ export function DataTable<TRow>({
               key={isLoading ? "loading" : "rows"}
               className={cn(
                 !isLoading && "animate-arrive",
-                isFetching && "opacity-60 transition-opacity",
+                "transition-opacity",
+                isFetching && "opacity-60",
               )}
             >
               {isLoading &&

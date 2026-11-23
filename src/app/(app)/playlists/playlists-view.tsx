@@ -11,6 +11,7 @@ import { useConfirm } from "~/components/confirm-provider";
 import { PlaylistGrid, PlaylistGridSkeleton } from "~/components/playlists/playlist-grid";
 import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
 import { usePin } from "~/components/playlists/use-pin";
+import { usePendingTracks } from "~/components/library/pending-tracks";
 import { usePlaylistsLayout } from "~/components/playlists/view";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
@@ -87,7 +88,7 @@ export function PlaylistsView() {
         </Link>
       </Button>
       <Button variant="brand" size="sm" asChild>
-        <Link href="/playlists/new">
+        <Link href="/playlists/new" onClick={() => usePendingTracks.getState().clear()}>
           <Plus />
           New playlist
         </Link>
@@ -221,7 +222,9 @@ function FolderMenu({ folder }: { folder: FolderRow }) {
         {folder.canEdit ? (
           <>
             <DropdownMenuItem asChild>
-              <Link href={`/playlists/new?folder=${folder.id}`}>New playlist here</Link>
+              <Link href={`/playlists/new?folder=${folder.id}`} onClick={() => usePendingTracks.getState().clear()}>
+                New playlist here
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/playlists/folders/new?parent=${folder.id}`}>New folder here</Link>
