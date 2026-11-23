@@ -1,0 +1,18 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    // The app's own code is behind `@/`. `~/` means what it means in the server's
+    // code one folder up, because the API's types are imported from there and
+    // every one of those files refers to its neighbours as `~/...`.
+    "paths": {
+      "@/*": ["./src/*"],
+      "~/*": ["../src/*"]
+    },
+    // The server's types mention web globals (Headers, Request). Types only; none of it is bundled.
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules", "ios", "android"]
+}
