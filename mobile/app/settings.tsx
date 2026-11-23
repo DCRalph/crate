@@ -59,6 +59,8 @@ export default function Settings() {
                         if (usePlayer.getState().serverId === server.id) usePlayer.getState().stop();
                         useDownloads.getState().releaseAll(server.id);
                         void unpair(server);
+                        // Back to the library, which shows the next server or asks for one.
+                        router.dismissTo("/");
                       },
                     },
                   ])
