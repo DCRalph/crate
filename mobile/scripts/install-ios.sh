@@ -31,8 +31,10 @@ DEVICE="${1:-$(xcrun devicectl list devices 2>/dev/null | awk -F '   +' '$5 ~ /i
 [ -n "$DEVICE" ] || fail "no available iPhone found: unlock it or plug it in, or pass a name or UDID"
 echo "==> Installing to: $DEVICE"
 
-# Every time, so a change to app.config.ts or a new native module is never left out of the build.
+# ios/ is made again every time, so a change to app.config.ts or a new native module is never
+# left out of the build, and nothing an earlier build asked for (an entitlement) lingers.
 echo "==> Prebuilding"
+rm -rf ios
 bunx expo prebuild -p ios --no-install >/dev/null
 (cd ios && pod install >/dev/null)
 
