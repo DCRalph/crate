@@ -25,7 +25,7 @@ export function Screen({ children, back, bare = false }: { children: ReactNode; 
     <View style={{ flex: 1, backgroundColor: palette.cab }}>
       <View style={{ paddingTop: insets.top + 6, paddingHorizontal: space.lg, paddingBottom: 8, backgroundColor: palette.cab2, borderBottomWidth: 3, borderBottomColor: palette.strip, flexDirection: "row", alignItems: "center", gap: space.md }}>
         {back ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={`Back to ${back}`} hitSlop={10} onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: -6 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={back === "Back" ? "Back" : `Back to ${back}`} hitSlop={10} onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: -6 }}>
             <ChevronLeft size={20} color={palette.chrome} />
             <Text style={[label, { color: palette.chrome, fontSize: 12.5 }]}>{back}</Text>
           </Pressable>

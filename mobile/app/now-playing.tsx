@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { Pause, Play, SkipBack, SkipForward, X } from "lucide-react-native";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Cover, Key, Lamp, Note } from "@/components/ui";
@@ -19,6 +19,7 @@ export default function NowPlaying() {
   const router = useRouter();
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const track = useCurrentTrack();
   const queue = usePlayer((state) => state.queue);
   const index = usePlayer((state) => state.index);
@@ -33,7 +34,8 @@ export default function NowPlaying() {
       {track ? (
         <>
           <View>
-            <Cover type="album" id={track.albumId} size={800} style={{ maxHeight: 360 }} />
+            {/* Edge to edge, and never so tall on a short phone that the queue is pushed off the screen. */}
+            <Cover type="album" id={track.albumId} size={800} style={{ aspectRatio: undefined, width: "100%", height: Math.min(width, height * 0.46) }} />
             <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={() => router.back()} style={{ position: "absolute", top: 10, right: 10, width: 34, height: 34, borderRadius: 6, backgroundColor: palette.strip, alignItems: "center", justifyContent: "center" }}>
               <X size={18} color={ink} />
             </Pressable>

@@ -5,6 +5,7 @@ import { Screen } from "@/components/screen";
 import { AlbumTile, PlaylistTile } from "@/components/tile";
 import { Note, SectionHeading, Title } from "@/components/ui";
 import { useTRPC, type Album } from "@/lib/api";
+import { useActiveServer } from "@/lib/servers";
 import { space, usePalette } from "@/lib/theme";
 
 const tileWidth = 148;
@@ -29,6 +30,7 @@ const albums = (list: Album[]) => list.map((album) => <AlbumTile key={album.id} 
 export default function Home() {
   const trpc = useTRPC();
   const palette = usePalette();
+  const server = useActiveServer();
   const home = useQuery(trpc.library.home.queryOptions());
   const playlists = useQuery(trpc.playlists.tree.queryOptions());
   const pinned = (playlists.data?.playlists ?? []).filter((playlist) => playlist.pinnedAt);
@@ -57,7 +59,7 @@ export default function Home() {
         {home.data?.frequent.length ? <Row title="Most played">{albums(home.data.frequent)}</Row> : null}
         {home.data && !home.data.added.length ? (
           <View style={{ paddingHorizontal: space.lg }}>
-            <Note>The crate is empty. Add a library on the server and it fills itself.</Note>
+            <Note>{server?.user.isAdmin ? "The crate is empty. Add a library on the server and it fills itself." : "The crate is empty. Ask whoever runs this server for a library."}</Note>
           </View>
         ) : null}
       </ScrollView>

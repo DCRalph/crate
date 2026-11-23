@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } fro
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Card, Key, Mark, Note } from "@/components/ui";
+import { usePlayer } from "@/lib/player";
 import { hello, normaliseUrl, pair, useServers } from "@/lib/servers";
 import { bad, font, ink, ink2, label, space, usePalette } from "@/lib/theme";
 
@@ -61,7 +62,10 @@ export default function AddServer() {
   const signIn = () =>
     attempt(async () => {
       if (!found) return;
-      useServers.getState().add(await pair(found.url, username.trim(), password));
+      const server = await pair(found.url, username.trim(), password);
+      // The queue belongs to the server it was played from, and the new one is now the one in use.
+      usePlayer.getState().stop();
+      useServers.getState().add(server);
       // The app's pages are made again around the new server, and open on Home.
       router.replace("/");
     });
