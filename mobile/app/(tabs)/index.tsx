@@ -32,8 +32,10 @@ function Row({ title, children }: { title: string; children: React.ReactNode }) 
 /** A queue another of the person's devices saved since this one last played: what was on, how far in, and the keys to carry on or not. */
 function CarryOn() {
   const offer = usePlayer((state) => state.offer);
+  const server = useActiveServer();
   const track = offer?.tracks[offer.index];
-  if (!offer || !track) return null;
+  // An offer is from one server; it isn't made on another's Home.
+  if (!offer || !track || offer.serverId !== server?.id) return null;
   return (
     <View style={{ paddingHorizontal: space.lg }}>
       <Card style={{ padding: 14, gap: 10 }}>

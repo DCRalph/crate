@@ -14,7 +14,7 @@ import { useSettings } from "./settings";
 
 export type Repeat = "off" | "all" | "one";
 /** A queue saved from another of the person's devices, to carry on from. */
-export type Offer = { tracks: Track[]; index: number; position: number; device: string | null; changedAt: string };
+export type Offer = { serverId: string; tracks: Track[]; index: number; position: number; device: string | null; changedAt: string };
 
 type Player = {
   /** What plays, in order, and the server it is from. */
@@ -116,22 +116,37 @@ async function sourceFor(server: Server, track: Track): Promise<AudioSource> {
   const directory = openDirectory();
   if (!directory.exists) directory.create({ intermediates: true });
   const out = openFile(server.id, track);
+  // Asked for again while it is still arriving or being opened (skipping to a track that was being got ready): the same work answers both.
+  const underway = opening.get(out.name);
+  if (underway) return underway;
   if (out.exists) return { uri: out.uri };
-  if (downloaded) {
-    await openSealed(sealedFile(server.id, track.id), out, server.sealKey);
-    return { uri: out.uri };
-  }
-  const { url, headers } = sealedRequest(server, track, quality);
-  const arrived = new File(directory, `${track.id}.arriving`);
-  if (arrived.exists) arrived.delete();
-  await File.downloadFileAsync(url, arrived, { headers });
-  try {
-    await openSealed(arrived, out, server.sealKey);
-  } finally {
-    arrived.delete();
-  }
-  return { uri: out.uri };
+
+  const open = async () => {
+    if (downloaded) return openSealed(sealedFile(server.id, track.id), out, server.sealKey);
+    const { url, headers } = sealedRequest(server, track, quality);
+    const arrived = new File(directory, `${out.name}.arriving`);
+    if (arrived.exists) arrived.delete();
+    await File.downloadFileAsync(url, arrived, { headers });
+    try {
+      await openSealed(arrived, out, server.sealKey);
+    } finally {
+      arrived.delete();
+    }
+  };
+  const work = open()
+    .then(() => ({ uri: out.uri }))
+    .catch((failure: unknown) => {
+      // Half a file would be taken for a whole one next time.
+      if (out.exists) out.delete();
+      throw failure;
+    })
+    .finally(() => opening.delete(out.name));
+  opening.set(out.name, work);
+  return work;
 }
+
+/** Tracks arriving or being opened now, by the file they end up in. */
+const opening = new Map<string, Promise<AudioSource>>();
 
 /** Removes every opened file but the ones named. A file a player still has open stays readable to it until it lets go. */
 function tidy(keep: File[]) {
@@ -258,8 +273,8 @@ export const usePlayer = create<Player>()((set, get) => {
       return;
     }
     const duration = status.duration || track.duration;
-    // While a track is on its way the deck isn't sounding yet, which is not the same as paused.
-    set({ ...(pendingSeek ? {} : { position: status.currentTime }), duration, playing: get().loading ? true : status.playing, ...(status.playing ? { loading: false } : {}) });
+    // While a track is on its way the deck isn't sounding yet, which says nothing about whether the listener wants it to.
+    set({ ...(pendingSeek ? {} : { position: status.currentTime }), duration, playing: get().loading ? get().playing : status.playing, ...(status.playing ? { loading: false } : {}) });
     if (status.playing) failures = 0;
 
     const server = serverOf();
@@ -321,8 +336,8 @@ export const usePlayer = create<Player>()((set, get) => {
     const marker = turn;
     try {
       const source = await sourceFor(server, next);
-      // Something else was chosen, or the queue changed, while it was on its way.
-      if (marker !== turn || upcoming() !== to || get().queue[to]?.id !== next.id) return;
+      // Something else was chosen, or the queue or the repeat changed, while it was on its way.
+      if (marker !== turn || upcoming() !== to || get().queue[to]?.id !== next.id || get().repeat === "one") return;
       const deck = decks[spare()];
       deck.pause();
       deck.replace(source);
@@ -343,6 +358,8 @@ export const usePlayer = create<Player>()((set, get) => {
     const to = upcoming();
     const next = to === null ? undefined : get().queue[to];
     if (!decks || to === null || !next || ready?.index !== to) return false;
+    // The waiting track may still be buffering (a plain stream on a slow line): the old one plays out and the load takes over. And one track on repeat hands over to nothing.
+    if (!decks[spare()].isLoaded || (!cut && get().repeat === "one")) return false;
     settle();
     const out = decks[live];
     live = spare();
@@ -398,7 +415,9 @@ export const usePlayer = create<Player>()((set, get) => {
       deck.volume = levelOf(track);
       pendingSeek = at;
       loaded = true;
-      deck.play();
+      // Paused while it was on its way: it is ready, and stays quiet.
+      if (get().playing) deck.play();
+      else set({ loading: false });
       announce(deck, track);
       void prepare();
     } catch {
@@ -436,6 +455,7 @@ export const usePlayer = create<Player>()((set, get) => {
 
   /** After the queue was edited around the current track: what follows may be different now. */
   const edited = () => {
+    stopWatching();
     ready = null;
     changed();
     if (loaded) void prepare();
@@ -459,6 +479,8 @@ export const usePlayer = create<Player>()((set, get) => {
     toggle: () => {
       const { queue, playing, position } = get();
       if (!queue.length) return;
+      // Still on its way: only what is wanted changes, and the load goes by it when it lands.
+      if (get().loading) return set({ playing: !playing });
       // A queue brought back at launch hasn't been loaded yet.
       if (!loaded) return void load(position);
       const deck = decks?.[live];
@@ -523,10 +545,19 @@ export const usePlayer = create<Player>()((set, get) => {
         set({ queue: rest, index: at < index ? index - 1 : index, unshuffled: without });
         return edited();
       }
-      // The one playing: what was after it plays now, or the new last track if it was the last.
-      set({ queue: rest, index: Math.min(index, rest.length - 1), unshuffled: without });
-      if (loaded) void load();
-      else changed();
+      // The one playing: what was after it takes its place (or the new last track, if it was the last), from its start.
+      const now = Math.min(index, rest.length - 1);
+      set({ queue: rest, index: now, unshuffled: without, position: 0, duration: rest[now]?.duration ?? 0 });
+      if (loaded && get().playing) return void load();
+      // Paused, or never loaded: it waits for Play, like a queue brought back at launch.
+      settle();
+      turn++;
+      loaded = false;
+      ready = null;
+      decks?.[0].pause();
+      decks?.[1].pause();
+      set({ loading: false, playing: false });
+      changed();
     },
     setRepeat: (repeat) => {
       set({ repeat });
@@ -570,16 +601,17 @@ export const usePlayer = create<Player>()((set, get) => {
       const saved = await clientFor(server)
         .queue.get.query()
         .catch(() => null);
-      if (!saved || get().playing) return;
+      // Nothing saved, or the phone moved on while the server was answering: to playing, or to another server.
+      if (!saved || get().playing || useServers.getState().activeId !== server.id) return;
       const changedAt = saved.changedAt.toISOString();
       // This phone's own last save, or an offer already turned down.
       if (changedAt === syncedAt || changedAt === dismissedAt) return set({ offer: null });
-      set({ offer: { tracks: saved.tracks, index: Math.max(0, saved.tracks.findIndex((track) => track.id === saved.currentId)), position: saved.positionMs / 1000, device: saved.changedBy, changedAt } });
+      set({ offer: { serverId: server.id, tracks: saved.tracks, index: Math.max(0, saved.tracks.findIndex((track) => track.id === saved.currentId)), position: saved.positionMs / 1000, device: saved.changedBy, changedAt } });
     },
     acceptOffer: () => {
       const { offer } = get();
-      const server = useServers.getState().servers.find((candidate) => candidate.id === useServers.getState().activeId);
-      if (!offer || !server) return;
+      const server = useServers.getState().servers.find((candidate) => candidate.id === offer?.serverId);
+      if (!offer || !server) return set({ offer: null });
       syncedAt = offer.changedAt;
       begin(server, offer.tracks, offer.index, null, offer.position);
     },
@@ -597,7 +629,7 @@ export const usePlayer = create<Player>()((set, get) => {
       decks?.[1].pause();
       decks?.[live].clearLockScreenControls();
       tidy([]);
-      set({ queue: [], index: 0, serverId: null, from: null, unshuffled: null, playing: false, loading: false, position: 0, duration: 0 });
+      set({ queue: [], index: 0, serverId: null, from: null, unshuffled: null, playing: false, loading: false, position: 0, duration: 0, offer: null });
       if (saveSoon) clearTimeout(saveSoon);
       if (pushSoon) clearTimeout(pushSoon);
       saveHere();

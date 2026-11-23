@@ -57,6 +57,12 @@ export default function RootLayout() {
     return () => returned.remove();
   }, []);
 
+  // A server just come to (added, or switched to) may hold a queue from another device.
+  const serverId = server?.id;
+  useEffect(() => {
+    if (serverId) void usePlayer.getState().checkOffer();
+  }, [serverId]);
+
   // Day or night as Settings has it: told to the system, so its own parts (the keyboard, alerts, glass) agree with ours.
   const appearance = useSettings((state) => state.appearance);
   useEffect(() => {

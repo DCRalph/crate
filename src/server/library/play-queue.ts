@@ -7,8 +7,9 @@ import { playQueue, track } from "~/server/db/app-schema";
 import { listTracks, visibleTrackIds } from "./queries";
 
 // The play queue a person last saved, one per user, so that playback can move
-// between their devices. The app and the website save theirs through tRPC and
-// Subsonic clients through `savePlayQueue`; all of them read the same row.
+// between their devices. The iOS app saves and reads it through tRPC and
+// Subsonic clients through their own calls; all of them share the one row.
+// The website does not use it yet.
 
 /**
  * The saved queue, with the tracks the person can still see in the order they
