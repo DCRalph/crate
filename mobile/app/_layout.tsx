@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AppState } from "react-native";
+import { Appearance, AppState } from "react-native";
 import { BigShouldersDisplay_700Bold, BigShouldersDisplay_800ExtraBold } from "@expo-google-fonts/big-shoulders-display";
 import { Jost_400Regular, Jost_500Medium, Jost_600SemiBold } from "@expo-google-fonts/jost";
 import { useFonts } from "expo-font";
@@ -12,6 +12,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Deck } from "@/components/deck";
 import { ServerProvider } from "@/lib/api";
 import { useDownloads } from "@/lib/downloads";
+import { watchNetwork } from "@/lib/network";
+import { usePlayer } from "@/lib/player";
 import { useActiveServer, useServers } from "@/lib/servers";
 import { useSettings } from "@/lib/settings";
 import { usePalette } from "@/lib/theme";
@@ -35,13 +37,37 @@ export default function RootLayout() {
   useEffect(() => {
     // Settings first: they say which connections downloads may use.
     useSettings.getState().load();
+    watchNetwork();
     useDownloads.getState().load();
-    const sync = () => void useDownloads.getState().sync();
-    void useServers.getState().load().then(sync);
+    // What the server has that this phone should know about: changes to downloaded playlists, and a queue from another device.
+    const sync = () => {
+      void useDownloads.getState().sync();
+      void usePlayer.getState().checkOffer();
+    };
+    void useServers
+      .getState()
+      .load()
+      .then(() => {
+        // The queue from last time, paused where it was.
+        usePlayer.getState().restore();
+        sync();
+      });
     // And again each time the app is come back to.
     const returned = AppState.addEventListener("change", (state) => state === "active" && sync());
     return () => returned.remove();
   }, []);
+
+  // A server just come to (added, or switched to) may hold a queue from another device.
+  const serverId = server?.id;
+  useEffect(() => {
+    if (serverId) void usePlayer.getState().checkOffer();
+  }, [serverId]);
+
+  // Day or night as Settings has it: told to the system, so its own parts (the keyboard, alerts, glass) agree with ours.
+  const appearance = useSettings((state) => state.appearance);
+  useEffect(() => {
+    Appearance.setColorScheme(appearance === "auto" ? "unspecified" : appearance === "night" ? "dark" : "light");
+  }, [appearance]);
   useEffect(() => {
     if (fontsLoaded && ready) void SplashScreen.hideAsync();
   }, [fontsLoaded, ready]);
@@ -56,6 +82,9 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="album/[id]" />
         <Stack.Screen name="playlist/[id]" />
+        <Stack.Screen name="playlist/[id]/edit" />
+        <Stack.Screen name="playlist/new" options={{ presentation: "modal" }} />
+        <Stack.Screen name="playlist/add" options={{ presentation: "modal" }} />
         <Stack.Screen name="now-playing" options={{ presentation: "modal" }} />
         <Stack.Screen name="settings" />
         <Stack.Screen name="servers/index" />

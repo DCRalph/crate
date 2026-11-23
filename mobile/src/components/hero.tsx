@@ -7,7 +7,7 @@ import type { Track } from "@/lib/api";
 import { coverSource } from "@/lib/media";
 import { usePlayer } from "@/lib/player";
 import { useActiveServer } from "@/lib/servers";
-import { band, font, ink, space, usePalette } from "@/lib/theme";
+import { font, ink, space, usePalette } from "@/lib/theme";
 import { Fade } from "./screen-header";
 import { Card, Key } from "./ui";
 
@@ -36,6 +36,7 @@ export function Backdrop({ type, id, version }: { type: "album" | "playlist"; id
  */
 export function Hero({ cover, title, facts, from, tracks, children }: { cover: ReactNode; title: string; facts: string[]; from: string; tracks: Track[]; children?: ReactNode }) {
   const server = useActiveServer();
+  const palette = usePalette();
   const mine = usePlayer((state) => state.from === from && state.serverId === server?.id && state.queue.length > 0);
   const sounding = usePlayer((state) => state.playing) && mine;
   return (
@@ -56,7 +57,7 @@ export function Hero({ cover, title, facts, from, tracks, children }: { cover: R
         <Text numberOfLines={3} style={{ fontFamily: font.title, fontSize: 26, lineHeight: 27, color: ink, textTransform: "uppercase" }}>
           {title}
         </Text>
-        <View style={{ backgroundColor: band, borderRadius: 3, paddingHorizontal: 8, paddingVertical: 3, flexDirection: "row", flexWrap: "wrap", columnGap: 12 }}>
+        <View style={{ backgroundColor: palette.band, borderRadius: 3, paddingHorizontal: 8, paddingVertical: 3, flexDirection: "row", flexWrap: "wrap", columnGap: 12 }}>
           {facts.map((fact) => (
             <Text key={fact} style={{ fontFamily: font.medium, fontSize: 12.5, lineHeight: 18, color: ink }}>
               {fact}

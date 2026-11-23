@@ -16,8 +16,9 @@ import { Mark } from "./ui";
  *  - `title`: the page's name, on the bar's one line with its buttons. With `titleAt` it arrives only once the page has scrolled that far, for a page that letters its own name.
  *  - `left`: the wordmark, on the page the app opens on, or a round glass Back on a page reached from another.
  *  - `settings`: a round glass key to Settings.
+ *  - `action`: another round glass key of the page's own, before it.
  */
-export function Screen({ children, scrollY, title, titleAt, left, settings = false }: { children: ReactNode; scrollY: Animated.Value; title?: string; titleAt?: number; left?: "mark" | "back"; settings?: boolean }) {
+export function Screen({ children, scrollY, title, titleAt, left, settings = false, action }: { children: ReactNode; scrollY: Animated.Value; title?: string; titleAt?: number; left?: "mark" | "back"; settings?: boolean; action?: ReactNode }) {
   const palette = usePalette();
   const router = useRouter();
   const playing = usePlayer((state) => state.playing);
@@ -32,7 +33,14 @@ export function Screen({ children, scrollY, title, titleAt, left, settings = fal
         title={title}
         titleAt={titleAt}
         left={left === "back" ? <GlassButton label="Back" icon={ChevronLeft} onPress={back} /> : left === "mark" ? <Mark lit={playing} /> : null}
-        right={settings ? <GlassButton label="Settings" icon={Settings} onPress={() => router.push("/settings")} /> : null}
+        right={
+          action || settings ? (
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {action}
+              {settings ? <GlassButton label="Settings" icon={Settings} onPress={() => router.push("/settings")} /> : null}
+            </View>
+          ) : null
+        }
       />
     </View>
   );

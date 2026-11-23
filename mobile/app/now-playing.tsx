@@ -1,17 +1,18 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Pause, Play, SkipBack, SkipForward, X, type LucideIcon } from "lucide-react-native";
+import { Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, type LucideIcon } from "lucide-react-native";
 import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Glass, GlassButton } from "@/components/glass";
+import { showTrackMenu } from "@/components/track-menu";
 import { Cover, Key, Lamp, Note } from "@/components/ui";
 import { Waveform } from "@/components/waveform";
 import { count, formatDuration } from "@/lib/format";
 import { coverSource } from "@/lib/media";
-import { useCurrentTrack, usePlayer } from "@/lib/player";
+import { useCurrentTrack, usePlayer, type Repeat as RepeatMode } from "@/lib/player";
 import { useActiveServer } from "@/lib/servers";
-import { band, deck, font, ink, label, lamp } from "@/lib/theme";
+import { deck, font, ink, label, lamp, usePalette } from "@/lib/theme";
 
 /** A round key of the transport, drawn on the panel's glass. */
 function Round({ icon: Icon, name, onPress, disabled }: { icon: LucideIcon; name: string; onPress: () => void; disabled?: boolean }) {
@@ -22,15 +23,30 @@ function Round({ icon: Icon, name, onPress, disabled }: { icon: LucideIcon; name
   );
 }
 
+/** A sign at the edge of the transport that is either on or off: shuffle, repeat. On is the lamp's amber. */
+function Mode({ icon: Icon, name, on, onPress }: { icon: LucideIcon; name: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={name} accessibilityState={{ selected: on }} hitSlop={10} onPress={onPress} style={({ pressed }) => ({ width: 36, height: 36, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
+      <Icon size={19} color={on ? lamp : deck.chrome2} />
+    </Pressable>
+  );
+}
+
+/** Repeat goes round: off, the whole queue, the one track. */
+const afterRepeat: Record<RepeatMode, RepeatMode> = { off: "all", all: "one", one: "off" };
+const repeatNames: Record<RepeatMode, string> = { off: "Repeat, off", all: "Repeat, the queue", one: "Repeat, this track" };
+
 /**
  * Now playing, as one page that scrolls: the cover edge to edge, the name and
- * artist as a strip under it, the waveform and transport on a panel of night
- * glass, then the queue. The same cover, out of focus, lights the page from
+ * artist as a strip under it, the waveform and transport (with shuffle and
+ * repeat at its edges) on a panel of night glass, then the queue. A long
+ * press on a row of the queue moves it up next or takes it out. The same cover, out of focus, lights the page from
  * behind and stays put, and a glass Close stays on the corner. Being a single
  * scroller, pulling down at the top is the sheet's own way of closing.
  */
 export default function NowPlaying() {
   const router = useRouter();
+  const palette = usePalette();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const server = useActiveServer();
@@ -41,7 +57,9 @@ export default function NowPlaying() {
   const loading = usePlayer((state) => state.loading);
   const position = usePlayer((state) => state.position);
   const duration = usePlayer((state) => state.duration);
-  const { toggle, next, previous, seek, jump } = usePlayer.getState();
+  const repeat = usePlayer((state) => state.repeat);
+  const isShuffled = usePlayer((state) => state.unshuffled !== null);
+  const { toggle, next, previous, seek, jump, setRepeat, toggleShuffle } = usePlayer.getState();
 
   if (!track) {
     return (
@@ -59,7 +77,7 @@ export default function NowPlaying() {
       <Text numberOfLines={1} style={[label, { backgroundColor: deck.strip, color: ink, fontSize: 13.5, lineHeight: 36, paddingHorizontal: 16, opacity: loading ? 0.55 : 1 }]}>
         {track.title}
       </Text>
-      <Text numberOfLines={1} style={{ backgroundColor: band, color: ink, fontFamily: font.medium, fontSize: 12.5, lineHeight: 24, paddingHorizontal: 16 }}>
+      <Text numberOfLines={1} style={{ backgroundColor: palette.band, color: ink, fontFamily: font.medium, fontSize: 12.5, lineHeight: 24, paddingHorizontal: 16 }}>
         {track.artistName}
       </Text>
 
@@ -69,12 +87,16 @@ export default function NowPlaying() {
           <Waveform trackId={track.id} position={position} duration={duration} color={deck.chrome} onSeek={seek} />
           <Text style={styles.time}>{formatDuration(duration)}</Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 22 }}>
-          <Round icon={SkipBack} name="Previous" onPress={previous} />
-          <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Pause" : "Play"} hitSlop={6} onPress={toggle} style={({ pressed }) => [styles.play, { opacity: pressed ? 0.8 : 1 }]}>
-            {playing ? <Pause size={26} color={ink} fill={ink} /> : <Play size={26} color={ink} fill={ink} style={{ marginLeft: 3 }} />}
-          </Pressable>
-          <Round icon={SkipForward} name="Next" disabled={index >= queue.length - 1} onPress={next} />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Mode icon={Shuffle} name="Shuffle" on={isShuffled} onPress={toggleShuffle} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 22 }}>
+            <Round icon={SkipBack} name="Previous" onPress={previous} />
+            <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Pause" : "Play"} hitSlop={6} onPress={toggle} style={({ pressed }) => [styles.play, { backgroundColor: palette.band, opacity: pressed ? 0.8 : 1 }]}>
+              {playing ? <Pause size={26} color={ink} fill={ink} /> : <Play size={26} color={ink} fill={ink} style={{ marginLeft: 3 }} />}
+            </Pressable>
+            <Round icon={SkipForward} name="Next" disabled={index >= queue.length - 1 && !(repeat === "all" && queue.length > 1)} onPress={next} />
+          </View>
+          <Mode icon={repeat === "one" ? Repeat1 : Repeat} name={repeatNames[repeat]} on={repeat !== "off"} onPress={() => setRepeat(afterRepeat[repeat])} />
         </View>
       </Glass>
 
@@ -101,6 +123,7 @@ export default function NowPlaying() {
             accessibilityRole="button"
             accessibilityLabel={`Play ${item.title}`}
             onPress={() => jump(position)}
+            onLongPress={() => server && showTrackMenu({ server, track: item, router, queuePosition: position })}
             style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 7, backgroundColor: pressed ? "rgba(227,235,232,0.08)" : "transparent" })}
           >
             <Lamp lit={position === index && playing} on="night" />
@@ -128,5 +151,5 @@ const styles = StyleSheet.create({
   panel: { margin: 12, borderRadius: 24, padding: 14, gap: 12 },
   time: { fontFamily: font.body, fontSize: 12, color: deck.chrome2, width: 34, fontVariant: ["tabular-nums"] },
   round: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(227,235,232,0.1)", alignItems: "center", justifyContent: "center" },
-  play: { width: 66, height: 66, borderRadius: 33, backgroundColor: band, alignItems: "center", justifyContent: "center" },
+  play: { width: 66, height: 66, borderRadius: 33, alignItems: "center", justifyContent: "center" },
 });

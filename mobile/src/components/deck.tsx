@@ -6,7 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCurrentTrack, usePlayer } from "@/lib/player";
-import { band, deck, font, ink, label, lamp, space } from "@/lib/theme";
+import { deck, font, ink, label, lamp, space, usePalette } from "@/lib/theme";
 import { deckHeight, deckOffset, floatSpring } from "./bottom";
 import { Glass } from "./glass";
 import { BottomFade } from "./screen-header";
@@ -22,6 +22,7 @@ import { Cover } from "./ui";
  */
 export function Deck() {
   const router = useRouter();
+  const palette = usePalette();
   const insets = useSafeAreaInsets();
   const [section] = useSegments();
   const track = useCurrentTrack();
@@ -57,7 +58,7 @@ export function Deck() {
               </Text>
             </View>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Pause" : "Play"} hitSlop={6} onPress={usePlayer.getState().toggle} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, backgroundColor: band, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.8 : 1 })}>
+          <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Pause" : "Play"} hitSlop={6} onPress={usePlayer.getState().toggle} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, backgroundColor: palette.band, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.8 : 1 })}>
             {playing ? <Pause size={18} color={ink} fill={ink} /> : <Play size={18} color={ink} fill={ink} style={{ marginLeft: 2 }} />}
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Next" hitSlop={6} disabled={!hasNext} onPress={usePlayer.getState().next} style={({ pressed }) => ({ width: 38, height: 42, alignItems: "center", justifyContent: "center", opacity: !hasNext ? 0.35 : pressed ? 0.6 : 1 })}>

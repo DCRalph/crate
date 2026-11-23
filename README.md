@@ -30,7 +30,7 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most.
 - **The deck.** Each track is drawn as its waveform, measured from the audio when it is scanned, and that is what you seek on. Tracks follow each other with no gap, or over a crossfade if you set one. Shuffle, repeat, a queue you can reorder, a sleep timer, and keyboard shortcuts (press `?` for the list).
 - **Selecting.** Click, Shift-click or Ctrl/Cmd-click tracks, then queue them or add them to a playlist together. A right-click on a track, an album or a playlist brings up its menu.
-- **An iOS app** of its own, in [`mobile/`](mobile/README.md). It pairs with a server (several, if you have them) over the server's own API, not Subsonic, and shows under Music apps like any other device. Playlists can be downloaded to the phone, and audio it downloads arrives encrypted for that one phone.
+- **An iOS app** of its own, in [`mobile/`](mobile/README.md). It pairs with a server (several, if you have them) over the server's own API, not Subsonic, and shows under Music apps like any other device. Playlists can be downloaded to the phone, and audio it downloads arrives encrypted for that one phone. It plays without gaps or with a crossfade, and its queue is shared with your other devices through the server.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
 
 ## How it is put together
@@ -79,7 +79,7 @@ Sign-in works at the public address (`BETTER_AUTH_URL`) and, with nothing to con
 
 ## Not built yet
 
-Groups, share links, two-factor and passkeys, importing users and playlists from Navidrome, lyrics, looking tracks up in an online database, a file watcher (scans are by hand or on `SCAN_INTERVAL_MINUTES`) and a Dockerfile. The iOS app is a first version: no search, no artists page, and no Android build yet.
+Groups, share links, two-factor and passkeys, importing users and playlists from Navidrome, lyrics, looking tracks up in an online database, a file watcher (scans are by hand or on `SCAN_INTERVAL_MINUTES`) and a Dockerfile. The iOS app has no search, no artists page, no browsable CarPlay app and no Android build yet, and the website does not yet save or pick up the queue the app shares between devices.
 
 ## Checks
 

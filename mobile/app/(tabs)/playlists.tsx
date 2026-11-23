@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { ArrowDownToLine, Pin } from "lucide-react-native";
+import { ArrowDownToLine, Pin, Plus } from "lucide-react-native";
 import { Animated, Pressable, Text, View } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
+import { GlassButton } from "@/components/glass";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Cover, Note } from "@/components/ui";
@@ -37,7 +38,7 @@ export default function Playlists() {
   const playlists = [...(tree.data?.playlists ?? [])].sort((a, b) => Number(!!b.pinnedAt) - Number(!!a.pinnedAt));
 
   return (
-    <Screen scrollY={scrollY} title="Playlists" settings>
+    <Screen scrollY={scrollY} title="Playlists" settings action={<GlassButton label="New playlist" icon={Plus} onPress={() => router.push("/playlist/new")} />}>
       <Animated.FlatList
         {...scrollProps}
         data={playlists}

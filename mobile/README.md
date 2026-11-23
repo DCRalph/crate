@@ -6,9 +6,13 @@ The native app for a Crate server. Expo (SDK 57), expo-router, tRPC with TanStac
 
 - **Several servers.** Pair with as many as you like and switch between them (Settings, Servers). Each has its own token, key and downloads.
 - **Its own connection.** Not Subsonic. The app pairs with an account once (`POST /api/app/pair`) and gets a token of its own, which is an app password on the server: listed under Music apps, with when and where it was last used, and revocable by itself. Everything after that is the server's typed API with that token.
-- **Downloads.** Press Download on a playlist and it is fetched to the phone and plays with no connection. Settings choose the quality, whether mobile data may be used, and whether a download follows its playlist as it changes on the server.
+- **Playback.** One track runs into the next with no gap, or fades into it (crossfade, in Settings). Volume can be evened out from the ReplayGain in the files. The server converts what the phone can't play, or anything above the quality chosen, with a separate choice for mobile data.
+- **The queue.** Press and hold a track to play it next, add it to the queue or to a playlist. Shuffle and repeat are on Now playing, where a held row can be taken out. The queue is saved, so the app opens where it was left, and shared through the server, so another device (or a Subsonic client) offers to carry on from it.
+- **Playlists.** Make one, add to it, rename it, reorder it, delete it. The server decides who may: a playlist's owner or an admin, and never one that follows a folder on disk.
+- **Downloads.** Press Download on a playlist and it is fetched to the phone and plays with no connection, several tracks at once, carrying on with the app in the background. Settings choose the quality, whether mobile data may be used, and whether a download follows its playlist as it changes on the server.
+- **Lock screen and car.** The track, its cover, and Play, Next and Previous show wherever the system puts them: the lock screen, Control Centre, headphones, a car's Now Playing screen. A browsable CarPlay app is not built; it needs an entitlement Apple grants on request.
 - **Sealed audio.** Downloaded tracks, and streamed ones by default, come from the server encrypted for this one phone and are stored exactly as they arrive. See below.
-- **The Wallbox look.** The same cabinet, print, coral band and amber lamp as the website, by day and by night (`src/lib/theme.ts`).
+- **The Wallbox look.** The same cabinet, print, band and amber lamp as the website (`src/lib/theme.ts`). Settings hold it to day or night, or let it follow the phone, and change the band from coral to one of four other colours.
 
 ## How audio is sealed
 
@@ -46,5 +50,6 @@ That copy carries its own JavaScript and runs without the bundler. iCloud for se
 - `src/lib/sealed.ts` key agreement and opening sealed files.
 - `src/lib/downloads.ts` what is downloaded, fetching it, and keeping it in step with the server.
 - `src/lib/settings.ts` the settings, on the phone and, if asked, in iCloud (`modules/cloud-settings`, the iCloud key-value store). Only settings go to iCloud, never music or sign-ins.
-- `src/lib/player.ts` the queue and the audio player.
+- `src/lib/player.ts` the queue and the two audio players behind it: the next track waits on the one that isn't sounding, which is how there is no gap and how a crossfade overlaps.
+- `modules/remote-controls` Next and Previous from the lock screen and a car; the audio library does the rest.
 - `plugins/with-scene-lifecycle.js` goes when the app moves to Expo SDK 58.

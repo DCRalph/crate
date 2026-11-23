@@ -1,4 +1,5 @@
 import { ArrowDownToLine } from "lucide-react-native";
+import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import type { Track } from "@/lib/api";
@@ -6,18 +7,20 @@ import { useDownloads } from "@/lib/downloads";
 import { formatDuration, rowNumber } from "@/lib/format";
 import { useCurrentTrack, usePlayer } from "@/lib/player";
 import { useActiveServer } from "@/lib/servers";
-import { band, font, ink, ink2, label, usePalette } from "@/lib/theme";
+import { font, ink, ink2, label, usePalette } from "@/lib/theme";
+import { showTrackMenu } from "./track-menu";
 import { Card, Cover, Lamp } from "./ui";
 
 /**
  * A list of tracks, printed as a card under a coral heading. Every row has a
  * number and a lamp, lit on the row that is playing. A touch plays the list
- * from that row. A small arrow marks a track that is downloaded to the phone.
+ * from that row; a long press offers the queue and a playlist (`showTrackMenu`). A small arrow marks a track that is downloaded to the phone.
  *  - `showCover`: each track's album cover, for lists that mix albums.
  *  - `from`: names the list for the queue ("album:12"), so its Play key knows it is what is playing.
  */
 export function TrackList({ tracks, showCover = false, from }: { tracks: Track[]; showCover?: boolean; from?: string }) {
   const palette = usePalette();
+  const router = useRouter();
   const server = useActiveServer();
   const current = useCurrentTrack();
   const playing = usePlayer((state) => state.playing);
@@ -25,7 +28,7 @@ export function TrackList({ tracks, showCover = false, from }: { tracks: Track[]
 
   return (
     <Card>
-      <View style={{ backgroundColor: band, flexDirection: "row", alignItems: "center", height: 30, paddingHorizontal: 12 }}>
+      <View style={{ backgroundColor: palette.band, flexDirection: "row", alignItems: "center", height: 30, paddingHorizontal: 12 }}>
         <Text style={[label, { color: ink, fontSize: 11, width: 46 }]}>No.</Text>
         <Text style={[label, { color: ink, fontSize: 11, flex: 1 }]}>Title</Text>
         <Text style={[label, { color: ink, fontSize: 11 }]}>Time</Text>
@@ -38,6 +41,7 @@ export function TrackList({ tracks, showCover = false, from }: { tracks: Track[]
             accessibilityRole="button"
             accessibilityLabel={`Play ${track.title}, ${track.artistName}`}
             onPress={() => server && usePlayer.getState().play(server, tracks, index, from)}
+            onLongPress={() => server && showTrackMenu({ server, track, router })}
             style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
