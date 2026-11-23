@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Shuffle } from "lucide-react";
 
 import { PlayKey } from "~/components/library/play-key";
@@ -12,7 +12,6 @@ import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { count } from "~/lib/format";
 import { defaultPlayRange, playRangeFrom, playRanges, type PlayRange } from "~/lib/most-played";
-import { cn } from "~/lib/utils";
 import type { WebTrack } from "~/server/api/routers/library";
 import { useTRPC } from "~/trpc/react";
 
@@ -30,7 +29,9 @@ export function MostPlayedView() {
   const pathname = usePathname();
   const range = playRangeFrom(useSearchParams().get("range"));
   const setRange = (next: PlayRange) => router.replace(next === defaultPlayRange ? pathname : `${pathname}?range=${next}`);
-  const mostPlayed = useQuery(trpc.library.mostPlayed.queryOptions({ range }, { placeholderData: keepPreviousData }));
+  // Asked again each time the page opens, since every play can move the list. Another range's list is never shown
+  // under this one's name, where its keys would play the wrong tracks.
+  const mostPlayed = useQuery(trpc.library.mostPlayed.queryOptions({ range }, { staleTime: 0 }));
   const tracks = mostPlayed.data ?? [];
   const from = `most-played:${range}`;
 
@@ -59,9 +60,7 @@ export function MostPlayedView() {
       ) : tracks.length === 0 ? (
         <Empty>{range === "all" ? "Nothing played yet. This fills in as you listen." : `Nothing played in the last ${labels[range]}.`}</Empty>
       ) : (
-        <div className={cn("transition-opacity", mostPlayed.isPlaceholderData && "opacity-60")}>
-          <TrackTable tracks={tracks} showAlbum showCover from={from} plays={(track) => track.plays} />
-        </div>
+        <TrackTable tracks={tracks} showAlbum showCover from={from} plays={(track) => track.plays} />
       )}
     </Page>
   );
