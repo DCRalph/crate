@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Slider } from "~/components/ui/slider";
 import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
+import { isFinal } from "~/trpc/failure";
 import { useTRPC } from "~/trpc/react";
 
 /** A bar and the gap after it, in pixels: a bar one pixel wide, then half a pixel of gap. */
@@ -98,7 +99,13 @@ export function Scrubber({
   const waveform = useQuery(
     trpc.library.waveform.queryOptions(
       { trackId: trackId ?? 0 },
-      { enabled: trackId !== undefined, staleTime: Infinity, retry: 2, refetchInterval: (query) => (query.state.data ? false : 30_000) },
+      {
+        enabled: trackId !== undefined,
+        staleTime: Infinity,
+        // A track that is gone or out of reach won't come back by asking again.
+        retry: (count, error) => count < 2 && !isFinal(error),
+        refetchInterval: (query) => (query.state.data || (query.state.error && isFinal(query.state.error)) ? false : 30_000),
+      },
     ),
   );
   const peaks = trackId === undefined ? null : waveform.data;

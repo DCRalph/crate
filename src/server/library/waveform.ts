@@ -38,14 +38,15 @@ async function readPeaks(source: LibrarySource, relPath: string) {
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     const meter = loudnessMeter();
-    // The end of what ffmpeg said, for the log.
+    // What ffmpeg said, for the log. It can repeat its input, which for S3 is a signed URL carrying credentials,
+    // so addresses are taken out. The start is kept, not the end, so an address is never cut off before its scheme.
     let said = "";
     ffmpeg.stdout.on("data", (chunk: Uint8Array) => meter.add(chunk));
-    ffmpeg.stderr.on("data", (chunk: Buffer) => (said = (said + chunk.toString()).slice(-300)));
+    ffmpeg.stderr.on("data", (chunk: Buffer) => (said = (said + chunk.toString()).slice(0, 2000)));
     ffmpeg.on("error", reject);
     ffmpeg.on("close", (code) => {
       // An error partway leaves a waveform of part of the track, which would be kept as if it were all of it.
-      if (code !== 0) reject(new Error(`ffmpeg exited with ${code ?? "a signal"}. ${said.trim()}`));
+      if (code !== 0) reject(new Error(`ffmpeg exited with ${code ?? "a signal"}. ${said.replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, "<input>").trim().slice(-300)}`));
       else if (!meter.windows.length) reject(new Error("No audio was decoded."));
       else resolve(toPeaks(meter.windows));
     });
@@ -72,6 +73,8 @@ async function draw(source: LibrarySource, file: FileRow) {
     .onConflictDoUpdate({
       target: trackWaveform.trackId,
       set: peaks ? values : { ...values, failures: sql`case when ${sameFile} then ${trackWaveform.failures} + 1 else 1 end` },
+      // A failure never replaces a waveform another draw of the same file has just kept (a scan and a first play can overlap).
+      setWhere: peaks ? undefined : sql`not (${sameFile} and length(${trackWaveform.peaks}) = ${storedLength})`,
     });
   return peaks;
 }
