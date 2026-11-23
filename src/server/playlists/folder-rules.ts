@@ -2,9 +2,11 @@ import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "~/server/db";
-import { folderRule, library, playlist, playlistFolder, playlistTrack, track, type FolderRuleMode } from "~/server/db/app-schema";
+import { folderRule, library, playlist, playlistFolder, playlistTrack, ruleItemAudience, track, type FolderRuleMode } from "~/server/db/app-schema";
+import { loadAudiences } from "~/server/library/queries";
 import { openLibrarySource } from "~/server/storage";
 import { planTree, type TreePlan } from "./plan-tree";
+import { keptAudiences } from "./resolve-audience";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Rule = typeof folderRule.$inferSelect;
@@ -53,7 +55,8 @@ export async function planRule(rule: { libraryId: number; path: string; mode: Fo
  * and playlists are created, renamed, moved, refilled and removed until they
  * are what `planTree` describes. Each keeps its id for as long as its folder
  * (or, for one of several playlist files in a folder, its file) stays where
- * it is. Runs after every scan and whenever a rule changes.
+ * it is. A playlist moved into or out of a folder keeps who could listen to
+ * it. Runs after every scan and whenever a rule changes.
  */
 export async function syncFolderRules(libraryId: number, ruleId?: number) {
   const rules = await db
@@ -67,10 +70,13 @@ export async function syncFolderRules(libraryId: number, ruleId?: number) {
 }
 
 async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
+  // Who can listen before anything changes, for the playlists a move would change (see keptAudiences).
+  const before = await loadAudiences(tx);
   // Folders come parents first, so each can point at its parent's row.
   const oldFolders = new Map(
     (await tx.select().from(playlistFolder).where(eq(playlistFolder.ruleId, rule.id))).map((row) => [row.sourcePath ?? "", row]),
   );
+  const oldFolderPaths = new Map([...oldFolders].map(([path, row]) => [row.id, path]));
   const folderIds = new Map<string, number>();
   const placeOf = (path: string | null) => (path === null ? rule.parentFolderId : folderIds.get(path)!);
 
@@ -102,6 +108,15 @@ async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
     .where(eq(playlist.ruleId, rule.id))
     .orderBy(asc(playlistTrack.playlistId), asc(playlistTrack.position));
   for (const row of rows) oldTracks.set(row.playlistId, [...(oldTracks.get(row.playlistId) ?? []), row.trackId]);
+  const ownSettings = new Map(
+    (
+      await tx
+        .select({ sourcePath: ruleItemAudience.sourcePath, audience: ruleItemAudience.audience })
+        .from(ruleItemAudience)
+        .where(and(eq(ruleItemAudience.ruleId, rule.id), eq(ruleItemAudience.kind, "playlist")))
+    ).map((row) => [row.sourcePath, row.audience]),
+  );
+  const moved: Parameters<typeof keptAudiences>[1] = [];
 
   for (const item of plan.playlists) {
     // Who can listen isn't copied here: it is worked out from the rule and the tree when asked (see resolve-audience.ts).
@@ -114,6 +129,11 @@ async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
         .returning({ id: playlist.id });
       await setPlaylistTracks(tx, created!.id, item.trackIds);
       continue;
+    }
+    // Into or out of the folder made for its folder on disk. A move of the rule's own place isn't one: that is the admin's choice.
+    const wasIn = current.folderId === null ? null : (oldFolderPaths.get(current.folderId) ?? null);
+    if (wasIn !== item.folderPath) {
+      moved.push({ sourcePath: item.sourcePath, from: current.folderId, to: details.folderId, own: ownSettings.get(item.sourcePath) ?? null });
     }
     if (current.name !== details.name || current.folderId !== details.folderId) {
       await tx.update(playlist).set(details).where(eq(playlist.id, current.id));
@@ -129,4 +149,13 @@ async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
   if (gonePlaylists.length) await tx.delete(playlist).where(inArray(playlist.id, gonePlaylists));
   const goneFolders = [...oldFolders].filter(([path]) => !folderIds.has(path)).map(([, row]) => row.id);
   if (goneFolders.length) await tx.delete(playlistFolder).where(inArray(playlistFolder.id, goneFolders));
+
+  // A moved playlist keeps who could listen, as a setting of its own, so a change on disk never shares it wider (or narrower).
+  const kept = moved.length ? keptAudiences(rule.id, moved, before, await loadAudiences(tx)) : [];
+  if (kept.length) {
+    await tx
+      .insert(ruleItemAudience)
+      .values(kept.map((item) => ({ ruleId: rule.id, kind: "playlist" as const, ...item })))
+      .onConflictDoNothing();
+  }
 }

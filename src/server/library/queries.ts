@@ -3,7 +3,7 @@ import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, sql,
 
 import { playsSince, type PlayRange } from "~/lib/most-played";
 import { inScope, type Scope } from "~/server/access";
-import { db } from "~/server/db";
+import { db, type Db } from "~/server/db";
 import {
   album,
   annotation,
@@ -395,10 +395,11 @@ export const ruleItemAudienceOf = (kind: "folder" | "playlist", ruleId: AnyColum
  * Everything needed to say who can listen to anything in the playlist tree:
  * every folder's own setting and every rule's default, in two queries. Every
  * way in (the website, the app, Subsonic) asks the resolver this returns.
+ * A rebuild passes its transaction to see its own changes.
  */
-export async function loadAudiences() {
+export async function loadAudiences(executor: Pick<Db, "select"> = db) {
   const [folders, rules] = await Promise.all([
-    db
+    executor
       .select({
         id: playlistFolder.id,
         parentId: playlistFolder.parentId,
@@ -408,7 +409,7 @@ export async function loadAudiences() {
       })
       .from(playlistFolder)
       .leftJoin(ruleItemAudience, ruleItemAudienceOf("folder", playlistFolder.ruleId, playlistFolder.sourcePath)),
-    db.select({ id: folderRule.id, audience: folderRule.audience }).from(folderRule),
+    executor.select({ id: folderRule.id, audience: folderRule.audience }).from(folderRule),
   ]);
   return audienceResolver({ folders: folders.map(({ own, fromRule, ...folder }) => ({ ...folder, audience: own ?? fromRule })), rules });
 }

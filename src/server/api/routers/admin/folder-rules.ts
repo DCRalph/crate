@@ -7,7 +7,7 @@ import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, folderRuleModes, library, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
-import { ruleAudiences, setAudience } from "~/server/playlists/audience";
+import { logNewAudience, ruleAudiences, settleAudience } from "~/server/playlists/audience";
 import { planRule, syncFolderRules } from "~/server/playlists/folder-rules";
 import { assertPlace, FolderError } from "~/server/playlists/folders";
 import { openLibrarySource } from "~/server/storage";
@@ -110,9 +110,11 @@ export const folderRulesRouter = router({
       if (!exists) throw new TRPCError({ code: "BAD_REQUEST", message: "There is no folder at that path in the library." });
       await checkPlace(ctx.scope.user.id, input.parentFolderId);
 
+      // Saved with the rule, before the rebuild makes anything that follows it.
+      const own = await settleAudience(audience, ctx.scope.user.id);
       const [created] = await db
         .insert(folderRule)
-        .values({ ...input, ownerId: ctx.scope.user.id })
+        .values({ ...input, audience: own.audience, ownerId: ctx.scope.user.id })
         .returning({ id: folderRule.id });
       await syncFolderRules(lib.id, created!.id);
       await recordActivity({
@@ -122,7 +124,9 @@ export const folderRulesRouter = router({
         detail: { mode: input.mode },
         headers: ctx.headers,
       });
-      if (audience) await setAudience(ctx.scope, { type: "rule", id: created!.id }, audience, { headers: ctx.headers });
+      await logNewAudience(ctx.scope, { type: "rule", id: created!.id }, `Folder rule ${input.path ? `${lib.name}/${input.path}` : lib.name}`, own, {
+        headers: ctx.headers,
+      });
       return created!;
     }),
 

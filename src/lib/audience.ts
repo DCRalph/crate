@@ -16,6 +16,10 @@ export type Audience = z.infer<typeof audienceSchema>;
 /** Where nothing in the tree sets an audience, only the owner listens. */
 export const ownerOnly: Audience = { kind: "owner" };
 
+/** Whether two settings are the same, so a change that changes nothing is noticed. Chosen people are always saved in one order. */
+export const sameAudience = (a: Audience | null, b: Audience | null) =>
+  a === null || b === null ? a === b : a.kind === b.kind && (a.kind !== "people" || (b.kind === "people" && a.userIds.join() === b.userIds.join()));
+
 /** An audience as someone who can't share the item sees it: chosen people narrowed to themselves, so nobody learns who else was picked. */
 export const seenBy = (audience: Audience, viewerId: string): Audience =>
   audience.kind === "people" ? { kind: "people", userIds: audience.userIds.filter((id) => id === viewerId) } : audience;

@@ -1,12 +1,14 @@
 import "server-only";
 import { asc, eq, sql } from "drizzle-orm";
 
-import { seenBy } from "~/lib/audience";
+import { sameAudience, seenBy, type Audience } from "~/lib/audience";
 import type { Scope } from "~/server/access";
+import type { ActivityOrigin } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
 import { listPlaylists, loadAudiences } from "~/server/library/queries";
+import { logMove, logNewAudience, placeName, settleAudience } from "./audience";
 
 // The folders people sort their playlists into. Folders hold folders and
 // playlists; a playlist is always a leaf.
@@ -105,39 +107,74 @@ export async function assertPlace(ownerId: string, folderId: number | null) {
   if (target.ruleId !== null) throw new FolderError("invalid", "That folder follows the disk, so nothing can be put in it.");
 }
 
-export async function createFolder(scope: Scope, input: { name: string; parentId: number | null }) {
+/** Makes a folder. Without an `audience` of its own it follows its parent; one it is given is saved with the row, and logged. */
+export async function createFolder(scope: Scope, input: { name: string; parentId: number | null; audience?: Audience | null }, from: ActivityOrigin = {}) {
   await assertPlace(scope.user.id, input.parentId);
+  const own = await settleAudience(input.audience ?? null, scope.user.id);
   const [created] = await db
     .insert(playlistFolder)
-    .values({ name: input.name, ownerId: scope.user.id, parentId: input.parentId })
+    .values({ name: input.name, ownerId: scope.user.id, parentId: input.parentId, audience: own.audience })
     .returning({ id: playlistFolder.id });
+  await logNewAudience(scope, { type: "folder", id: created!.id }, input.name, own, from);
   return created!.id;
 }
 
-/** Renames a folder or moves it. A folder can't go inside itself or anything it holds. */
-export async function updateFolder(scope: Scope, id: number, change: { name?: string; parentId?: number | null }) {
+/**
+ * Renames a folder or moves it. A folder can't go inside itself or anything
+ * it holds. A move that changes who can listen to it, and so to what follows
+ * it, is logged.
+ */
+export async function updateFolder(scope: Scope, id: number, change: { name?: string; parentId?: number | null }, from: ActivityOrigin = {}) {
   const found = await editable(scope, id);
-  if (change.parentId !== undefined && change.parentId !== found.parentId) {
-    await assertPlace(found.ownerId, change.parentId);
-    for (let at = change.parentId; at !== null; at = (await findFolder(at)).parentId) {
+  const to = change.parentId;
+  let move: { to: number | null; was: Audience; now: Audience } | null = null;
+  if (to !== undefined && to !== found.parentId) {
+    await assertPlace(found.ownerId, to);
+    for (let at = to; at !== null; at = (await findFolder(at)).parentId) {
       if (at === id) throw new FolderError("invalid", "A folder can't go inside itself.");
     }
+    const audiences = await loadAudiences();
+    move = { to, was: audiences.folder(id), now: found.audience ?? audiences.inherited({ folderId: to, ruleId: null }).audience };
   }
   await db
     .update(playlistFolder)
-    .set({ name: change.name, parentId: change.parentId, updatedAt: new Date() })
+    .set({ name: change.name, parentId: to, updatedAt: new Date() })
     .where(eq(playlistFolder.id, id));
+
+  if (move && !sameAudience(move.was, move.now)) {
+    const moved = `from ${await placeName(found.parentId)} to ${await placeName(move.to)}`;
+    await logMove(scope, { type: "folder", id }, found, { moved, was: move.was, now: move.now }, from);
+  }
 }
 
-/** Removes a folder. What was in it moves up to where the folder was; nothing inside is deleted. */
-export async function deleteFolder(scope: Scope, id: number) {
+/**
+ * Removes a folder. What was in it moves up to where the folder was; nothing
+ * inside is deleted. When that changes who can listen to any of it (the
+ * folder had a setting its contents followed), it is logged.
+ */
+export async function deleteFolder(scope: Scope, id: number, from: ActivityOrigin = {}) {
   const found = await editable(scope, id);
+  const before = await loadAudiences();
+  const [playlists, folders] = await Promise.all([
+    listPlaylists(scope, eq(playlist.folderId, id), before),
+    db.select({ id: playlistFolder.id }).from(playlistFolder).where(eq(playlistFolder.parentId, id)),
+  ]);
   await db.transaction(async (tx) => {
     await tx.update(playlistFolder).set({ parentId: found.parentId }).where(eq(playlistFolder.parentId, id));
     await tx.update(playlist).set({ folderId: found.parentId }).where(eq(playlist.folderId, id));
     await tx.update(folderRule).set({ parentFolderId: found.parentId }).where(eq(folderRule.parentFolderId, id));
     await tx.delete(playlistFolder).where(eq(playlistFolder.id, id));
   });
+
+  const after = await loadAudiences();
+  const changed =
+    folders.some((folder) => !sameAudience(before.folder(folder.id), after.folder(folder.id))) ||
+    playlists.some((row) => !sameAudience(row.audience, after.playlist({ folderId: found.parentId, ruleId: row.ruleId, audience: row.ownAudience })));
+  if (!changed) return;
+  // Whatever changed was following the folder, so it went from the folder's audience to the one where it now sits.
+  const now = after.inherited({ folderId: found.parentId, ruleId: null }).audience;
+  const moved = `what was inside to ${await placeName(found.parentId)}`;
+  await logMove(scope, { type: "folder", id }, found, { moved, was: before.folder(id), now }, from);
 }
 
 const everyFolderPath = async () =>

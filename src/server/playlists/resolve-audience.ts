@@ -1,4 +1,4 @@
-import { ownerOnly, type Audience } from "~/lib/audience";
+import { ownerOnly, sameAudience, type Audience } from "~/lib/audience";
 
 /** A folder as the resolver sees it. `audience` is its own setting, null when it follows its parent. */
 export type AudienceFolder = { id: number; parentId: number | null; ruleId: number | null; audience: Audience | null };
@@ -69,6 +69,29 @@ export function audienceResolver(tree: { folders: AudienceFolder[]; rules: { id:
 }
 
 export type AudienceResolver = ReturnType<typeof audienceResolver>;
+
+/**
+ * For a rebuild of what folder rule `ruleId` makes. A folder on disk that
+ * gains its first subfolder or loses its last one moves its playlists in or
+ * out of the folder made for it. `moved` are those playlists, from where
+ * they sat (`from`) to where they sit now (`to`), with their own setting;
+ * `before` and `after` resolve the tree either side of the rebuild. Returns
+ * each one whose audience the move would change, with the audience it had.
+ * Saved as their own, a change on disk never changes who can listen to a
+ * playlist that was already there.
+ */
+export function keptAudiences(
+  ruleId: number,
+  moved: { sourcePath: string; from: number | null; to: number | null; own: Audience | null }[],
+  before: AudienceResolver,
+  after: AudienceResolver,
+) {
+  return moved.flatMap(({ sourcePath, from, to, own }) => {
+    const was = before.playlist({ folderId: from, ruleId, audience: own });
+    const now = after.playlist({ folderId: to, ruleId, audience: own });
+    return sameAudience(was, now) ? [] : [{ sourcePath, audience: was }];
+  });
+}
 
 /** Whether someone may listen to an item with this audience. Owners and admins always may. */
 export function canListen(audience: Audience, ownerId: string, viewer: { id: string; isAdmin: boolean }) {

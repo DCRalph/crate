@@ -95,13 +95,7 @@ export const playlistsRouter = router({
         trackIds: trackIds.optional(),
       }),
     )
-    .mutation(({ ctx, input: { audience, ...input } }) =>
-      write(async () => {
-        const created = await createPlaylist(ctx.scope, input);
-        if (audience) await setAudience(ctx.scope, { type: "playlist", id: created }, audience, { headers: ctx.headers });
-        return created;
-      }),
-    ),
+    .mutation(({ ctx, input }) => write(() => createPlaylist(ctx.scope, input, { headers: ctx.headers }))),
 
   update: protectedProcedure
     .input(
@@ -112,7 +106,7 @@ export const playlistsRouter = router({
         folderId: id.nullable().optional(),
       }),
     )
-    .mutation(({ ctx, input: { id: playlistId, ...change } }) => write(() => updatePlaylist(ctx.scope, playlistId, change))),
+    .mutation(({ ctx, input: { id: playlistId, ...change } }) => write(() => updatePlaylist(ctx.scope, playlistId, change, { headers: ctx.headers }))),
 
   addTracks: protectedProcedure
     .input(z.object({ id, trackIds: trackIds.min(1) }))
@@ -151,20 +145,16 @@ export const playlistsRouter = router({
   /** Makes a folder. Without an `audience` of its own it follows the folder it is made in. */
   createFolder: protectedProcedure
     .input(z.object({ name, parentId: id.nullable().default(null), audience: audienceSchema.nullable().default(null) }))
-    .mutation(({ ctx, input: { audience, ...input } }) =>
-      write(async () => {
-        const created = await createFolder(ctx.scope, input);
-        if (audience) await setAudience(ctx.scope, { type: "folder", id: created }, audience, { headers: ctx.headers });
-        return created;
-      }),
-    ),
+    .mutation(({ ctx, input }) => write(() => createFolder(ctx.scope, input, { headers: ctx.headers }))),
 
   updateFolder: protectedProcedure
     .input(z.object({ id, name: name.optional(), parentId: id.nullable().optional() }))
-    .mutation(({ ctx, input: { id: folderId, ...change } }) => write(() => updateFolder(ctx.scope, folderId, change))),
+    .mutation(({ ctx, input: { id: folderId, ...change } }) => write(() => updateFolder(ctx.scope, folderId, change, { headers: ctx.headers }))),
 
   /** Removes the folder; what was in it moves up a level. */
-  deleteFolder: protectedProcedure.input(z.object({ id })).mutation(({ ctx, input }) => write(() => deleteFolder(ctx.scope, input.id))),
+  deleteFolder: protectedProcedure
+    .input(z.object({ id }))
+    .mutation(({ ctx, input }) => write(() => deleteFolder(ctx.scope, input.id, { headers: ctx.headers }))),
 
   /**
    * Who can listen to a playlist, a folder or (for admins) the top of what a

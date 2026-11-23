@@ -1,10 +1,13 @@
 import "server-only";
 import { asc, eq } from "drizzle-orm";
 
+import { sameAudience, type Audience } from "~/lib/audience";
 import type { Scope } from "~/server/access";
+import type { ActivityOrigin } from "~/server/activity";
 import { db } from "~/server/db";
 import { playlist, playlistTrack } from "~/server/db/app-schema";
-import { canEditPlaylist, getPlaylist, listPlaylists, visibleTrackIds } from "~/server/library/queries";
+import { canEditPlaylist, getPlaylist, listPlaylists, loadAudiences, visibleTrackIds } from "~/server/library/queries";
+import { logMove, logNewAudience, placeName, settleAudience } from "./audience";
 import { setPlaylistTracks } from "./folder-rules";
 import { forgetUpload } from "./covers";
 import { assertPlace } from "./folders";
@@ -30,13 +33,18 @@ async function editable(scope: Scope, id: number) {
 
 /**
  * Makes a playlist for this user, optionally in one of their folders and
- * already holding tracks. It starts with no audience of its own, so it follows
- * its folder; `setAudience` gives it one.
+ * already holding tracks. Without an `audience` of its own it follows its
+ * folder. One it is given is saved with the row, so nobody else ever sees it
+ * without it, and logged.
  */
-export async function createPlaylist(scope: Scope, input: { name: string; trackIds?: number[]; comment?: string; folderId?: number | null }) {
+export async function createPlaylist(
+  scope: Scope,
+  input: { name: string; trackIds?: number[]; comment?: string; folderId?: number | null; audience?: Audience | null },
+  from: ActivityOrigin = {},
+) {
   await assertPlace(scope.user.id, input.folderId ?? null);
-  const trackIds = await visibleTrackIds(scope, input.trackIds ?? []);
-  return db.transaction(async (tx) => {
+  const [trackIds, own] = await Promise.all([visibleTrackIds(scope, input.trackIds ?? []), settleAudience(input.audience ?? null, scope.user.id)]);
+  const id = await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(playlist)
       .values({
@@ -44,11 +52,14 @@ export async function createPlaylist(scope: Scope, input: { name: string; trackI
         ownerId: scope.user.id,
         comment: input.comment || null,
         folderId: input.folderId ?? null,
+        audience: own.audience,
       })
       .returning({ id: playlist.id });
     await setPlaylistTracks(tx, created!.id, trackIds);
     return created!.id;
   });
+  await logNewAudience(scope, { type: "playlist", id }, input.name, own, from);
+  return id;
 }
 
 /**
@@ -59,7 +70,7 @@ export async function createPlaylist(scope: Scope, input: { name: string; trackI
  * are always left in place. `expect` names the track the caller believes is
  * at a position; if the list has moved on since they looked, nothing is
  * changed. Who can listen is `setAudience`'s, since it is logged and allowed
- * on playlists from disk too.
+ * on playlists from disk too, but a move that changes it is logged here.
  */
 export async function updatePlaylist(
   scope: Scope,
@@ -73,9 +84,14 @@ export async function updatePlaylist(
     removeIndexes?: number[];
     expect?: { index: number; trackId: number };
   },
+  from: ActivityOrigin = {},
 ) {
   const row = await editable(scope, id);
-  if (change.folderId !== undefined) await assertPlace(row.ownerId, change.folderId);
+  const to = change.folderId;
+  if (to !== undefined) await assertPlace(row.ownerId, to);
+  // Following its folder, a playlist moved to another can gain or lose listeners.
+  const move =
+    to === undefined || to === row.folderId ? null : { to, now: (await loadAudiences()).playlist({ folderId: to, ruleId: row.ruleId, audience: row.ownAudience }) };
   const adding = await visibleTrackIds(scope, change.trackIds ?? change.addTrackIds ?? []);
 
   await db.transaction(async (tx) => {
@@ -105,6 +121,11 @@ export async function updatePlaylist(
     if (change.expect && change.expect.index >= seen) throw new PlaylistError("changed");
     await setPlaylistTracks(tx, id, [...kept, ...adding]);
   });
+
+  if (move && !sameAudience(row.audience, move.now)) {
+    const moved = `from ${await placeName(row.folderId)} to ${await placeName(move.to)}`;
+    await logMove(scope, { type: "playlist", id }, row, { moved, was: row.audience, now: move.now }, from);
+  }
 }
 
 /**

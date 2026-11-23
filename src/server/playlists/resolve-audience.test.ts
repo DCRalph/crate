@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Audience } from "~/lib/audience";
-import { audienceResolver, canListen, type AudienceFolder } from "./resolve-audience";
+import { audienceResolver, canListen, keptAudiences, type AudienceFolder } from "./resolve-audience";
 
 const everyone: Audience = { kind: "everyone" };
 const owner: Audience = { kind: "owner" };
@@ -97,6 +97,38 @@ describe("audienceResolver", () => {
     const resolve = audienceResolver({ folders: loop, rules: [] });
     expect(resolve.folder(1)).toEqual(owner);
     expect(resolve.playlist({ folderId: 99, ruleId: null, audience: null })).toEqual(owner);
+  });
+});
+
+describe("keptAudiences", () => {
+  // Rule 7 makes Mixes (10) > 2024 (11) at the top level. Mixes/2024 holds loose tracks, so its playlist sits in 2024.
+  const made = (audience2024: Audience | null): AudienceFolder[] => [
+    { id: 10, parentId: null, ruleId: 7, audience: null },
+    { id: 11, parentId: 10, ruleId: 7, audience: audience2024 },
+  ];
+  const playlist2024 = { sourcePath: "Mixes/2024", from: 11, to: 10, own: null };
+
+  test("a folder that loses its last subfolder leaves its playlist with who could listen", () => {
+    // 2024 is the owner's alone under an Everyone rule; once its subfolders go, its playlist moves up into Mixes.
+    const before = audienceResolver({ folders: made(owner), rules: [{ id: 7, audience: everyone }] });
+    const after = audienceResolver({ folders: made(owner).filter((folder) => folder.id !== 11), rules: [{ id: 7, audience: everyone }] });
+    expect(keptAudiences(7, [playlist2024], before, after)).toEqual([{ sourcePath: "Mixes/2024", audience: owner }]);
+  });
+
+  test("a folder that comes back with a setting doesn't change who listens to the playlist moved into it", () => {
+    const before = audienceResolver({ folders: made(null).filter((folder) => folder.id !== 11), rules: [{ id: 7, audience: owner }] });
+    const after = audienceResolver({ folders: made(everyone), rules: [{ id: 7, audience: owner }] });
+    expect(keptAudiences(7, [{ ...playlist2024, from: 10, to: 11 }], before, after)).toEqual([{ sourcePath: "Mixes/2024", audience: owner }]);
+  });
+
+  test("a move that changes nothing keeps nothing", () => {
+    // The folder it left set nothing of its own.
+    const before = audienceResolver({ folders: made(null), rules: [{ id: 7, audience: everyone }] });
+    const after = audienceResolver({ folders: made(null).filter((folder) => folder.id !== 11), rules: [{ id: 7, audience: everyone }] });
+    expect(keptAudiences(7, [playlist2024], before, after)).toEqual([]);
+    // The playlist has a setting of its own.
+    const tighter = audienceResolver({ folders: made(owner), rules: [{ id: 7, audience: everyone }] });
+    expect(keptAudiences(7, [{ ...playlist2024, own: alice }], tighter, after)).toEqual([]);
   });
 });
 

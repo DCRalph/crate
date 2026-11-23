@@ -1,9 +1,9 @@
 import "server-only";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 
-import type { Audience, AudienceTarget } from "~/lib/audience";
+import { sameAudience, type Audience, type AudienceTarget } from "~/lib/audience";
 import type { Scope } from "~/server/access";
-import { recordActivity } from "~/server/activity";
+import { recordActivity, type ActivityOrigin } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, library, playlist, playlistFolder, ruleItemAudience } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
@@ -134,37 +134,98 @@ export async function audienceSettings(scope: Scope, target: AudienceTarget) {
 
 const listenWords = { owner: "only the owner", everyone: "everyone", people: "chosen people" } as const;
 
-/** Whether two settings are the same, so a save that changes nothing is noticed. Chosen people are kept in one order. */
-const sameAudience = (a: Audience | null, b: Audience | null) =>
-  a === null || b === null ? a === b : a.kind === b.kind && (a.kind !== "people" || (b.kind === "people" && a.userIds.join() === b.userIds.join()));
+/** The accounts among `ids` that exist, in id order, with the name the activity log gives them. */
+const accounts = async (ids: string[]) =>
+  ids.length
+    ? db
+        .select({ id: user.id, username: nameOf })
+        .from(user)
+        .where(inArray(user.id, [...new Set(ids)]))
+        .orderBy(asc(user.id))
+    : [];
+
+/** Who a setting lets listen, as plain text so the activity log's Detail column can show it. */
+const listenDetail = (audience: Audience | null, people: { username: string }[]) => ({
+  listen: audience === null ? "same as its folder" : listenWords[audience.kind],
+  ...(audience?.kind === "people" ? { people: people.map((person) => person.username).join(", ") || "nobody yet" } : {}),
+});
+
+/**
+ * Readies an audience to be saved on something `ownerId` owns: chosen people
+ * are kept to accounts that exist, without the owner, who always listens, in
+ * one order. `detail` is how the activity log shows it. Something being made
+ * saves the result with its row, so it is never seen without it, then logs
+ * it with `logNewAudience`.
+ */
+export async function settleAudience(audience: Audience | null, ownerId: string) {
+  if (audience?.kind !== "people") return { audience, detail: listenDetail(audience, []) };
+  const people = await accounts(audience.userIds.filter((id) => id !== ownerId));
+  const settled: Audience = { kind: "people", userIds: people.map((person) => person.id) };
+  return { audience: settled, detail: listenDetail(settled, people) };
+}
+
+export type SettledAudience = Awaited<ReturnType<typeof settleAudience>>;
+
+/** Adds a "who can listen changed" entry for an item, naming its owner when that isn't who did it. */
+async function logAudience(
+  scope: Scope,
+  target: AudienceTarget,
+  item: { name: string; ownerId: string; ownerName?: string },
+  detail: Record<string, string>,
+  from: ActivityOrigin,
+) {
+  await recordActivity({
+    action: "audience.changed",
+    actor: { id: scope.user.id, name: scope.user.username },
+    target: item.name,
+    detail: { [target.type]: target.id, ...(item.ownerId === scope.user.id ? {} : { owner: item.ownerName }), ...detail },
+    ...from,
+  });
+}
+
+/** Logs the audience something this scope just made was saved with. Made to follow its folder, nothing is logged. */
+export async function logNewAudience(scope: Scope, target: AudienceTarget, name: string, settled: SettledAudience, from: ActivityOrigin = {}) {
+  if (settled.audience) await logAudience(scope, target, { name, ownerId: scope.user.id }, settled.detail, from);
+}
+
+/** Where something sits, as the activity log names it. */
+export async function placeName(folderId: number | null) {
+  if (folderId === null) return "the top level";
+  const [folder] = await db.select({ name: playlistFolder.name }).from(playlistFolder).where(eq(playlistFolder.id, folderId));
+  return folder?.name ?? "a folder";
+}
+
+/**
+ * Logs a move that changed who can listen to something following its folder:
+ * `moved` says what went where ("from Mixes to Family"), `was` and `now` who
+ * could listen before and who can now. Only call it when they differ.
+ */
+export async function logMove(
+  scope: Scope,
+  target: AudienceTarget,
+  item: { name: string; ownerId: string },
+  change: { moved: string; was: Audience; now: Audience },
+  from: ActivityOrigin = {},
+) {
+  const [people, [owner]] = await Promise.all([
+    change.now.kind === "people" ? accounts(change.now.userIds) : [],
+    item.ownerId === scope.user.id ? [] : accounts([item.ownerId]),
+  ]);
+  const detail = { moved: change.moved, ...listenDetail(change.now, people), before: listenWords[change.was.kind] };
+  await logAudience(scope, target, { ...item, ownerName: owner?.username }, detail, from);
+}
 
 /**
  * Gives an item an audience of its own, or (null) makes it follow its folder
  * again, and records the change in the activity log. Chosen people are kept
- * to accounts that exist, without the owner, who always listens. Nothing is
- * written or logged when nothing changes.
+ * as `settleAudience` says. Nothing is written or logged when nothing changes.
  */
-export async function setAudience(
-  scope: Scope,
-  target: AudienceTarget,
-  audience: Audience | null,
-  from: { headers?: Headers; ip?: string | null } = {},
-) {
+export async function setAudience(scope: Scope, target: AudienceTarget, audience: Audience | null, from: ActivityOrigin = {}) {
   const item = await findTarget(scope, target);
   if (!item.canChange) throw new AudienceError("forbidden");
 
-  let people: { id: string; username: string }[] = [];
-  if (audience?.kind === "people") {
-    const asked = [...new Set(audience.userIds)].filter((id) => id !== item.ownerId);
-    people = asked.length
-      ? await db
-          .select({ id: user.id, username: nameOf })
-          .from(user)
-          .where(inArray(user.id, asked))
-          .orderBy(asc(user.id))
-      : [];
-  }
-  const next: Audience | null = audience?.kind === "people" ? { kind: "people", userIds: people.map((person) => person.id) } : audience;
+  const settled = await settleAudience(audience, item.ownerId);
+  const next = settled.audience;
   if (sameAudience(item.own, next)) return;
 
   if (target.type === "rule") {
@@ -180,19 +241,7 @@ export async function setAudience(
     await db.update(playlistFolder).set({ audience: next }).where(eq(playlistFolder.id, target.id));
   }
 
-  await recordActivity({
-    action: "audience.changed",
-    actor: { id: scope.user.id, name: scope.user.username },
-    target: item.name,
-    detail: {
-      [target.type]: target.id,
-      ...(item.ownerId === scope.user.id ? {} : { owner: item.ownerName }),
-      // Plain text, so the activity log's Detail column can show it.
-      listen: next === null ? "same as its folder" : listenWords[next.kind],
-      ...(next?.kind === "people" ? { people: people.map((person) => person.username).join(", ") || "nobody yet" } : {}),
-    },
-    ...from,
-  });
+  await logAudience(scope, target, item, settled.detail, from);
 }
 
 /** Everyone a person might share with: every other account, by id and name only. */
