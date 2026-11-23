@@ -135,7 +135,7 @@ const DataTableRow = memo(function DataTableRow<TRow>({
       onClick={clickable ? () => handlers.current.onRowClick?.(row) : undefined}
       // A double click on a control in the row is two clicks on that control.
       onDoubleClick={(event) => {
-        if (event.target instanceof Element && event.target.closest("button, a, input, [role=checkbox]")) return;
+        if (event.target instanceof Element && event.target.closest("button, a, input, [role=checkbox], [role=slider]")) return;
         handlers.current.onRowDoubleClick?.(row);
       }}
       draggable={draggable || undefined}

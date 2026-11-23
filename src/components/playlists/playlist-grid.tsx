@@ -176,7 +176,6 @@ export function PlaylistGrid({
                   index={folders.length + index}
                   href={`/playlists/${playlist.id}`}
                   cover={{ type: "playlist", id: playlist.id, version: playlist.coverKey }}
-                  shared={`playlist-${playlist.id}`}
                   name={playlist.name}
                   band={`${count(playlist.trackCount, "track")}${playlist.isMine ? "" : ` · ${playlist.ownerName}`}`}
                   code={numbered ? codeOf(folders.length + index) : undefined}

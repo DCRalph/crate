@@ -25,8 +25,6 @@ export type AlbumTile = { id: number; name: string; artistName: string; year: nu
  *  - `numbered` is off where the page has another numbered list: then there are no plates and codes pick nothing here.
  *  - `letter` gives the grid a row letter, for a page with several: its plates read "B3".
  *  - `row` keeps to one row of tiles, however many would fit a second.
- *  - `shared` names each cover for the page transition, so it travels to the album's own page. Where an album can be
- *    on the page twice it says which albums this grid may name.
  */
 export function AlbumGrid({
   albums,
@@ -34,14 +32,12 @@ export function AlbumGrid({
   numbered = true,
   letter,
   row = false,
-  shared = true,
 }: {
   albums: AlbumTile[];
   showArtist?: boolean;
   numbered?: boolean;
   letter?: RowLetter;
   row?: boolean;
-  shared?: boolean | ((albumId: number) => boolean);
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -87,7 +83,6 @@ export function AlbumGrid({
               index={index}
               href={`/albums/${album.id}`}
               cover={{ type: "album", id: album.id }}
-              shared={(typeof shared === "function" ? shared(album.id) : shared) ? `album-${album.id}` : undefined}
               name={album.name}
               band={[showArtist ? album.artistName : null, album.year].filter(Boolean).join(" · ")}
               code={numbered ? (letter ? tileCode(letter, index) : rowNumber(index)) : undefined}

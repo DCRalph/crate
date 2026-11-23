@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { MoreHorizontal, Pause, Play } from "lucide-react";
 
+import { startTrackAt } from "~/components/player/playhead";
 import { rowNumber, useNumbered } from "~/components/player/selection";
 import { useCurrentTrack, usePlayer } from "~/components/player/store";
 import { RowsSkeleton } from "~/components/shell/skeletons";
@@ -21,6 +22,15 @@ import { RowWave } from "./row-wave";
 import { useTrackRows } from "./track-rows";
 import { contextKit, dropdownKit, TrackActions } from "./track-actions";
 import { TrackInfoDialog } from "./track-info";
+
+// Which columns a list has room for, by its own width (a container query), the title always first. The waveform
+// comes next, from a tablet's width up, so it can be tapped. The artist column after it; below that the artist
+// rides under the title instead. Then how often it was played, and the album last of all. A list that is about
+// its plays (Most played) always shows them: the counts are the point of it.
+const waveColumn = "@max-lg:hidden";
+const artistColumn = "@max-3xl:hidden";
+const playsColumn = "@max-4xl:hidden";
+const albumColumn = "@max-5xl:hidden";
 
 /** The rows from `from` to `to`, whichever way round they were clicked. */
 const between = (from: number, to: number) => Array.from({ length: Math.abs(to - from) + 1 }, (_, i) => Math.min(from, to) + i);
@@ -112,7 +122,8 @@ export function TrackTable<T extends WebTrack>({
         <ContextMenuTrigger asChild>
           <div
             data-selection
-            className="print overflow-hidden rounded-lg shadow-[0_1px_2px_rgb(0_0_0/0.14)]"
+            // Columns come and go with the list's own width, not the screen's: the title always has room first.
+            className="print @container overflow-hidden rounded-lg shadow-[0_1px_2px_rgb(0_0_0/0.14)]"
             // A right-click on a row that isn't chosen chooses it alone first. One on the heading has nothing to act on.
             onContextMenu={(event) => {
               const row = event.target instanceof Element ? event.target.closest<HTMLElement>("tr[data-index]") : null;
@@ -126,10 +137,10 @@ export function TrackTable<T extends WebTrack>({
                 <TableRow>
                   <TableHead className="w-14 pl-3 sm:w-[4.5rem] sm:pl-4">No.</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead className="max-md:hidden">Artist</TableHead>
-                  {showAlbum ? <TableHead className="max-lg:hidden">Album</TableHead> : null}
-                  <TableHead className="w-32 max-lg:hidden" aria-label="Waveform" />
-                  <TableHead className={cn("w-12 text-right sm:w-14", !plays && "max-sm:hidden")}>Plays</TableHead>
+                  <TableHead className={artistColumn}>Artist</TableHead>
+                  {showAlbum ? <TableHead className={albumColumn}>Album</TableHead> : null}
+                  <TableHead className={cn("w-32", waveColumn)} aria-label="Waveform" />
+                  <TableHead className={cn("w-12 text-right sm:w-14", !plays && playsColumn)}>Plays</TableHead>
                   <TableHead className="w-10" />
                   <TableHead className="w-12 text-right sm:w-16">Time</TableHead>
                   <TableHead className="w-10" />
@@ -141,8 +152,8 @@ export function TrackTable<T extends WebTrack>({
                   const isChosen = chosen.rows.has(index);
                   // The playing row's button pauses and resumes; any other row starts the list from there.
                   const start = () => (isCurrent ? setPlaying(!playing) : playFrom(index));
-                  // A click on the heart, the menu or a link belongs to that, not to the row.
-                  const onRow = (event: React.MouseEvent) => !(event.target instanceof Element && event.target.closest("button, a"));
+                  // A click on the heart, the menu, a link or the waveform belongs to that, not to the row.
+                  const onRow = (event: React.MouseEvent) => !(event.target instanceof Element && event.target.closest("button, a, [role=slider]"));
                   return (
                     <TableRow
                       key={`${track.id}-${index}`}
@@ -180,26 +191,37 @@ export function TrackTable<T extends WebTrack>({
                           {showCover ? <Cover type="album" id={track.albumId} size={64} className="size-8" /> : null}
                           <div className="min-w-0">
                             <p className="truncate">{track.title}</p>
-                            <p className="text-muted-foreground truncate text-xs font-normal md:hidden">{track.artistName}</p>
+                            <p className="text-muted-foreground truncate text-xs font-normal @3xl:hidden">{track.artistName}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground w-1/4 max-w-0 truncate font-normal max-md:hidden">
+                      <TableCell className={cn("text-muted-foreground w-1/4 max-w-0 truncate font-normal", artistColumn)}>
                         <Link href={`/artists/${track.artistId}`} className="hover:text-foreground hover:underline">
                           {track.artistName}
                         </Link>
                       </TableCell>
                       {showAlbum ? (
-                        <TableCell className="text-muted-foreground w-1/4 max-w-0 truncate font-normal max-lg:hidden">
+                        <TableCell className={cn("text-muted-foreground w-1/4 max-w-0 truncate font-normal", albumColumn)}>
                           <Link href={`/albums/${track.albumId}`} className="hover:text-foreground hover:underline">
                             {track.albumName}
                           </Link>
                         </TableCell>
                       ) : null}
-                      <TableCell className={cn("py-0 max-lg:hidden", isCurrent ? "text-foreground" : "text-muted-foreground/70")}>
-                        {extras[track.id]?.peaks ? <RowWave peaks={extras[track.id]!.peaks!} /> : null}
+                      <TableCell className={cn("py-0", waveColumn)}>
+                        {extras[track.id]?.peaks ? (
+                          <RowWave
+                            peaks={extras[track.id]!.peaks!}
+                            trackId={track.id}
+                            duration={track.duration}
+                            title={track.title}
+                            onPlayFrom={(seconds) => {
+                              startTrackAt(track.id, seconds);
+                              playFrom(index);
+                            }}
+                          />
+                        ) : null}
                       </TableCell>
-                      <TableCell className={cn("text-muted-foreground t-num text-right text-[15px] font-normal", !plays && "max-sm:hidden")}>
+                      <TableCell className={cn("text-muted-foreground t-num text-right text-[15px] font-normal", !plays && playsColumn)}>
                         {(plays ? plays(track) : extras[track.id]?.plays) || null}
                       </TableCell>
                       <TableCell className="py-0">

@@ -10,7 +10,7 @@ export const rowLetters = ["A", "B", "C", "D", "E", "G", "H", "J", "K"] as const
 export type RowLetter = (typeof rowLetters)[number];
 
 type Selection = {
-  /** What has been typed so far ("B3", "12"), shown in the console's window while there is any. */
+  /** What has been typed so far ("B3", "12"), shown just above the console while there is any. */
   typed: string;
   /** The lists on screen that a selection can pick from, by letter. A page's one unlettered list is under "". */
   lists: Partial<Record<RowLetter | "", (number: number) => void>>;

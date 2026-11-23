@@ -18,8 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <CrumbProvider>
-      {/* Pinned to the viewport so each page's own scroller is the only thing that scrolls. */}
-      <div className="enamel fixed inset-0 grid grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden md:grid-cols-[14rem_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto]">
+      {/* Pinned to the viewport, as tall as what is showing of it (dvh: a phone's toolbars come and go), so each page's own
+          scroller is the only thing that scrolls. */}
+      <div className="enamel fixed inset-x-0 top-0 grid h-dvh grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden md:grid-cols-[14rem_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto]">
         <Rail user={{ name: user.name, username: user.username ?? user.email, isAdmin: user.role === "admin" }} />
         <div className="min-h-0 min-w-0 px-1.5 pt-0.5 pb-1.5 md:py-3 md:pr-3 md:pl-0">
           <div className="glass glass-window relative isolate flex h-full flex-col overflow-hidden">

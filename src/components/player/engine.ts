@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,6 +8,7 @@ import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { levelFor } from "~/lib/replay-gain";
 import { usePlayback } from "./playback";
+import { takeStartAt, usePlayhead } from "./playhead";
 import { usePlayer } from "./store";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
@@ -50,8 +51,8 @@ function start(audio: HTMLAudioElement) {
  * length and can't be sought, so it is asked for from `at` and the element
  * counts on from there. A file is sent whole and moved to `at` once it has loaded.
  */
-function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number): Clock {
-  audio.src = webStreamUrl(trackId, sent, at);
+function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number, play: "new" | "on"): Clock {
+  audio.src = webStreamUrl(trackId, sent, at, play);
   if (usePlayer.getState().playing) start(audio);
   return sent.transcode ? { offset: at, seekOnLoad: null } : { offset: 0, seekOnLoad: at > 0 ? at : null };
 }
@@ -190,8 +191,9 @@ export function usePlayerEngine() {
   };
 
   /** Loads the current track's stream on the live element from `at` seconds in. */
-  const load = (audio: HTMLAudioElement, at: number) => {
-    if (track && sent) clock.current = loadStream(audio, track.id, sent, at);
+  /** Loads the current track on an element from `at` seconds in: the same play carrying on, unless `play` says it is a new one. */
+  const load = (audio: HTMLAudioElement, at: number, play: "new" | "on" = "on") => {
+    if (track && sent) clock.current = loadStream(audio, track.id, sent, at, play);
   };
 
   const trackId = track?.id;
@@ -219,12 +221,15 @@ export function usePlayerEngine() {
     const spare = element(to);
     const seconds = fadeNext.current;
     fadeNext.current = 0;
-    if (!spare || !canHandOver.current || spare.error || ahead.current !== source) {
-      // Not the track that was got ready (the queue changed, or something else was chosen), so it loads here and the spare is dropped.
-      if (ahead.current !== null) retire(to);
+    // A track played from a point on its row's waveform starts there, so it can't be the spare, which is at the start.
+    const startAt = takeStartAt(track.id);
+    if (!spare || !canHandOver.current || spare.error || ahead.current !== source || startAt > 0) {
+      // Not the track that was got ready (the queue changed, or something else was chosen), so it loads here and the
+      // spare is dropped, along with a track still fading out on it.
+      if (ahead.current !== null || fades.current[to] !== undefined) retire(to);
       ahead.current = null;
       settle(from, 1);
-      return load(audio, 0);
+      return load(audio, Math.min(startAt, Math.max(track.duration - 2, 0)), "new");
     }
 
     // The handover: the spare has this track ready, so it becomes the live element.
@@ -249,7 +254,8 @@ export function usePlayerEngine() {
       retire(to);
       live.current = from;
       settle(from, 1);
-      clock.current = loadStream(audio, track.id, sent, 0);
+      // Asked for as a new play: the spare may not have reached the server yet, and a play logged twice beats one missed.
+      clock.current = loadStream(audio, track.id, sent, 0, "new");
     });
   });
   // `turn` as well as the address: choosing the track that is already playing (its row, Next onto a second copy) starts it over.
@@ -304,6 +310,18 @@ export function usePlayerEngine() {
     else audio.currentTime = to;
     setTime(to);
   };
+  // Where the track is, and the way to move it, for what draws the track outside the console (its row's waveform).
+  // The way to move it is one that never changes, so publishing it doesn't wake every row.
+  useEffect(() => usePlayhead.setState({ trackId: track?.id ?? null, time }), [track?.id, time]);
+  const latestSeek = useRef(seek);
+  useLayoutEffect(() => {
+    latestSeek.current = seek;
+  });
+  useEffect(() => {
+    usePlayhead.setState({ seek: (seconds) => latestSeek.current(seconds) });
+    return () => usePlayhead.setState({ seek: null });
+  }, []);
+
   /** Moves by so many seconds from where the track is now. */
   const seekBy = (seconds: number) => {
     const audio = element(live.current);

@@ -117,33 +117,42 @@ export function decideWebStream(source: Pick<Source, "bitRate">, prefs: WebStrea
  * The address the web player loads a track from: `/api/stream/12` for the
  * file, with `q` (kbps) and `f` (format) when it is converted. `at` is how
  * many seconds in to start, for carrying on a play after a seek or a change
- * of quality; a converted stream starts there, a file is sent whole.
+ * of quality; a converted stream starts there, a file is sent whole. `play`
+ * says which it is: `"on"`, the same play carrying on, always sends `at`
+ * (even from the start, after a seek back to it), so it isn't logged again;
+ * `"new"`, a new play, sends `start` when it starts part way in (from a point
+ * on a row's waveform), so it is logged as the play it is.
  */
-export function webStreamUrl(trackId: number, sent: StreamDecision, at = 0) {
+export function webStreamUrl(trackId: number, sent: StreamDecision, at = 0, play: "new" | "on" = "new") {
   const params = new URLSearchParams();
   if (sent.transcode) {
     params.set("q", String(sent.bitRate));
     params.set("f", sent.format);
   }
-  if (at > 0) params.set("at", String(Math.round(at * 10) / 10));
+  const seconds = String(Math.max(0, Math.round(at * 10) / 10));
+  if (play === "on") params.set("at", seconds);
+  else if (at > 0) params.set("start", seconds);
   const query = params.toString();
   return `/api/stream/${trackId}${query ? `?${query}` : ""}`;
 }
 
 /**
- * Reads `q`, `f` and `at` back out of a stream address. A format in the
- * address means the player decided on a conversion, so it is one. A value
- * that makes no sense is left out.
+ * Reads `q`, `f` and `at` (or `start`) back out of a stream address. A format
+ * in the address means the player decided on a conversion, so it is one. A
+ * value that makes no sense is left out. `carriesOn` is true for `at`: the
+ * same play asked for again, from the start or further in.
  */
-export function parseWebStreamParams(params: URLSearchParams): WebStreamPrefs & { offsetSeconds: number } {
+export function parseWebStreamParams(params: URLSearchParams): WebStreamPrefs & { offsetSeconds: number; carriesOn: boolean } {
   const maxBitRate = Number(params.get("q"));
   const asked = params.get("f");
   const format = asked !== null && isTranscodeFormat(asked) ? asked : undefined;
-  const at = Number(params.get("at"));
+  const at = Number(params.get("at") ?? params.get("start"));
   return {
     maxBitRate: Number.isInteger(maxBitRate) && maxBitRate > 0 ? maxBitRate : null,
     format,
     convert: format !== undefined,
     offsetSeconds: Number.isFinite(at) && at > 0 ? at : 0,
+    // A blank `at` is no number at all, not a zero.
+    carriesOn: (params.get("at") ?? "").trim() !== "" && Number.isFinite(at) && at >= 0,
   };
 }
