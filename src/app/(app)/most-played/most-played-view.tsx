@@ -60,7 +60,9 @@ export function MostPlayedView() {
       ) : tracks.length === 0 ? (
         <Empty>{range === "all" ? "Nothing played yet. This fills in as you listen." : `Nothing played in the last ${labels[range]}.`}</Empty>
       ) : (
-        <TrackTable tracks={tracks} showAlbum showCover from={from} plays={(track) => track.plays} />
+        // Keyed by the order, so rows chosen before the list was asked again are let go of when it moves:
+        // a choice is kept by position and would otherwise land on other tracks.
+        <TrackTable key={tracks.map((track) => track.id).join()} tracks={tracks} showAlbum showCover from={from} plays={(track) => track.plays} />
       )}
     </Page>
   );
