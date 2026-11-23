@@ -19,7 +19,7 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **App passwords.** Subsonic apps never see the account password. Each app gets its own generated password from Account, shown once, revocable on its own, with when and where it was last used.
 - **Logs.** Admin > Activity has three: sign-ins and every change (who, what, from where), every Subsonic and media request, and every play.
 - **Playlist folders.** Playlists sit in a tree. Folders hold folders and playlists; a playlist is always a leaf. Subsonic apps, which have no folders, see a playlist's folders in its name ("Mixes / 2025 / Summer").
-- **Folder playlists.** A rule follows a folder in a library and makes the playlists and folders that match it: a folder that holds folders becomes a folder, a folder that holds tracks becomes a playlist. Or the whole folder can be one playlist. What a rule makes is rebuilt after every scan and is read-only; anyone can make their own copy of a playlist to edit.
+- **Folder playlists.** A rule follows a folder in a library and makes the playlists and folders that match it: a folder that holds folders becomes a folder, a folder that holds tracks becomes a playlist. Or the whole folder can be one playlist. What a rule makes is rebuilt after every scan and is read-only; anyone can make their own copy of a playlist to edit. Rules are set up on each library's page in Admin.
 - **Playlist files.** A `.m3u` or `.m3u8` file inside a followed folder sets that folder's playlist: its tracks and their order. Several files in one folder each become a playlist.
 - **Artists.** A joint credit ("A, B feat. C", "A/B", "A x B") is split into its artists, using a file's own multi-value tags when it has them. "A & B" is split only when one of the two also appears alone, so duos stay whole. Tracks keep showing the full credit. Files with no tags take artist and title from an "Artist - Title" file name.
 - **Tracks.** One table of every track, with search, sorting and filters. Any track or playlist has Get info.
@@ -66,7 +66,7 @@ Sign-in works at the public address (`BETTER_AUTH_URL`) and, with nothing to con
 - Session cookies are marked Secure when a request came over https and not otherwise (`src/app/api/auth/[...all]/route.ts`). A Secure cookie would never be stored by a browser on plain http, and sign-in would silently do nothing.
 - Account shows the server address you are using at that moment, so the address you copy into a music app works from where you are.
 - A reverse proxy should pass on `Host` and `X-Forwarded-Proto`. Caddy and Traefik do. nginx needs `proxy_set_header Host $host;` and `proxy_set_header X-Forwarded-Proto $scheme;`.
-- `bun dev` can be opened from another device on the network: this machine's addresses are allowed automatically (`allowedDevOrigins` in `next.config.ts`).
+- `bun dev` can be opened from another device on the network, or over a VPN: every private address is allowed (`allowedDevOrigins` in `next.config.ts`).
 
 ## Security notes
 

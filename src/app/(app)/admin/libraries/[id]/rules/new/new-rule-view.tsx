@@ -12,21 +12,18 @@ import { PageCrumb } from "~/components/shell/crumb";
 import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
 import { Page } from "~/components/shell/page";
 import { Button } from "~/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
 
 type Mode = RouterOutputs["admin"]["folderRules"]["list"][number]["mode"];
 
-/** Sets up a folder rule: which folder to follow, what to make of it, who sees it, and a preview of the result before saving. */
-export function NewRuleView({ libraryId: startLibrary }: { libraryId: number | null }) {
+/** Sets up a folder rule in one library: which folder to follow, what to make of it, who sees it, and a preview of the result before saving. */
+export function NewRuleView({ libraryId }: { libraryId: number }) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const libraries = useQuery(trpc.admin.libraries.options.queryOptions());
-  const [picked, setPicked] = useState(startLibrary);
-  // With one library there is nothing to choose.
-  const libraryId = picked ?? (libraries.data?.length === 1 ? libraries.data[0]!.id : null);
+  const library = useQuery(trpc.admin.libraries.byId.queryOptions({ id: libraryId }));
+  const back = `/admin/libraries/${libraryId}`;
   const [path, setPath] = useState("");
   const [mode, setMode] = useState<Mode>("tree");
   const [isPublic, setIsPublic] = useState(true);
@@ -36,43 +33,23 @@ export function NewRuleView({ libraryId: startLibrary }: { libraryId: number | n
       onSuccess: async (created) => {
         await Promise.all([queryClient.invalidateQueries(trpc.admin.pathFilter()), queryClient.invalidateQueries(trpc.playlists.pathFilter())]);
         toast("Rule added. Its playlists are ready.");
-        router.push(`/admin/folder-playlists/${created.id}`);
+        router.push(`${back}/rules/${created.id}`);
       },
     }),
   );
 
   return (
     <Page maxWidth="max-w-4xl">
-      <PageCrumb label="Add rule" />
+      <PageCrumb label={library.data ? `${library.data.name}: add folder rule` : "Add folder rule"} />
       <form
         className="flex flex-col gap-6"
         onSubmit={(event) => {
           event.preventDefault();
-          if (libraryId !== null) create.mutate({ libraryId, path, mode, isPublic, parentFolderId });
+          create.mutate({ libraryId, path, mode, isPublic, parentFolderId });
         }}
       >
-        <FormSection title="Folder to follow" description="Pick a library, then the folder inside it." className="grid gap-4">
-          <Field label="Library" htmlFor="rule-library">
-            <Select
-              value={libraryId === null ? "" : String(libraryId)}
-              onValueChange={(value) => {
-                setPicked(Number(value));
-                setPath("");
-              }}
-            >
-              <SelectTrigger id="rule-library" className="w-full">
-                <SelectValue placeholder="Choose a library" />
-              </SelectTrigger>
-              <SelectContent>
-                {libraries.data?.map((library) => (
-                  <SelectItem key={library.id} value={String(library.id)}>
-                    {library.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          {libraryId !== null ? <LibraryFolderPicker libraryId={libraryId} value={path} onChange={setPath} /> : null}
+        <FormSection title="Folder to follow" description={library.data ? `A folder inside ${library.data.name}, or the whole of it.` : undefined} className="grid gap-4">
+          <LibraryFolderPicker libraryId={libraryId} value={path} onChange={setPath} />
         </FormSection>
 
         <FormSection title="What it makes" className="grid gap-4">
@@ -85,22 +62,20 @@ export function NewRuleView({ libraryId: startLibrary }: { libraryId: number | n
           </SettingRow>
         </FormSection>
 
-        {libraryId !== null ? (
-          <FormSection
-            title="Preview"
-            description={<>What this rule would make from what is scanned now. It follows the files from then on, and nobody edits the result by hand. {playlistFileNote[mode]}</>}
-          >
-            <RulePreview libraryId={libraryId} path={path} mode={mode} />
-          </FormSection>
-        ) : null}
+        <FormSection
+          title="Preview"
+          description={<>What this rule would make from what is scanned now. It follows the files from then on, and nobody edits the result by hand. {playlistFileNote[mode]}</>}
+        >
+          <RulePreview libraryId={libraryId} path={path} mode={mode} />
+        </FormSection>
 
         {create.error ? <p className="text-destructive text-sm">{create.error.message}</p> : null}
         <FormActions>
-          <Button type="submit" variant="brand" disabled={libraryId === null || create.isPending}>
+          <Button type="submit" variant="brand" disabled={create.isPending}>
             Add rule
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/admin/folder-playlists">Cancel</Link>
+            <Link href={back}>Cancel</Link>
           </Button>
         </FormActions>
       </form>

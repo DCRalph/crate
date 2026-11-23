@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { FolderPlaylistsView } from "./folder-playlists-view";
-
-export const metadata: Metadata = { title: "Folder playlists" };
-
+/** Folder playlists used to have a page of their own. They are set up on each library's page now. */
 export default function FolderPlaylistsPage() {
-  return <FolderPlaylistsView />;
+  redirect("/admin/libraries");
 }

@@ -18,7 +18,11 @@ import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 import { CardSkeleton } from "~/components/shell/skeletons";
 
-/** One folder rule: what it follows, what it makes, and the result as it stands. Changes rebuild it straight away. */
+/**
+ * One folder rule: what it follows, what it makes, and the result as it
+ * stands. Changes rebuild it straight away. It lives under its library, which
+ * is where removing it leads back to.
+ */
 export function RuleView({ id }: { id: number }) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -34,7 +38,7 @@ export function RuleView({ id }: { id: number }) {
       // Not awaited: the page shows a placeholder from here until it has left (see below).
       onSuccess: () => {
         void refresh();
-        router.push("/admin/folder-playlists");
+        router.push(rule.data ? `/admin/libraries/${rule.data.libraryId}` : "/admin/libraries");
       },
       onError,
     }),
@@ -80,7 +84,7 @@ export function RuleView({ id }: { id: number }) {
 
   return (
     <Page maxWidth="max-w-4xl" className="flex flex-col gap-6">
-      <PageCrumb label={where} />
+      <PageCrumb label={`Folder rule: ${where}`} />
 
       <FormSection
         title="Folder it follows"

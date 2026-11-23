@@ -172,7 +172,7 @@ export function LibraryView({ id }: { id: number }) {
         description="Rules that turn folders in this library into playlists and playlist folders."
         action={
           <Button variant="secondary" size="sm" asChild>
-            <Link href={`/admin/folder-playlists/new?library=${id}`}>
+            <Link href={`/admin/libraries/${id}/rules/new`}>
               <Plus />
               Add rule
             </Link>
@@ -186,7 +186,7 @@ export function LibraryView({ id }: { id: number }) {
                 key={rule.id}
                 icon={<FolderTree />}
                 title={
-                  <Link href={`/admin/folder-playlists/${rule.id}`} className="font-mono text-xs hover:underline">
+                  <Link href={`/admin/libraries/${id}/rules/${rule.id}`} className="font-mono text-xs hover:underline">
                     {rule.path || "/"}
                   </Link>
                 }

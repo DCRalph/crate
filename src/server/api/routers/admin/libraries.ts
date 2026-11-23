@@ -73,6 +73,8 @@ const counts = () => {
       trackCount: sql<number>`coalesce(${tracks.total}, 0)::int`,
       albumCount: sql<number>`coalesce(${albums.total}, 0)::int`,
       userCount: sql<number>`coalesce(${people.total}, 0)::int`,
+      /** Folder rules on this library. */
+      ruleCount: sql<number>`(select count(*) from ${folderRule} where ${folderRule.libraryId} = ${library.id})::int`,
     })
     .from(library)
     .leftJoin(tracks, eq(tracks.libraryId, library.id))
@@ -91,7 +93,7 @@ export const librariesRouter = router({
   byId: adminProcedure.input(z.object({ id })).query(async ({ input }) => {
     const [found] = await counts().where(eq(library.id, input.id));
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
-    const [access, ruleCount] = await Promise.all([
+    const [access] = await Promise.all([
       db
         .select({
           userId: user.id,
@@ -104,9 +106,8 @@ export const librariesRouter = router({
         .from(user)
         .leftJoin(libraryAccess, and(eq(libraryAccess.userId, user.id), eq(libraryAccess.libraryId, input.id)))
         .orderBy(asc(sql`lower(coalesce(${user.username}, ${user.name}))`)),
-      db.$count(folderRule, eq(folderRule.libraryId, input.id)),
     ]);
-    return { ...found, access, ruleCount, scan: scanProgress() };
+    return { ...found, access, scan: scanProgress() };
   }),
 
   /** Folders at a path on the server, for picking a library's folder. Hidden folders are left out. */
