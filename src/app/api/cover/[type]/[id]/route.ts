@@ -22,7 +22,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ type: strin
   if (!target.success) return new Response("Not found.", { status: 404 });
 
   const query = new URL(request.url).searchParams;
-  const size = Number(query.get("size")) || null;
+  // Whole pixels; anything that rounds to nothing means the default.
+  const size = Math.round(Number(query.get("size"))) || null;
   // `seed` asks for one particular generated playlist cover, so choices can be shown before one is picked.
   const seed = query.has("seed") ? Number(query.get("seed")) : undefined;
   const { type, id } = target.data;

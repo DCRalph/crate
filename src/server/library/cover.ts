@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { and, asc, desc, eq, min } from "drizzle-orm";
@@ -108,7 +108,8 @@ const exists = async (file: string) => !!(await stat(file).catch(() => null));
 
 /** Puts a finished cover in the cache. Written beside and renamed, so a concurrent request never reads half a file. */
 async function store(cached: string, image: Buffer) {
-  const partial = `${cached}.${process.pid}.${Date.now()}.tmp`;
+  // Unique per write: two requests for the same new cover can arrive in the same millisecond.
+  const partial = `${cached}.${randomUUID()}.tmp`;
   await writeFile(partial, image);
   await rename(partial, cached);
   return cached;
