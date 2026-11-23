@@ -1,23 +1,22 @@
 import "server-only";
 
-import { auth } from "~/lib/auth";
 import { scopeFor, type Scope } from "~/server/access";
-import { principalOf } from "~/server/auth/session";
+import { callerOf } from "~/server/auth/caller";
 import { findTrackFile } from "~/server/library/queries";
 import { logAccess } from "~/server/logs";
 import { clientIp } from "~/server/request-origin";
 import { fileResponse, transcodeResponse } from "./stream";
 import { decideWebStream, parseWebStreamParams } from "./transcode";
 
-/** The signed-in user's scope for a media request from the website, or null. */
+/** The scope of whoever a media request is from (the website, or a paired device of the native app), or null. */
 export async function webScope(request: Request): Promise<Scope | null> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session ? scopeFor(principalOf(session.user)) : null;
+  const caller = await callerOf(request.headers);
+  return caller ? scopeFor(caller.principal) : null;
 }
 
 /**
- * Streams or downloads a track for the website, with the same access rules
- * and logging as the Subsonic API. A stream takes the player's `q` (kbps), `f`
+ * Streams or downloads a track for the website or the native app, with the
+ * same access rules and logging as the Subsonic API. A stream takes the player's `q` (kbps), `f`
  * (format) and `at` (seconds in) from the address. The player knows what its
  * browser plays, so a conversion it asks for is always made, and a file it
  * asks for as it is goes out that way unless it is over the user's cap, which
@@ -26,8 +25,9 @@ export async function webScope(request: Request): Promise<Scope | null> {
 export async function webTrackResponse(request: Request, idParam: string, mode: "stream" | "download") {
   const startedAt = Date.now();
   const { offsetSeconds, ...prefs } = parseWebStreamParams(new URL(request.url).searchParams);
-  const scope = await webScope(request);
-  if (!scope) return new Response("Sign in first.", { status: 401 });
+  const caller = await callerOf(request.headers);
+  if (!caller) return new Response("Sign in first.", { status: 401 });
+  const scope = await scopeFor(caller.principal);
 
   const id = Number(idParam);
   const file = Number.isInteger(id) ? await findTrackFile(scope, id) : undefined;
@@ -42,11 +42,11 @@ export async function webTrackResponse(request: Request, idParam: string, mode: 
   const carriesOn = !!request.headers.get("range")?.match(/^bytes=[1-9]/) || (mode === "stream" && offsetSeconds > 0);
   if (refused || !carriesOn) {
     logAccess({
-      api: "web",
+      api: caller.viaApp ? "app" : "web",
       endpoint: mode,
       userId: scope.user.id,
       username: scope.user.username,
-      client: "Web",
+      client: caller.client,
       ip: clientIp(request.headers),
       userAgent: request.headers.get("user-agent"),
       ok: !refused,

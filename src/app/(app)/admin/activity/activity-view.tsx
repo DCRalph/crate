@@ -112,6 +112,9 @@ const scanResult = z.object({
   error: z.string().optional(),
 });
 
+/** What made a request, as the Requests log names it. */
+const apiNames = { subsonic: "Subsonic", web: "Web", app: "App" } as const;
+
 /** A detail object as "key value · key value", for the log's Detail column. Scans read as they do on the Libraries page. */
 function describeDetail(action: string, detail: Record<string, unknown> | null) {
   if (!detail) return "";
@@ -194,8 +197,9 @@ const requestColumns: DataTableColumn<RequestRow>[] = [
     options: [
       { label: "Subsonic", value: "subsonic" },
       { label: "Web", value: "web" },
+      { label: "App", value: "app" },
     ],
-    cell: (row) => <span className={muted}>{row.api === "subsonic" ? "Subsonic" : "Web"}</span>,
+    cell: (row) => <span className={muted}>{apiNames[row.api]}</span>,
   },
   {
     id: "endpoint",

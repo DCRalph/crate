@@ -7,6 +7,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // The native app has its own project and checks.
+    "mobile/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
