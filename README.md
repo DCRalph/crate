@@ -66,7 +66,7 @@ Sign-in works at the public address (`BETTER_AUTH_URL`) and, with nothing to con
 - Session cookies are marked Secure when a request came over https and not otherwise (`src/app/api/auth/[...all]/route.ts`). A Secure cookie would never be stored by a browser on plain http, and sign-in would silently do nothing.
 - Account shows the server address you are using at that moment, so the address you copy into a music app works from where you are.
 - A reverse proxy should pass on `Host` and `X-Forwarded-Proto`. Caddy and Traefik do. nginx needs `proxy_set_header Host $host;` and `proxy_set_header X-Forwarded-Proto $scheme;`.
-- `bun dev` can be opened from another device on the network: this machine's addresses are allowed automatically (`allowedDevOrigins` in `next.config.ts`).
+- `bun dev` can be opened from another device on the network, or over a VPN: every private address is allowed (`allowedDevOrigins` in `next.config.ts`).
 
 ## Security notes
 
