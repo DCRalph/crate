@@ -503,19 +503,25 @@ export async function listPlaylists(scope: Scope, where?: SQL, within?: { tx: Re
   });
 }
 
-/** One playlist and its tracks in order, or null when the scope can't see it. */
+/**
+ * One playlist and its tracks in order, or null when the scope can't see it.
+ * Read in one snapshot, so the tracks are the ones of the playlist as it was
+ * when the scope was let see it.
+ */
 export async function getPlaylist(scope: Scope, id: number) {
-  const [row] = await listPlaylists(scope, eq(playlist.id, id));
-  if (!row) return null;
-  const tracks = await db
-    .select({ ...trackColumns, position: playlistTrack.position })
+  return snapshot(async (tx) => {
+    const [row] = await listPlaylists(scope, eq(playlist.id, id), { tx });
+    if (!row) return null;
+    const tracks = await tx
+      .select({ ...trackColumns, position: playlistTrack.position })
     .from(playlistTrack)
     .innerJoin(track, eq(track.id, playlistTrack.trackId))
     .innerJoin(album, eq(album.id, track.albumId))
     .leftJoin(annotation, annotationOf(scope, "track", track.id))
-    .where(and(eq(playlistTrack.playlistId, id), inScope(track.libraryId, scope)))
-    .orderBy(asc(playlistTrack.position));
-  return { ...row, canEdit: canEditPlaylist(scope, row), tracks };
+      .where(and(eq(playlistTrack.playlistId, id), inScope(track.libraryId, scope)))
+      .orderBy(asc(playlistTrack.position));
+    return { ...row, canEdit: canEditPlaylist(scope, row), tracks };
+  });
 }
 
 /** The ids from `trackIds` that exist and are in scope, in the order given. */

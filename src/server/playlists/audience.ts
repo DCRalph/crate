@@ -139,10 +139,10 @@ export async function audienceSettings(scope: Scope, target: AudienceTarget) {
 
 const listenWords = { owner: "only the owner", everyone: "everyone", people: "chosen people" } as const;
 
-/** The accounts among `ids` that exist, in id order, with the name the activity log gives them. */
-const accounts = async (ids: string[]) =>
+/** The accounts among `ids` that exist, in id order, with the name the activity log gives them. `reader` is a transaction to read in, when there is one. */
+const accounts = async (ids: string[], reader: Reader = db) =>
   ids.length
-    ? db
+    ? reader
         .select({ id: user.id, username: nameOf })
         .from(user)
         .where(inArray(user.id, [...new Set(ids)]))
@@ -162,9 +162,9 @@ const listenDetail = (audience: Audience | null, people: { username: string }[])
  * saves the result with its row, so it is never seen without it, then logs
  * it with `logNewAudience`.
  */
-export async function settleAudience(audience: Audience | null, ownerId: string) {
+export async function settleAudience(audience: Audience | null, ownerId: string, reader: Reader = db) {
   if (audience?.kind !== "people") return { audience, detail: listenDetail(audience, []) };
-  const people = await accounts(audience.userIds.filter((id) => id !== ownerId));
+  const people = await accounts(audience.userIds.filter((id) => id !== ownerId), reader);
   const settled: Audience = { kind: "people", userIds: people.map((person) => person.id) };
   return { audience: settled, detail: listenDetail(settled, people) };
 }
@@ -236,7 +236,8 @@ export async function setAudience(scope: Scope, target: AudienceTarget, audience
     const item = await findTarget(scope, target, { tx });
     if (!item.canChange) throw new AudienceError("forbidden");
 
-    const settled = await settleAudience(audience, item.ownerId);
+    // Read in this transaction: it holds the lock, and a second connection could be stuck behind others waiting on it.
+    const settled = await settleAudience(audience, item.ownerId, tx);
     const next = settled.audience;
     if (sameAudience(item.own, next)) return null;
 

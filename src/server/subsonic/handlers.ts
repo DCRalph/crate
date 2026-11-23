@@ -402,8 +402,9 @@ export const handlers: Record<string, Handler> = {
     // With a playlistId this replaces that playlist's songs; otherwise it makes a new one.
     const id = await playlistWrite(async () => {
       const playlistId = existing ? writablePlaylistId(existing) : await createPlaylist(scope, { name: params.required("name"), trackIds });
-      if (existing) await updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds });
+      // Who can listen first, so tracks never land in a playlist about to be made private while it is still shared.
       await applyPublic(ctx, playlistId);
+      if (existing) await updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds });
       return playlistId;
     });
     return playlistPayload(ctx, id);
@@ -414,6 +415,8 @@ export const handlers: Record<string, Handler> = {
     const playlistId = writablePlaylistId(params.required("playlistId"));
     const name = params.get("name");
     await playlistWrite(async () => {
+      // Who can listen first, so tracks never land in a playlist about to be made private while it is still shared.
+      await applyPublic(ctx, playlistId);
       await updatePlaylist(scope, playlistId, {
         // A client that renames usually sends back the name it was given, folders included.
         name: name === undefined ? undefined : await withoutFolderName(playlistId, name),
@@ -421,7 +424,6 @@ export const handlers: Record<string, Handler> = {
         addTrackIds: params.all("songIdToAdd").map((value) => idOf(value, "track")),
         removeIndexes: params.all("songIndexToRemove").map(Number).filter(Number.isInteger),
       });
-      await applyPublic(ctx, playlistId);
     });
     return {};
   },
