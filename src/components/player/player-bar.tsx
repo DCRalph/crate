@@ -142,7 +142,8 @@ function SelectWindow() {
       <span className="t-label text-muted-foreground text-[9px] tracking-[0.14em]">Select</span>
       {typed ? (
         <span key={typed} className="t-num animate-roll text-lamp text-[22px] tracking-[0.06em] [text-shadow:0_0_10px_rgb(255_196_77/0.55)]">
-          {typed.replace(/^([A-Z])/, "$1 ")}
+          {/* A long run of digits shows its end, which is what was typed last. */}
+          {typed.length > 6 ? `…${typed.slice(-5)}` : typed.replace(/^([A-Z])/, "$1 ")}
         </span>
       ) : (
         <span className="t-num text-[22px] tracking-[0.06em] text-[#2b565b]" aria-label="Nothing selected">

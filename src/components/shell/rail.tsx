@@ -171,8 +171,18 @@ function readOpen(): string {
   return openSaved;
 }
 function subscribeOpen(notify: () => void) {
+  // Another tab opening or closing a folder: take its list, so a toggle here doesn't write over it.
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== openKey) return;
+    openSaved = event.newValue ?? "[]";
+    notify();
+  };
   window.addEventListener(openChanged, notify);
-  return () => window.removeEventListener(openChanged, notify);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(openChanged, notify);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 /** The folders open in the rail, and a way to open or close one. */
 function useOpenFolders() {

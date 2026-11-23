@@ -37,9 +37,8 @@ export const useSelection = create<Selection>()((set, get) => ({
   type: (key) => {
     const { typed, lists } = get();
     if (/^[0-9]$/.test(key)) {
-      const letter = /^[A-Z]/.test(typed) ? typed[0]! : "";
-      // Up to five digits, enough for any list. More are ignored rather than wrapping round to another row.
-      if (typed.length - letter.length < 5) set({ typed: typed + key });
+      // Every digit is kept, so a selection never wraps round to another row; one past the end of the list picks nothing.
+      set({ typed: typed + key });
       return true;
     }
     const letter = key.toUpperCase();
