@@ -44,21 +44,31 @@ export function loudnessMeter() {
   };
 }
 
+/** Buckets in a track's small waveform, the one drawn on its row. */
+export const thumbBuckets = 64;
+
+/**
+ * Fits `values` into `buckets`, each the largest value under it; fewer values
+ * than buckets are stretched. Shrinks a track's windows to its waveform, and
+ * its waveform to the small one on its row.
+ */
+export function downsample(values: ArrayLike<number>, buckets: number) {
+  return Array.from({ length: buckets }, (_, bucket) => {
+    const from = Math.floor((bucket * values.length) / buckets);
+    const to = Math.max(from + 1, Math.floor(((bucket + 1) * values.length) / buckets));
+    let largest = 0;
+    for (let i = from; i < to && i < values.length; i++) largest = Math.max(largest, values[i]!);
+    return largest;
+  });
+}
+
 /**
  * Fits a track's windows into `slices` bytes, each the loudest window under
  * it, scaled so the loudest part of the track is 255. A gentle curve lifts
  * the quiet parts, which would otherwise read as nothing at all.
  */
 export function toPeaks(windows: readonly number[], slices = waveformSlices) {
-  const peaks = new Uint8Array(slices);
-  if (!windows.length) return peaks;
-  const loudest = Math.max(...windows, 1);
-  for (let slice = 0; slice < slices; slice++) {
-    const from = Math.floor((slice * windows.length) / slices);
-    const to = Math.max(from + 1, Math.floor(((slice + 1) * windows.length) / slices));
-    let peak = 0;
-    for (let i = from; i < to && i < windows.length; i++) peak = Math.max(peak, windows[i]!);
-    peaks[slice] = Math.round(255 * (peak / loudest) ** 0.7);
-  }
-  return peaks;
+  // Not Math.max(...windows): a long mix has more windows than a call takes arguments.
+  const loudest = windows.reduce((max, window) => Math.max(max, window), 1);
+  return Uint8Array.from(downsample(windows, slices), (peak) => Math.round(255 * (peak / loudest) ** 0.7));
 }

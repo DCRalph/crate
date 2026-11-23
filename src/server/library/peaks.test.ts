@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { loudnessMeter, toPeaks } from "./peaks";
+import { downsample, loudnessMeter, toPeaks } from "./peaks";
 
 /** `seconds` of a square wave at `level`, as 16-bit little-endian mono at 4 kHz. */
 function tone(level: number, seconds: number) {
@@ -36,4 +36,24 @@ test("silence and nothing at all are flat, not an error", () => {
   meter.add(tone(0, 1));
   expect(Math.max(...toPeaks(meter.windows, 8))).toBe(0);
   expect(toPeaks([], 8)).toEqual(new Uint8Array(8));
+});
+
+test("a mix hours long is measured like any other track", () => {
+  // Six hours of 20 ms windows, more than Math.max(...windows) can take.
+  const peaks = toPeaks(new Array<number>(6 * 60 * 60 * 50).fill(500), 8);
+  expect([...peaks]).toEqual(new Array<number>(8).fill(255));
+});
+
+test("a small waveform keeps the loudest slice of each bucket", () => {
+  const peaks = new Uint8Array(1000);
+  peaks[500] = 255;
+  peaks[501] = 40;
+  const thumb = downsample(peaks, 64);
+  expect(thumb).toHaveLength(64);
+  expect(thumb[32]).toBe(255);
+  expect(thumb.filter((value) => value > 0)).toEqual([255]);
+});
+
+test("a waveform shorter than its buckets is stretched across them", () => {
+  expect(downsample([10, 20], 4)).toEqual([10, 10, 20, 20]);
 });

@@ -16,7 +16,7 @@ import {
   tracksWith,
   type TrackRow,
 } from "~/server/library/queries";
-import { waveformOf } from "~/server/library/waveform";
+import { waveformOf, waveformThumbs } from "~/server/library/waveform";
 import { buildListQuery, listResult, type ListColumnMap } from "~/server/list/build-list-query";
 import { createListInputSchema } from "~/server/list/list-input";
 import { recordPlay } from "~/server/logs";
@@ -152,6 +152,14 @@ export const libraryRouter = router({
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Track not found." });
     return waveformOf(found.id);
   }),
+
+  /**
+   * Small waveforms for a page of track rows, in one query: 64 numbers from 0 to 255 a track, or null for one
+   * with none yet (or out of reach). Only what scans stored is read; nothing is decoded on demand.
+   */
+  waveformThumbs: protectedProcedure
+    .input(z.object({ trackIds: z.array(z.number().int()).max(500) }))
+    .query(({ ctx, input }) => waveformThumbs(ctx.scope, input.trackIds)),
 
   /** The user's liked tracks, most recently liked first. */
   liked: protectedProcedure.query(async ({ ctx }) => {

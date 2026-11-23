@@ -93,8 +93,14 @@ export function Scrubber({
   className?: string;
 }) {
   const trpc = useTRPC();
-  // A waveform never changes while its file doesn't, so it is fetched once.
-  const waveform = useQuery(trpc.library.waveform.queryOptions({ trackId: trackId ?? 0 }, { enabled: trackId !== undefined, staleTime: Infinity, retry: false }));
+  // A waveform never changes while its file doesn't, so once drawn it is kept. Until then (a scan hasn't drawn
+  // it, or its file couldn't be read this time) it is asked for again every half minute.
+  const waveform = useQuery(
+    trpc.library.waveform.queryOptions(
+      { trackId: trackId ?? 0 },
+      { enabled: trackId !== undefined, staleTime: Infinity, retry: 2, refetchInterval: (query) => (query.state.data ? false : 30_000) },
+    ),
+  );
   const peaks = trackId === undefined ? null : waveform.data;
 
   /** Where the thumb has been moved to and the track hasn't yet. */

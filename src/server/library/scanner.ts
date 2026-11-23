@@ -110,18 +110,21 @@ async function splitJointArtists() {
   }
 }
 
+/** What a scan did, and whether it reached the library. One that didn't changed nothing. */
+type Scanned = { result: ScanResult; reached: boolean };
+
 /**
  * Brings one library's rows in line with its folder: new and changed files are
  * read, files that are gone are removed. Unchanged files (same size and
  * modified time) are not opened, so a rescan of a settled library is quick.
  * `full` reads every file again, for when tags were read differently before.
  */
-async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
+async function scanLibrary(lib: Library, full: boolean): Promise<Scanned> {
   const startedAt = Date.now();
   const progress: ScanProgress = { libraryId: lib.id, libraryName: lib.name, phase: "listing", done: 0, total: 0, startedAt };
   state.crateScan = progress;
   const result = { added: 0, updated: 0, removed: 0, failed: 0 };
-  const finish = (error?: string): ScanResult => ({ ...result, durationMs: Date.now() - startedAt, error });
+  const finish = (error?: string, reached = true): Scanned => ({ result: { ...result, durationMs: Date.now() - startedAt, error }, reached });
 
   let source: LibrarySource;
   try {
@@ -135,7 +138,7 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
       path: lib.path,
       error: reason,
     });
-    return finish(`${reason} Nothing was changed.`);
+    return finish(`${reason} Nothing was changed.`, false);
   }
 
   const files = await source.listAudioFiles(() => progress.total++);
@@ -150,7 +153,7 @@ async function scanLibrary(lib: Library, full: boolean): Promise<ScanResult> {
   // An empty source where there used to be music is almost always an unmounted
   // drive, disconnected share, or wrong bucket prefix. Removing every track
   // would also empty playlists, so stop instead.
-  if (files.length === 0 && existing.size > 0) return finish("No audio files were found, so nothing was removed. Is the source reachable?");
+  if (files.length === 0 && existing.size > 0) return finish("No audio files were found, so nothing was removed. Is the source reachable?", false);
 
   progress.phase = "reading";
   const artistIds = new Map<string, Promise<number>>();
@@ -357,23 +360,25 @@ export function startScan(
         .where(options.libraryIds ? inArray(library.id, options.libraryIds) : undefined)
         .orderBy(library.name);
       for (const lib of libraries) {
-        const result = await scanLibrary(lib, options.full ?? false).catch(
-          (error: unknown): ScanResult => ({
-            added: 0,
-            updated: 0,
-            removed: 0,
-            failed: 0,
-            durationMs: 0,
-            error: error instanceof Error ? error.message : "The scan failed.",
+        const { result, reached } = await scanLibrary(lib, options.full ?? false).catch(
+          (error: unknown): Scanned => ({
+            result: { added: 0, updated: 0, removed: 0, failed: 0, durationMs: 0, error: error instanceof Error ? error.message : "The scan failed." },
+            // It got past checking the source, so the library was there.
+            reached: true,
           }),
         );
         await db.update(library).set({ lastScanAt: new Date(), lastScan: result }).where(eq(library.id, lib.id));
-        if (!result.error) await syncFolderRules(lib.id);
+        // Neither step stops the scans of the libraries after this one.
+        if (!result.error) await syncFolderRules(lib.id).catch((error: unknown) => console.error(`[scan] folder rules failed for "${lib.name}":`, error));
         // Last, and after the scan's result is saved: the tracks are all usable already, this only draws them.
-        if (!result.error) {
-          await drawWaveforms(lib.id, (done, total) => {
-            state.crateScan = { libraryId: lib.id, libraryName: lib.name, phase: "waveforms", done, total, startedAt: state.crateScan?.startedAt ?? Date.now() };
-          });
+        // A scan that stopped on an error still got as far as the library, so only one that couldn't reach it is skipped.
+        if (reached) {
+          await drawWaveforms(lib.id, {
+            full: options.full ?? false,
+            onProgress: (done, total) => {
+              state.crateScan = { libraryId: lib.id, libraryName: lib.name, phase: "waveforms", done, total, startedAt: state.crateScan?.startedAt ?? Date.now() };
+            },
+          }).catch((error: unknown) => console.error(`[waveform] drawing failed for "${lib.name}":`, error));
         }
         await recordActivity({
           action: "library.scanned",

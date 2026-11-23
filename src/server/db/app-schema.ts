@@ -188,6 +188,10 @@ export const trackWaveform = pgTable("track_waveform", {
   peaks: text("peaks").notNull(),
   size: bigint("size", { mode: "number" }).notNull(),
   mtimeMs: bigint("mtime_ms", { mode: "number" }).notNull(),
+  /** Tries in a row that failed on this version of the file. Scans try again until a few have. */
+  failures: integer("failures").default(0).notNull(),
+  /** When the last of them failed. Null once drawn. */
+  failedAt: timestamp("failed_at"),
 });
 
 export const annotationTypes = ["track", "album", "artist"] as const;
