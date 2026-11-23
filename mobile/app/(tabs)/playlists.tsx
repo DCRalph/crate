@@ -38,7 +38,7 @@ export default function Playlists() {
   const playlists = [...(tree.data?.playlists ?? [])].sort((a, b) => Number(!!b.pinnedAt) - Number(!!a.pinnedAt));
 
   return (
-    <Screen scrollY={scrollY} title="Playlists" settings action={<GlassButton label="New playlist" icon={Plus} onPress={() => router.push("/playlist/new")} />}>
+    <Screen scrollY={scrollY} title="Playlists" search settings action={<GlassButton label="New playlist" icon={Plus} onPress={() => router.push("/playlist/new")} />}>
       <Animated.FlatList
         {...scrollProps}
         data={playlists}

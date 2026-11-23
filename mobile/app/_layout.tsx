@@ -3,7 +3,7 @@ import { Appearance, AppState } from "react-native";
 import { BigShouldersDisplay_700Bold, BigShouldersDisplay_800ExtraBold } from "@expo-google-fonts/big-shoulders-display";
 import { Jost_400Regular, Jost_500Medium, Jost_600SemiBold } from "@expo-google-fonts/jost";
 import { useFonts } from "expo-font";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -17,7 +17,7 @@ import { watchNetwork } from "@/lib/network";
 import { usePlayer } from "@/lib/player";
 import { useActiveServer, useServers } from "@/lib/servers";
 import { useSettings } from "@/lib/settings";
-import { usePalette } from "@/lib/theme";
+import { glass, usePalette } from "@/lib/theme";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -25,7 +25,9 @@ void SplashScreen.preventAutoHideAsync();
  * The app's frame. It waits for the fonts and for the saved servers and
  * downloads, then shows the pages: a native stack, with the tabs at its foot
  * and an album, a playlist or the settings pushed over them, so going back is
- * the system's own swipe. The deck floats over all of it. Everything inside
+ * the system's own swipe. The library is behind glass, which is dark at any
+ * hour; the settings and servers are on the cabinet, which follows day and
+ * night. The deck floats over all of it. Everything inside
  * talks to the server in use; with none paired yet, the tabs send the person
  * to add one.
  */
@@ -34,6 +36,8 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Jost_400Regular, Jost_500Medium, Jost_600SemiBold, BigShouldersDisplay_700Bold, BigShouldersDisplay_800ExtraBold });
   const ready = useServers((state) => state.ready);
   const server = useActiveServer();
+  const [section] = useSegments();
+  const onCabinet = section === "settings" || section === "servers";
 
   useEffect(() => {
     // Settings first: they say which connections downloads may use.
@@ -75,12 +79,11 @@ export default function RootLayout() {
   }, [fontsLoaded, ready]);
   if (!fontsLoaded || !ready) return null;
 
-  // The navigator paints its own background, which shows at the corners of a page being swiped away.
-  const base = palette.isNight ? DarkTheme : DefaultTheme;
-  const theme = { ...base, colors: { ...base.colors, background: palette.cab, card: palette.cab, text: palette.chrome, border: palette.line, primary: palette.chrome } };
+  // The navigator paints its own background, which shows at the corners of a page being swiped away: glass, as most pages are.
+  const theme = { ...DarkTheme, colors: { ...DarkTheme.colors, background: glass, card: glass, text: palette.chrome, border: palette.line, primary: palette.chrome } };
   const pages = (
     <>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.cab } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: glass } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="album/[id]" />
         <Stack.Screen name="playlist/[id]" />
@@ -88,6 +91,8 @@ export default function RootLayout() {
         <Stack.Screen name="playlist/new" options={{ presentation: "modal" }} />
         <Stack.Screen name="playlist/add" options={{ presentation: "modal" }} />
         <Stack.Screen name="now-playing" options={{ presentation: "modal" }} />
+        <Stack.Screen name="search" />
+        <Stack.Screen name="most-played" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="car" />
         <Stack.Screen name="servers/index" />
@@ -98,10 +103,11 @@ export default function RootLayout() {
   );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: palette.cab }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: glass }}>
       <SafeAreaProvider>
         <ThemeProvider value={theme}>
-          <StatusBar style={palette.isNight ? "light" : "dark"} />
+          {/* Light on glass; on the cabinet, whatever reads on it. */}
+          <StatusBar style={onCabinet && !palette.isNight ? "dark" : "light"} />
           {/* Keyed by server, so changing server starts with nothing remembered from the last one. */}
           {server ? (
             <ServerProvider key={server.id} server={server}>

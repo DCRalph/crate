@@ -81,7 +81,7 @@ export default function Settings() {
   const track = { true: palette.band, false: palette.stripLine };
 
   return (
-    <Screen scrollY={scrollY} title="Settings" left="back">
+    <Screen scrollY={scrollY} title="Settings" back ground="cabinet">
       <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.xl }}>
         {server ? (
           <View>

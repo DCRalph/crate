@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ink, label, space, usePalette } from "@/lib/theme";
+import { deck, ink, label, space, usePalette } from "@/lib/theme";
 import { floatOffset, floatSpring, tabBarHeight, useBottomSpace } from "./bottom";
 import { Glass } from "./glass";
 import { BottomFade } from "./screen-header";
@@ -23,11 +23,12 @@ const stretch = 16;
 const icons: Record<string, LucideIcon> = { index: House, albums: Disc3, playlists: ListMusic, downloads: ArrowDownToLine };
 
 /**
- * The tabs: a small glass capsule floating at the foot of the page. A tab is
+ * The tabs: a small capsule of night glass floating at the foot of the page,
+ * over the glass window the library is behind. A tab is
  * its sign alone until it is the page you are on, when it sits in an ivory
  * pill that names it, as the website's current tab is the ivory one. A change
  * slides the one pill across, stretching a little in flight, while the tabs it
- * leaves and reaches trade width under it. The page dissolves into the cabinet
+ * leaves and reaches trade width under it. The page dissolves into the glass
  * before it reaches the capsule, so the signs stay readable.
  *
  * Everything follows `position`, the tab in use as a spring: a whole number at
@@ -56,7 +57,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     <>
       <BottomFade height={fade} />
       <View pointerEvents="box-none" style={[styles.wrap, { bottom }]}>
-        <Glass interactive style={[styles.bar, { width: pillWidth + (iconWidth + gap) * (count - 1) + pad * 2 }]}>
+        <Glass night interactive style={[styles.bar, { width: pillWidth + (iconWidth + gap) * (count - 1) + pad * 2 }]}>
           <Animated.View pointerEvents="none" style={[styles.pill, { backgroundColor: palette.strip }, indicator]} />
           {state.routes.map((route, index) => {
             const focused = state.index === index;
@@ -91,7 +92,6 @@ function shareOf(position: number, index: number) {
 }
 
 function Tab({ index, position, label: text, Icon, focused, onPress }: { index: number; position: SharedValue<number>; label: string; Icon: LucideIcon; focused: boolean; onPress: () => void }) {
-  const palette = usePalette();
   // Only the tab arrived at names itself: on a jump across several, the ones the pill passes over stay signs.
   const named = useSharedValue(focused ? 1 : 0);
   useEffect(() => {
@@ -117,7 +117,7 @@ function Tab({ index, position, label: text, Icon, focused, onPress }: { index: 
       <Animated.View style={[styles.tab, tab]}>
         <View style={styles.icon}>
           <Animated.View style={[StyleSheet.absoluteFill, onGlass]}>
-            <Icon color={palette.chrome} size={iconSize} strokeWidth={1.75} />
+            <Icon color={deck.chrome} size={iconSize} strokeWidth={1.75} />
           </Animated.View>
           <Animated.View style={[StyleSheet.absoluteFill, onPill]}>
             <Icon color={ink} size={iconSize} strokeWidth={2.25} />

@@ -1,28 +1,30 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { Animated, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
-import { AlbumTile, PlaylistTile } from "@/components/tile";
+import { AlbumTile, PlaylistTile, rowLetters } from "@/components/tile";
 import { Card, Key, Note, SectionHeading } from "@/components/ui";
 import { useTRPC, type Album } from "@/lib/api";
 import { formatDuration } from "@/lib/format";
 import { usePlayer } from "@/lib/player";
 import { useActiveServer } from "@/lib/servers";
-import { font, ink, ink2, label, space, usePalette } from "@/lib/theme";
+import { deck, font, ink, ink2, label, space } from "@/lib/theme";
 
-const tileWidth = 148;
+const tileWidth = 140;
 
-/** One row of tiles that scrolls sideways. */
-function Row({ title, children }: { title: string; children: React.ReactNode }) {
+/** One lettered row of tiles that scrolls sideways. Room is left round it for the light the tiles throw, which the row would otherwise cut off. */
+function Row({ title, letter, onMore, children }: { title: string; letter: string; onMore?: () => void; children: React.ReactNode }) {
   return (
     <View>
-      <View style={{ paddingHorizontal: space.lg }}>
-        <SectionHeading title={title} />
+      {/* Over the row, which reaches up behind it, so See all still takes a touch. */}
+      <View style={{ paddingHorizontal: space.lg, zIndex: 1 }}>
+        <SectionHeading title={title} letter={letter} onMore={onMore} />
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.md }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: -24 }} contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: 24, paddingBottom: 30, gap: space.md }}>
         {children}
       </ScrollView>
     </View>
@@ -57,16 +59,27 @@ function CarryOn() {
   );
 }
 
-const albums = (list: Album[]) => list.map((album) => <AlbumTile key={album.id} album={album} style={{ width: tileWidth }} />);
+const albums = (list: Album[], letter: string) => list.map((album, index) => <AlbumTile key={album.id} album={album} code={`${letter}${index + 1}`} style={{ width: tileWidth }} />);
 
-/** Where the app opens, under the wordmark: the playlists this person pinned, the albums they last played, what is newest, and what they play most. */
+/**
+ * Where the app opens: the playlists this person pinned, the albums they last
+ * played, what is newest, and what they play most, each a row lettered in
+ * turn (A, B, C) with its tiles coded "B3", as on the website.
+ */
 export default function Home() {
   const trpc = useTRPC();
-  const palette = usePalette();
+  const router = useRouter();
   const server = useActiveServer();
   const home = useQuery(trpc.library.home.queryOptions());
   const playlists = useQuery(trpc.playlists.tree.queryOptions());
   const pinned = (playlists.data?.playlists ?? []).filter((playlist) => playlist.pinnedAt);
+  const data = home.data;
+  const rows = [
+    pinned.length ? { key: "pinned", title: "Pinned", tiles: (letter: string) => pinned.map((playlist, index) => <PlaylistTile key={playlist.id} playlist={playlist} code={`${letter}${index + 1}`} style={{ width: tileWidth }} />) } : null,
+    data?.recent.length ? { key: "recent", title: "Jump back in", tiles: (letter: string) => albums(data.recent, letter) } : null,
+    data?.added.length ? { key: "added", title: "Recently added", onMore: () => router.navigate("/albums"), tiles: (letter: string) => albums(data.added, letter) } : null,
+    data?.frequent.length ? { key: "frequent", title: "Most played", onMore: () => router.push("/most-played"), tiles: (letter: string) => albums(data.frequent, letter) } : null,
+  ].filter((row) => row !== null);
   const { scrollY, scrollProps } = useScrollHeader();
   const top = useHeaderSpace();
   const bottom = useBottomSpace(true);
@@ -79,11 +92,11 @@ export default function Home() {
   };
 
   return (
-    <Screen scrollY={scrollY} left="mark" settings>
+    <Screen scrollY={scrollY} title="Home" search settings>
       <Animated.ScrollView
         {...scrollProps}
-        contentContainerStyle={{ paddingTop: top, paddingBottom: bottom, gap: space.xl }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={palette.chrome2} progressViewOffset={top} />}
+        contentContainerStyle={{ paddingTop: top, paddingBottom: bottom, gap: space.md }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={deck.chrome2} progressViewOffset={top} />}
       >
         <CarryOn />
         {home.isError ? (
@@ -91,16 +104,14 @@ export default function Home() {
             <Note>Couldn&apos;t reach the server. What you have downloaded is under Downloads.</Note>
           </View>
         ) : null}
-        {pinned.length ? (
-          <Row title="Pinned">
-            {pinned.map((playlist) => (
-              <PlaylistTile key={playlist.id} playlist={playlist} style={{ width: tileWidth }} />
-            ))}
-          </Row>
-        ) : null}
-        {home.data?.recent.length ? <Row title="Jump back in">{albums(home.data.recent)}</Row> : null}
-        {home.data?.added.length ? <Row title="Recently added">{albums(home.data.added)}</Row> : null}
-        {home.data?.frequent.length ? <Row title="Most played">{albums(home.data.frequent)}</Row> : null}
+        {rows.map((row, index) => {
+          const letter = rowLetters[index] ?? "";
+          return (
+            <Row key={row.key} title={row.title} letter={letter} onMore={row.onMore}>
+              {row.tiles(letter)}
+            </Row>
+          );
+        })}
         {home.data && !home.data.added.length ? (
           <View style={{ paddingHorizontal: space.lg }}>
             <Note>{server?.user.isAdmin ? "The crate is empty. Add a library on the server and it fills itself." : "The crate is empty. Ask whoever runs this server for a library."}</Note>

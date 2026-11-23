@@ -7,7 +7,7 @@ import { Backdrop, Hero } from "@/components/hero";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { TrackList } from "@/components/track-list";
-import { Cover, Note } from "@/components/ui";
+import { Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
 import { count, formatLength } from "@/lib/format";
 import { space } from "@/lib/theme";
@@ -24,15 +24,17 @@ export default function AlbumPage() {
   const bottom = useBottomSpace();
 
   return (
-    <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back">
+    <Screen scrollY={scrollY} title={data?.name} titleAt={130} back>
       <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
         <Backdrop type="album" id={id} />
         {data ? (
           <>
             <Hero
-              cover={<Cover type="album" id={id} size={400} style={{ borderRadius: 3 }} />}
+              cover={{ type: "album", id }}
+              kind={data.year ? `Album · ${data.year}` : "Album"}
               title={data.name}
-              facts={[data.artistName, data.year ? String(data.year) : "", count(data.tracks.length, "track"), formatLength(data.duration)].filter(Boolean)}
+              by={data.artistName}
+              facts={[count(data.tracks.length, "track"), formatLength(data.duration)]}
               from={from}
               tracks={data.tracks}
             />
