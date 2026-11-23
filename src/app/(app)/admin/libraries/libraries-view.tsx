@@ -34,10 +34,11 @@ const columns: DataTableColumn<Row>[] = [
   { id: "albumCount", header: "Albums", type: "number", align: "right", showFrom: 620 },
   { id: "trackCount", header: "Tracks", type: "number", align: "right" },
   { id: "userCount", header: "Users", type: "number", align: "right", showFrom: 700 },
+  { id: "ruleCount", header: "Folder rules", type: "number", align: "right", showFrom: 960 },
   { id: "scan", header: "Last scan", hideable: false, cell: (row) => <ScanStatus library={row} running={row.running} /> },
 ];
 
-/** The folders of media on the server. A row opens the library's own page; a scan's progress shows in its row. */
+/** The folders of media on the server. A row opens the library's own page, where its folder playlists are set up too; a scan's progress shows in its row. */
 export function LibrariesView() {
   const trpc = useTRPC();
   const router = useRouter();

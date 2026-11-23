@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Disc3, FolderTree, Heart, History, House, Library, ListMusic, ListTree, MicVocal, Music, SlidersHorizontal, Smartphone, UserRound, Users } from "lucide-react";
+import { Disc3, Heart, History, House, Library, ListMusic, ListTree, MicVocal, Music, SlidersHorizontal, Smartphone, UserRound, Users } from "lucide-react";
 
 export type NavItem = { title: string; url: string; icon: LucideIcon };
 export type NavGroup = { title: string; items: NavItem[] };
@@ -24,13 +24,12 @@ export const youNav: NavGroup = {
   ],
 };
 
-/** Admin is one tab, for admins only, that opens these as a second row. */
+/** Admin is one tab, for admins only, that opens these as a second row. Folder playlists are set up on each library's page. */
 export const adminNav: NavGroup = {
   title: "Admin",
   items: [
     { title: "Users", url: "/admin/users", icon: Users },
     { title: "Libraries", url: "/admin/libraries", icon: Library },
-    { title: "Folder playlists", url: "/admin/folder-playlists", icon: FolderTree },
     { title: "All playlists", url: "/admin/playlists", icon: ListTree },
     { title: "Activity", url: "/admin/activity", icon: History },
   ],
