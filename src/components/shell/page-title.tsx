@@ -24,7 +24,7 @@ export function PageTitle({ variant, detail, actions }: { variant: "heading" | "
 
   if (variant === "trail") {
     return (
-      <p className="t-label text-muted-foreground mb-4 flex items-center gap-1 text-[11.5px]">
+      <p className="t-label text-muted-foreground mb-2.5 flex items-center gap-1 text-[11.5px] sm:mb-4">
         <Link href={section.href} className="hover:text-foreground outline-none focus-visible:underline">
           {section.label}
         </Link>
@@ -33,8 +33,8 @@ export function PageTitle({ variant, detail, actions }: { variant: "heading" | "
     );
   }
   return (
-    <div className="mb-4 flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
-      <h1 className="font-title flex min-w-0 flex-wrap items-baseline gap-x-2 text-[30px]">
+    <div className="mb-3 flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 sm:mb-4 sm:min-h-9">
+      <h1 className="font-title flex min-w-0 flex-wrap items-baseline gap-x-2 text-[24px] sm:text-[30px]">
         {onRecord ? (
           <>
             <Link href={section.href} className="text-muted-foreground hover:text-foreground outline-none focus-visible:underline">

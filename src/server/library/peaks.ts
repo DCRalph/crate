@@ -1,5 +1,9 @@
-/** Slices a waveform is stored in. The deck draws fewer bars than this, each as loud as the loudest slice under it. */
-export const waveformSlices = 400;
+/**
+ * Slices a waveform is stored in. The deck draws a bar every pixel and a
+ * half, so this is enough for one about 1,500 pixels wide; a narrower one
+ * makes each bar as loud as the loudest slice under it.
+ */
+export const waveformSlices = 1000;
 
 /** The sample rate the audio is read at. Loudness doesn't need more, and less to decode is quicker. */
 export const waveformSampleRate = 4000;

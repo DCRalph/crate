@@ -11,13 +11,21 @@ import type { WebTrack } from "~/server/api/routers/library";
  * The Play key for a whole list: an album, a playlist, an artist, Liked.
  * `from` names the list ("album:12"). While that is what the queue was played
  * from, the key pauses and resumes it, and reads Pause while it sounds.
+ * `compact` is the key with its sign alone, for sitting on a cover.
  */
-export function PlayKey({ from, tracks, size }: { from: string; tracks: WebTrack[]; size?: "sm" }) {
+export function PlayKey({ from, tracks, size, compact = false, className }: { from: string; tracks: WebTrack[]; size?: "sm"; compact?: boolean; className?: string }) {
   const { mine, sounding, toggle } = usePlayingFrom(from);
   return (
-    <Button variant="brand" size={size} disabled={!tracks.length} onClick={() => (mine ? toggle() : usePlayer.getState().play(tracks, undefined, from))}>
+    <Button
+      variant="brand"
+      size={size}
+      aria-label={compact ? (sounding ? "Pause" : "Play") : undefined}
+      disabled={!tracks.length}
+      onClick={() => (mine ? toggle() : usePlayer.getState().play(tracks, undefined, from))}
+      className={cn(compact && "h-10 w-12 shadow-[0_2px_6px_rgb(0_0_0/0.35)] disabled:opacity-100", className)}
+    >
       {sounding ? <Pause className="fill-current" /> : <Play className="fill-current" />}
-      {sounding ? "Pause" : "Play"}
+      {compact ? null : sounding ? "Pause" : "Play"}
     </Button>
   );
 }

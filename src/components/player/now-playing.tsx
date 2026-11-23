@@ -16,23 +16,27 @@ import { usePlayer } from "./store";
 /**
  * The sheet behind the queue button: the track that is playing, large, with
  * its cover, and the queue under it. On a desktop it sits above the deck and
- * leaves it usable. On a phone it fills the screen and also holds the
- * scrubber, transport and playback settings (passed as children) that the
- * slim bar leaves out.
+ * leaves it usable. On a phone it fills the screen and also holds what the
+ * slim bar leaves out: the scrubber and transport (`controls`) and the
+ * playback settings (`settings`). There the name and artist are printed
+ * across the foot of the cover, like a tile's strip, and the settings sit on
+ * its corner, which leaves the rest of the screen to the queue.
  */
 export function NowPlaying({
   open,
   onOpenChange,
   track,
   returnFocusTo,
-  children,
+  controls,
+  settings,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   track: WebTrack | undefined;
   /** Where the keyboard goes back to when the sheet closes. */
   returnFocusTo: React.RefObject<HTMLElement | null>;
-  children: React.ReactNode;
+  controls: React.ReactNode;
+  settings: React.ReactNode;
 }) {
   const length = usePlayer((state) => state.queue.length);
   /** Whether the sheet is closing because something on the page was clicked, which then keeps the focus. */
@@ -62,15 +66,29 @@ export function NowPlaying({
           clickedAway.current = false;
         }}
       >
-        <SheetHeader className="border-b">
+        <SheetHeader className="border-b max-md:py-2.5">
           <SheetTitle>Now playing</SheetTitle>
           <SheetDescription className="sr-only">The track that is playing, and what is queued after it.</SheetDescription>
         </SheetHeader>
 
         {track ? (
-          <div className="flex flex-col gap-4 border-b p-5">
-            <Cover key={track.albumId} type="album" id={track.albumId} size={640} className="animate-rise mx-auto w-full max-w-64 md:max-w-56" />
-            <div key={track.id} className="animate-arrive flex items-center gap-2">
+          <div className="flex flex-col gap-3 border-b p-4 md:gap-4 md:p-5">
+            <div className="relative mx-auto w-full max-w-60 md:max-w-56">
+              <Cover key={track.albumId} type="album" id={track.albumId} size={640} className="animate-rise w-full" />
+              <div className="print absolute top-1.5 right-1.5 rounded-md shadow-[0_1px_3px_rgb(0_0_0/0.3)] md:hidden">{settings}</div>
+              <div key={track.id} className="print animate-arrive absolute inset-x-0 bottom-0 overflow-hidden rounded-b-[3px] md:hidden">
+                <div className="flex items-center">
+                  <Link href={`/albums/${track.albumId}`} onClick={() => onOpenChange(false)} className="t-label min-w-0 flex-1 truncate px-2.5 text-[13px] leading-8">
+                    {track.title}
+                  </Link>
+                  <LikeButton key={track.id} track={track} />
+                </div>
+                <Link href={`/artists/${track.artistId}`} onClick={() => onOpenChange(false)} className="bg-brand block truncate px-2.5 text-xs leading-6 font-medium">
+                  {track.artistName}
+                </Link>
+              </div>
+            </div>
+            <div key={track.id} className="animate-arrive flex items-center gap-2 max-md:hidden">
               <div className="min-w-0 flex-1">
                 <Link href={`/albums/${track.albumId}`} className="block truncate font-medium hover:underline">
                   {track.title}
@@ -81,7 +99,7 @@ export function NowPlaying({
               </div>
               <LikeButton key={track.id} track={track} />
             </div>
-            <div className="flex flex-col gap-4 md:hidden">{children}</div>
+            <div className="flex flex-col gap-3 md:hidden">{controls}</div>
           </div>
         ) : null}
 

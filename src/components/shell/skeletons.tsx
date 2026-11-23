@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { heroCard, heroCover } from "~/components/library/hero";
 import { Skeleton } from "~/components/ui/skeleton";
 import { cn } from "~/lib/utils";
 
@@ -27,15 +28,15 @@ export function CardSkeleton({ lines = 4, sections = 1, className }: { lines?: n
 /** The top of an album or playlist page while it loads: the cover, the name, the band, the keys. `cover` is the real one, when the page can already show it. */
 export function HeroSkeleton({ cover }: { cover?: ReactNode }) {
   return (
-    <div className={cn(card, "mb-4 flex flex-col gap-5 p-5 sm:flex-row sm:items-end")} aria-hidden>
-      {cover ?? <Skeleton className="aspect-square w-40 rounded-[3px] sm:w-48" />}
-      <div className="flex-1">
-        <Skeleton className="h-9 w-2/3 max-w-80" />
-        <Skeleton className="mt-3 h-7 w-full" />
-        <div className="mt-4 flex gap-2">
-          <Skeleton className="h-[34px] w-24" />
-          <Skeleton className="h-[34px] w-36" />
-        </div>
+    <div className={heroCard} aria-hidden>
+      <div className={heroCover}>{cover ?? <Skeleton className="aspect-square rounded-[3px]" />}</div>
+      <div className="sm:self-end">
+        <Skeleton className="h-7 w-2/3 max-w-80 sm:h-9" />
+        <Skeleton className="mt-2 h-6 w-full sm:mt-3 sm:h-7" />
+      </div>
+      <div className="flex gap-2 self-end sm:col-start-2">
+        <Skeleton className="h-[34px] w-11 sm:w-24" />
+        <Skeleton className="h-[34px] w-11 sm:w-36" />
       </div>
     </div>
   );

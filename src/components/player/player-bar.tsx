@@ -106,12 +106,20 @@ export function PlayerBar() {
         {track ? `${track.title}, ${track.artistName}` : ""}
       </p>
 
-      <NowPlaying open={sheetOpen} onOpenChange={setSheetOpen} track={track} returnFocusTo={queueButton}>
-        <Scrubber trackId={track?.id} time={time} duration={duration} onSeek={seek} />
-        <Transport {...transport} large />
-        {/* The settings page would open behind the sheet, so following the link to it closes the sheet. */}
-        <StreamControl className="self-center" onNavigate={() => setSheetOpen(false)} />
-      </NowPlaying>
+      <NowPlaying
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        track={track}
+        returnFocusTo={queueButton}
+        controls={
+          <>
+            <Scrubber trackId={track?.id} time={time} duration={duration} onSeek={seek} />
+            <Transport {...transport} large />
+          </>
+        }
+        // The settings page would open behind the sheet, so following the link to it closes the sheet.
+        settings={<StreamControl onNavigate={() => setSheetOpen(false)} />}
+      />
       <ShortcutsDialog />
     </footer>
   );

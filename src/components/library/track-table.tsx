@@ -113,12 +113,12 @@ export function TrackTable({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[4.5rem] pl-4">No.</TableHead>
+                  <TableHead className="w-14 pl-3 sm:w-[4.5rem] sm:pl-4">No.</TableHead>
                   <TableHead>Title</TableHead>
                   <TableHead className="max-md:hidden">Artist</TableHead>
                   {showAlbum ? <TableHead className="max-lg:hidden">Album</TableHead> : null}
                   <TableHead className="w-10" />
-                  <TableHead className="w-16 text-right">Time</TableHead>
+                  <TableHead className="w-12 text-right sm:w-16">Time</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -145,7 +145,7 @@ export function TrackTable({
                       onClick={(event) => onRow(event) && choose(index, event)}
                       onDoubleClick={(event) => onRow(event) && playFrom(index)}
                     >
-                      <TableCell className="pl-4">
+                      <TableCell className="pl-3 sm:pl-4">
                         <button
                           type="button"
                           aria-label={isCurrent && playing ? `Pause ${track.title}` : `Play ${track.title}`}

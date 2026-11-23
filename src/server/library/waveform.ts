@@ -1,12 +1,15 @@
 import "server-only";
 import { spawn } from "node:child_process";
-import { and, eq, isNull, ne, or } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import { track, trackWaveform } from "~/server/db/app-schema";
-import { loudnessMeter, toPeaks, waveformSampleRate } from "./peaks";
+import { loudnessMeter, toPeaks, waveformSampleRate, waveformSlices } from "./peaks";
 
 type FileRow = { id: number; path: string; size: number; mtimeMs: number };
+
+/** How long a stored waveform is: base64 of one byte a slice. One of another length was drawn at a different detail. */
+const storedLength = 4 * Math.ceil(waveformSlices / 3);
 
 /** Files read at once. Each is an ffmpeg decoding as fast as it can. */
 const readers = 4;
@@ -38,9 +41,10 @@ async function draw(file: FileRow) {
 }
 
 /**
- * Draws the waveform of every track in a library that doesn't have one, or
- * whose file has changed since it was drawn. Run at the end of a scan, so a
- * track has its waveform from the moment it is imported.
+ * Draws the waveform of every track in a library that doesn't have one,
+ * whose file has changed since it was drawn, or whose waveform was drawn at
+ * another level of detail. Run at the end of a scan, so a track has its
+ * waveform from the moment it is imported.
  */
 export async function drawWaveforms(libraryId: number, onProgress: (done: number, total: number) => void) {
   const missing = await db
@@ -50,7 +54,13 @@ export async function drawWaveforms(libraryId: number, onProgress: (done: number
     .where(
       and(
         eq(track.libraryId, libraryId),
-        or(isNull(trackWaveform.trackId), ne(trackWaveform.size, track.size), ne(trackWaveform.mtimeMs, track.mtimeMs)),
+        or(
+          isNull(trackWaveform.trackId),
+          ne(trackWaveform.size, track.size),
+          ne(trackWaveform.mtimeMs, track.mtimeMs),
+          // Empty is a file that couldn't be read, which is left alone.
+          sql`length(${trackWaveform.peaks}) not in (0, ${storedLength})`,
+        ),
       ),
     );
   let next = 0;

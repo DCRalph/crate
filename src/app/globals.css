@@ -134,6 +134,13 @@
   --player-height: 4.5rem;
 }
 
+/* A phone's deck is slimmer: it holds only the title strip, play and next. */
+@media (max-width: 47.99rem) {
+  :root {
+    --player-height: 3.75rem;
+  }
+}
+
 .dark,
 .night {
   /* Night: the cabinet is petrol green, lettered in chrome. Print dims a shade. */
