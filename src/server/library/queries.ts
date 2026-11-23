@@ -1,6 +1,7 @@
 import "server-only";
-import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
 
+import { playsSince, type PlayRange } from "~/lib/most-played";
 import { inScope, type Scope } from "~/server/access";
 import { db } from "~/server/db";
 import {
@@ -152,6 +153,40 @@ export async function listAlbumsByPlays(scope: Scope, by: "recent" | "frequent",
   if (!ids.length) return [];
   const albums = new Map((await listAlbums(scope, { where: inArray(album.id, ids), limit: ids.length })).map((row) => [row.id, row]));
   return ids.flatMap((id) => albums.get(id) ?? []);
+}
+
+export type MostPlayedRow = Awaited<ReturnType<typeof listMostPlayed>>[number];
+
+/**
+ * The user's own most played tracks over a range, each with how many times
+ * they played it in that range and when they last did. Most plays first, then
+ * the one played most recently. Worked out from their plays on every read, so
+ * it is never stale and nothing is stored. Read by the Most played page and
+ * the Subsonic playlist of the same name.
+ */
+export async function listMostPlayed(scope: Scope, range: PlayRange, limit = 50) {
+  const since = playsSince(range);
+  const plays = db
+    .select({
+      trackId: playEvent.trackId,
+      plays: sql<number>`count(*)::int`.as("plays"),
+      // Never null: every group has a play.
+      lastPlayedAt: sql<Date>`max(${playEvent.at})`.mapWith(playEvent.at).as("last_played_at"),
+    })
+    .from(playEvent)
+    .where(and(eq(playEvent.userId, scope.user.id), since ? gte(playEvent.at, since) : undefined))
+    .groupBy(playEvent.trackId)
+    .as("plays");
+
+  return db
+    .select({ ...trackColumns, plays: plays.plays, lastPlayedAt: plays.lastPlayedAt })
+    .from(plays)
+    .innerJoin(track, eq(track.id, plays.trackId))
+    .innerJoin(album, eq(album.id, track.albumId))
+    .leftJoin(annotation, annotationOf(scope, "track", track.id))
+    .where(inScope(track.libraryId, scope))
+    .orderBy(desc(plays.plays), desc(plays.lastPlayedAt), asc(track.id))
+    .limit(limit);
 }
 
 /** Each artist with each album they are on: as its album artist, or credited on one of its tracks. */

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Folder, Pin, Play } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, Folder, Pin, Play, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { oneRow, TileSkeleton } from "~/components/library/album-grid";
@@ -14,8 +14,9 @@ import { contextKit, QueueActions } from "~/components/library/track-actions";
 import { SharedCover } from "~/components/shell/transitions";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "~/components/ui/context-menu";
 import { rowNumber, useNumbered } from "~/components/player/selection";
-import { playWhenLoaded } from "~/components/player/store";
+import { playWhenLoaded, usePlayer } from "~/components/player/store";
 import { count } from "~/lib/format";
+import { defaultPlayRange } from "~/lib/most-played";
 import { itemsUnder, type Tree, type TreeNode } from "~/lib/tree";
 import { cn } from "~/lib/utils";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
@@ -46,8 +47,9 @@ function pathTo(level: Level, id: number): TreeNode<FolderRow, PlaylistRow>[] {
  * of the covers inside it, and opening one shows what it holds; where you are
  * is in the address, so Back works. Pinned playlists come first at the top
  * level. `flat` shows just those playlists with no folders, for search results.
+ * `mostPlayed` puts the Most played tile before everything at the top level.
  */
-export function PlaylistGrid({ tree, flat, numbered = true, row = false }: { tree: Level; flat?: PlaylistRow[]; numbered?: boolean; row?: boolean }) {
+export function PlaylistGrid({ tree, flat, numbered = true, row = false, mostPlayed = false }: { tree: Level; flat?: PlaylistRow[]; numbered?: boolean; row?: boolean; mostPlayed?: boolean }) {
   const trpc = useTRPC();
   const router = useRouter();
   const pathname = usePathname();
@@ -62,6 +64,7 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false }: { tre
   const folders = flat ? [] : here.folders;
   // At the top level a pinned playlist is already up front, so it isn't shown a second time.
   const playlists = flat ?? [...pinned, ...here.items.filter((playlist) => !atTop || !playlist.pinnedAt)];
+  const lead = mostPlayed && atTop;
   const open = (id: number | null) => router.push(id === null ? pathname : `${pathname}?folder=${id}`);
 
   /** The playlist a right-click landed on. Kept after the menu closes, so the menu doesn't empty as it fades. */
@@ -108,7 +111,7 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false }: { tre
         </nav>
       ) : null}
 
-      {folders.length || playlists.length ? (
+      {lead || folders.length || playlists.length ? (
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <ul
@@ -120,6 +123,7 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false }: { tre
                 else event.preventDefault();
               }}
             >
+              {lead ? <MostPlayedTile /> : null}
               {folders.map((node, index) => {
                 const inside = itemsUnder(node);
                 return (
@@ -209,6 +213,49 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false }: { tre
         <p className="text-muted-foreground py-6 text-sm">{flat ? "Nothing called that." : "This folder is empty."}</p>
       )}
     </>
+  );
+}
+
+/**
+ * The way into Most played, as a folder's tile is drawn: the covers of the
+ * albums played most lately, four of them when there are four, or the top
+ * one alone. It isn't numbered, so the playlists keep their numbers.
+ */
+function MostPlayedTile() {
+  const trpc = useTRPC();
+  const mostPlayed = useQuery(trpc.library.mostPlayed.queryOptions({ range: defaultPlayRange }));
+  const tracks = mostPlayed.data ?? [];
+  const albums = [...new Set(tracks.map((track) => track.albumId))];
+  const from = `most-played:${defaultPlayRange}`;
+
+  return (
+    <li className={tile}>
+      <Link href="/most-played" className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]">
+        {albums.length >= 4 ? (
+          <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
+            {albums.slice(0, 4).map((id) => (
+              <Cover key={id} type="album" id={id} size={240} className="size-full rounded-none" />
+            ))}
+          </span>
+        ) : albums[0] ? (
+          <Cover type="album" id={albums[0]} size={400} className="w-full rounded-b-none" imageClassName="group-hover:scale-[1.04]" />
+        ) : (
+          <span className="bg-secondary block aspect-square rounded-t-[3px]" />
+        )}
+        <span className={strip}>
+          <span className={stripName}>Most played</span>
+          <span className={stripBand}>{mostPlayed.data ? count(tracks.length, "track") : "\u00a0"}</span>
+        </span>
+      </Link>
+      <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
+        <TrendingUp className="size-3" />
+      </span>
+      {tracks.length ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 aspect-square">
+          <TilePlayKey from={from} name="Most played" onPlay={() => usePlayer.getState().play(tracks, undefined, from)} />
+        </div>
+      ) : null}
+    </li>
   );
 }
 

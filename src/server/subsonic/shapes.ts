@@ -1,5 +1,6 @@
+import type { PlayRange } from "~/lib/most-played";
 import type { Scope } from "~/server/access";
-import type { AlbumRow, ArtistRow, PlaylistRow, TrackRow } from "~/server/library/queries";
+import type { AlbumRow, ArtistRow, MostPlayedRow, PlaylistRow, TrackRow } from "~/server/library/queries";
 import { SubsonicError } from "./respond";
 
 // How rows look to Subsonic clients. Ids carry their type as a prefix, since
@@ -122,6 +123,35 @@ export const toPlaylist = (row: PlaylistRow) => ({
   coverArt: `pl-${row.id}`,
   readonly: row.readOnly,
 });
+
+/**
+ * Most played, the playlist every caller gets made from their own plays over
+ * the last 90 days. Real playlist ids are numbers, so its id never matches
+ * one, and `parseId` refuses it: handlers check for it before parsing.
+ */
+export const mostPlayed = { id: "pl-most-played", range: "90d" } as const satisfies { id: string; range: PlayRange };
+
+/**
+ * Most played as a playlist: read only, the caller's own, with the cover of
+ * its top track's album. It counts as changed when they last played anything
+ * on it, so clients that cache playlists by `changed` fetch it again.
+ */
+export function toMostPlayedPlaylist(scope: Scope, tracks: Pick<MostPlayedRow, "albumId" | "duration" | "lastPlayedAt">[]) {
+  const at = tracks.length ? new Date(Math.max(...tracks.map((row) => row.lastPlayedAt.getTime()))) : new Date();
+  return {
+    id: mostPlayed.id,
+    name: "Most played",
+    comment: "Your most played tracks over the last 90 days.",
+    owner: scope.user.username,
+    public: false,
+    songCount: tracks.length,
+    duration: tracks.reduce((sum, row) => sum + row.duration, 0),
+    created: at.toISOString(),
+    changed: at.toISOString(),
+    coverArt: tracks[0] ? `al-${tracks[0].albumId}` : undefined,
+    readonly: true,
+  };
+}
 
 /** Subsonic's user record. Admin rights are never granted over this API. */
 export const toUser = (scope: Scope) => ({
