@@ -1,0 +1,33 @@
+diff --git a/dist/client/Session.js b/dist/client/Session.js
+index 4043d528d0d41e74da547dbd75f549dffb8c845c..a6415db151ac0644493bad205078ccdf809fdf2a 100644
+--- a/dist/client/Session.js
++++ b/dist/client/Session.js
+@@ -201,8 +201,12 @@ class Session extends EventEmitter {
+             if (encryptData && (!sessionKey || cipher === Cipher.None)) {
+                 throw new SmbEncryptionRequiredError(`the server requires SMB encryption for this session, but ${sessionKey ? `no cipher was negotiated (dialect ${dialectName(dialect)})` : "the auth provider supplied no session key"}`);
+             }
+-            if (sessionKey && dialect >= DIALECT_300) {
+-                const keys = deriveKeys(dialect, sessionKey, sessionHash);
++            // MS-SMB2 3.2.5.3.1: a guest or anonymous session has no shared key,
++            // so it neither signs nor verifies. Signing it with the NTLM guest key
++            // makes Samba refuse the next request with a signature we cannot check.
++            const signingSessionKey = anonymous ? undefined : sessionKey;
++            if (signingSessionKey && dialect >= DIALECT_300) {
++                const keys = deriveKeys(dialect, signingSessionKey, sessionHash);
+                 // 3.x servers sign the final SESSION_SETUP response with the new
+                 // signing key (MS-SMB2 3.3.5.5.3). It is the proof that the server
+                 // holds the session key, so every 3.x session with a key requires
+@@ -227,10 +231,10 @@ class Session extends EventEmitter {
+                 });
+                 this.security = { ...this.security, encryptData };
+             }
+-            else if (sessionKey) {
+-                this.client.setSessionKey(this._id, sessionKey);
++            else if (signingSessionKey) {
++                this.client.setSessionKey(this._id, signingSessionKey);
+             }
+-            if ((serverSigningEnabled || serverSigningRequired) && sessionKey) {
++            if ((serverSigningEnabled || serverSigningRequired) && signingSessionKey) {
+                 this.client.enableSigning();
+                 this.security = { ...this.security, signing: true };
+             }
