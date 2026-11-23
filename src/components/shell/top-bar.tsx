@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, Search } from "lucide-react";
+import { Keyboard, LogOut, Search } from "lucide-react";
 
+import { useShortcutsHelp } from "~/components/player/shortcuts";
 import { forgetQueue, usePlayer } from "~/components/player/store";
 import {
   DropdownMenu,
@@ -275,6 +276,10 @@ function UserMenu({ user }: { user: HeaderUser }) {
             </Link>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuItem className="flex items-center gap-3 py-2 pointer-coarse:hidden" onSelect={() => useShortcutsHelp.setState({ open: true })}>
+          <Keyboard className="text-muted-foreground size-4" />
+          Keyboard shortcuts
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="t-label text-muted-foreground text-[11px]">Appearance</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as ThemeChoice)}>

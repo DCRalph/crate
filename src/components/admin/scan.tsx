@@ -20,7 +20,7 @@ export function ScanStatus({ library, running }: { library: Pick<Library, "id" |
       <div className="w-56 max-w-full">
         <Status
           tone="warn"
-          label={running.phase === "listing" ? "Finding files" : running.phase === "cleaning" ? "Tidying up" : "Scanning"}
+          label={running.phase === "listing" ? "Finding files" : running.phase === "cleaning" ? "Tidying up" : running.phase === "waveforms" ? "Drawing waveforms" : "Scanning"}
           reason={<span className="tabular-nums">{`${number.format(running.done)} of ${number.format(running.total)}`}</span>}
         />
         {/* How far through, for real: files read over files found. */}

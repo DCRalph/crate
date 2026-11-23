@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 import { capNote, formatOptions, normaliseOptions, qualityOptions, sentSummary, usePlayback } from "~/components/player/playback";
-import { usePlayer } from "~/components/player/store";
+import { crossfades, usePlayer } from "~/components/player/store";
 import { FormSection, SettingRow } from "~/components/shell/form";
 import { Page } from "~/components/shell/page";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
@@ -18,15 +18,19 @@ const playableFormats = () =>
 
 const never = () => () => {};
 
+const crossfadeOptions = crossfades.map((seconds) => ({ value: seconds, label: seconds ? `${seconds} seconds` : "Off" }));
+
 /**
  * The web player's audio settings: quality, the format tracks are converted
- * to, and volume levelling. They live in the player store, so they are kept
- * in this browser and a change is heard straight away.
+ * to, volume levelling, and how one track gives way to the next. They live in
+ * the player store, so they are kept in this browser and a change is heard
+ * straight away.
  */
 export function PlaybackView() {
   const { cap, quality, format, track, sent } = usePlayback();
   const normalise = usePlayer((state) => state.normalise);
-  const { setQuality, setFormat, setNormalise } = usePlayer.getState();
+  const crossfade = usePlayer((state) => state.crossfade);
+  const { setQuality, setFormat, setNormalise, setCrossfade } = usePlayer.getState();
   // The server can't know the browser, so every format is offered until the page is running in one.
   const canPlay = useSyncExternalStore(never, playableFormats, () => everyFormat);
   const formats = formatOptions.map((option) =>
@@ -58,6 +62,12 @@ export function PlaybackView() {
           detail="Turns louder tracks down so everything plays at a similar level. Per album keeps the quiet and loud tracks of an album as they are. Tracks without ReplayGain tags are left alone."
         >
           <Choice label="Even out volume" options={normaliseOptions} value={normalise} onChange={setNormalise} />
+        </SettingRow>
+        <SettingRow
+          label="Crossfade"
+          detail="Fades each track into the next over this long. Off plays them back to back with no gap, which is what an album mixed as one piece wants."
+        >
+          <Choice label="Crossfade" options={crossfadeOptions} value={crossfade} onChange={setCrossfade} />
         </SettingRow>
         {track && sent ? <p className="text-muted-foreground pt-3 text-xs">Current track: {sentSummary(track, sent)}</p> : null}
       </FormSection>

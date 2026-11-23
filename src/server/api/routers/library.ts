@@ -16,6 +16,7 @@ import {
   tracksWith,
   type TrackRow,
 } from "~/server/library/queries";
+import { waveformOf } from "~/server/library/waveform";
 import { buildListQuery, listResult, type ListColumnMap } from "~/server/list/build-list-query";
 import { createListInputSchema } from "~/server/list/list-input";
 import { recordPlay } from "~/server/logs";
@@ -133,6 +134,23 @@ export const libraryRouter = router({
   search: protectedProcedure.input(z.object({ query: z.string().trim().min(1).max(200) })).query(async ({ ctx, input }) => {
     const found = await search(ctx.scope, input.query, { tracks: { limit: 50 } });
     return { ...found, tracks: found.tracks.map((row) => toWebTrack(ctx.scope, row)) };
+  }),
+
+  /** What the home page opens with: the albums this person last played, the newest in the library, and the ones they play most. */
+  home: protectedProcedure.query(async ({ ctx }) => {
+    const [recent, added, frequent] = await Promise.all([
+      listAlbumsByPlays(ctx.scope, "recent", { limit: 12 }),
+      listAlbums(ctx.scope, { orderBy: albumSorts.added, limit: 12 }),
+      listAlbumsByPlays(ctx.scope, "frequent", { limit: 12 }),
+    ]);
+    return { recent, added, frequent };
+  }),
+
+  /** A track's loudness along its length, 0 to 255 a slice, for the deck's waveform. Null when the file can't be read. */
+  waveform: protectedProcedure.input(z.object({ trackId: z.number().int() })).query(async ({ ctx, input }) => {
+    const [found] = await listTracks(ctx.scope, { where: eq(track.id, input.trackId) });
+    if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Track not found." });
+    return waveformOf(found.id);
   }),
 
   /** The user's liked tracks, most recently liked first. */

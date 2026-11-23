@@ -9,7 +9,7 @@ const ids = (list: WebTrack[] | null) => list?.map((item) => item.id);
 const state = () => usePlayer.getState();
 const current = () => state().queue[state().index]?.id;
 
-beforeEach(() => usePlayer.setState({ queue: [], index: 0, lineup: null, repeat: "off", playing: false, volume: 1, volumeBeforeMute: 1 }));
+beforeEach(() => usePlayer.setState({ queue: [], index: 0, lineup: null, repeat: "off", from: null, playing: false, volume: 1, volumeBeforeMute: 1 }));
 
 describe("shuffle", () => {
   test("keeps the current track playing and holds every track once", () => {
@@ -113,6 +113,24 @@ describe("queue", () => {
 
     expect(await playWhenLoaded(async () => [])).toBe("empty");
     expect(current()).toBe(1);
+  });
+
+  test("moving a queued track keeps the current one current", () => {
+    state().play(tracks, 1);
+    state().move(4, 0);
+    expect(ids(state().queue)).toEqual([5, 1, 2, 3, 4]);
+    expect(current()).toBe(2);
+    state().move(state().index, 4);
+    expect(ids(state().queue)).toEqual([5, 1, 3, 4, 2]);
+    expect(current()).toBe(2);
+  });
+
+  test("the queue remembers where it was played from, until something else is played", () => {
+    state().play(tracks, 0, "album:7");
+    state().enqueue([track(8)]);
+    expect(state().from).toBe("album:7");
+    state().play(tracks, 2);
+    expect(state().from).toBeNull();
   });
 
   test("repeat goes off, all, one, off", () => {

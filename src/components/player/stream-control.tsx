@@ -6,22 +6,27 @@ import { Check, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { capNote, normaliseOptions, qualityOptions, sentLabel, sentSummary, usePlayback } from "./playback";
-import { usePlayer } from "./store";
+import { sleepChoices, usePlayer, type SleepChoice } from "./store";
 import { Volume } from "./volume";
+
+const sleepLabels: Record<SleepChoice, string> = { 15: "15 minutes", 30: "30 minutes", 60: "1 hour", track: "End of track" };
 
 /**
  * The player's audio settings behind one button, which reads as what is being
  * sent ("FLAC", "MP3 192"). Quality and volume levelling are changed here and
- * apply straight away; the rest is on the Playback page. Below the width
- * where the deck has room for it, the volume is here too. `onNavigate` runs
+ * apply straight away, and so does the sleep timer; the rest is on the
+ * Playback page. Below the width where the deck has room for it, the volume
+ * is here too. `onNavigate` runs
  * when the link to that page is followed, for a caller that has to get out of the way.
  */
 export function StreamControl({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const { cap, quality, track, sent } = usePlayback();
   const normalise = usePlayer((state) => state.normalise);
-  const { setQuality, setNormalise } = usePlayer.getState();
+  const sleep = usePlayer((state) => state.sleep?.choice ?? null);
+  const { setQuality, setNormalise, setSleep } = usePlayer.getState();
   const [open, setOpen] = useState(false);
   const label = track && sent ? sentLabel(track, sent) : null;
 
@@ -46,6 +51,23 @@ export function StreamControl({ onNavigate, className }: { onNavigate?: () => vo
           {cap !== null ? <p className="text-muted-foreground px-2 text-xs">{capNote(cap)}</p> : null}
         </div>
         <RadioList legend="Even out volume" options={normaliseOptions} value={normalise} onChange={setNormalise} />
+        <label className="flex items-center justify-between gap-3 px-2 text-sm whitespace-nowrap">
+          Sleep timer
+          <Select value={String(sleep ?? "off")} onValueChange={(value) => setSleep(sleepChoices.find((choice) => String(choice) === value) ?? null)}>
+            <SelectTrigger size="sm" aria-label="Sleep timer" className="w-[7.5rem]">
+              <SelectValue />
+            </SelectTrigger>
+            {/* Marked like the popover it opens from, so choosing here isn't a click away from the queue either. */}
+            <SelectContent data-player-settings align="end">
+              <SelectItem value="off">Off</SelectItem>
+              {sleepChoices.map((choice) => (
+                <SelectItem key={choice} value={String(choice)}>
+                  {sleepLabels[choice]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
         <div className="flex flex-col gap-2 border-t px-2 pt-3 text-xs">
           {track && sent ? <p className="text-muted-foreground">{sentSummary(track, sent)}</p> : null}
           <Link
