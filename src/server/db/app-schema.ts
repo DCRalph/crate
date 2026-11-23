@@ -371,7 +371,7 @@ export const accessLog = pgTable(
     userId: text("user_id"),
     /** As the client sent it, so failed logins for unknown names are still visible. */
     username: text("username"),
-    api: text("api", { enum: ["subsonic", "web"] }).notNull(),
+    api: text("api", { enum: ["subsonic", "web", "app"] }).notNull(),
     endpoint: text("endpoint").notNull(),
     /** The client's own name: Subsonic's `c` parameter, or "Web". */
     client: text("client"),

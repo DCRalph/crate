@@ -4,6 +4,8 @@ export const activityActions = {
   "auth.sign_in_failed": { label: "Sign-in failed", tone: "bad" },
   "auth.subsonic_failed": { label: "App sign-in failed", tone: "bad" },
   "auth.subsonic_locked": { label: "App sign-ins throttled", tone: "bad" },
+  "app.paired": { label: "App paired", tone: "ok" },
+  "app.unpaired": { label: "App signed out", tone: "neutral" },
   "user.created": { label: "User added", tone: "neutral" },
   "user.updated": { label: "User changed", tone: "neutral" },
   "user.disabled": { label: "User disabled", tone: "warn" },
