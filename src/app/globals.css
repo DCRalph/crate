@@ -2,17 +2,25 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* The design system: Wallbox. See design-previews/style-guide.html.
+/* The design system: Wallbox, built as a cabinet. See design-previews/style-guide.html.
  *
- * The app is the selector panel of a jukebox. There are two grounds:
- *  - the cabinet, which is seafoam enamel by day and petrol green by night
- *    (`.dark` on <html>), and
+ * The app is one machine: an enamel cabinet with a glass window set into it
+ * and a console along the bottom. One rule decides every surface: glass
+ * shows, print lists, keys act. There are three grounds:
+ *  - the cabinet (`enamel`), which is seafoam by day and petrol green by
+ *    night (`.dark` on <html>). The rail of pages sits on it;
+ *  - glass (`.glass`), the dark window everything is browsed behind, and the
+ *    console. Both are the same at any hour, so covers and lamps read alike
+ *    by day and by night;
  *  - print: ivory stock with ink on it, the same in both modes.
  * Colours are declared under the shadcn names, so components carry none of
  * their own. The names mean the cabinet at the root. A `.print` element (a
  * card, a table, a menu, a dialog) re-declares them in ivory and ink for
- * everything inside it, and `.night` re-declares them as the night cabinet,
- * which is how the player deck stays the same at any hour.
+ * everything inside it, `.night` re-declares them as the night cabinet
+ * (the console), and `.glass` as the window.
+ * Materials are utilities: `enamel`, `glass-window`, `key` (a key with
+ * travel and a chrome lip), `lamp`, `plate`, and `glow` (a cover lit from
+ * underneath in its own colour, `--art`). All of them are still paint.
  *  - `--brand` is the coral band: title strips, table heads, the one main key.
  *  - `--lamp` is amber and means live: playing, or switched on. Nothing else.
  * Type: Jost for everything read, in capitals on strips and keys
@@ -130,11 +138,13 @@
   --glass: #071a1d;
   --glass-ink: #e3ebe8;
   --radius: 0.375rem;
-  /* Height of the player deck; the content column and toasts stop above it. */
-  --player-height: 4.5rem;
+  /* Height of the console; the glass and toasts stop above it. */
+  --player-height: 5.25rem;
+  /* Film grain, tiled. One small still image, painted once. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* A phone's deck is slimmer: it holds only the title strip, play and next. */
+/* A phone's console is slimmer: it holds only the title strip, play and next. */
 @media (max-width: 47.99rem) {
   :root {
     --player-height: 3.75rem;
@@ -142,7 +152,8 @@
 }
 
 .dark,
-.night {
+.night,
+.glass {
   /* Night: the cabinet is petrol green, lettered in chrome. Print dims a shade. */
   --cab: #0e2b2f;
   --cab-2: #12363b;
@@ -161,9 +172,10 @@
   --cab-bad: #ff8272;
 }
 
-/* The shadcn names on the cabinet. Declared again on `.night` so they are worked out from its own palette. */
+/* The shadcn names on the cabinet. Declared again on `.night` and `.glass` so they are worked out from their own palette. */
 :root,
-.night {
+.night,
+.glass {
   --background: var(--cab);
   --foreground: var(--chrome);
   --card: var(--strip);
@@ -191,6 +203,18 @@
 
 .night {
   color: var(--foreground);
+}
+
+/* Glass: the night palette, set darker. Hover and fill shades step up from the glass itself, and lines are finer. */
+.glass {
+  --background: var(--glass);
+  --muted: #0d2a2e;
+  --secondary: #12363b;
+  --accent: #12363b;
+  --border: #1d4247;
+  --field: #0b2427;
+  color: var(--foreground);
+  scrollbar-color: var(--cab-line) transparent;
 }
 
 /* Print: ivory stock and ink. Everything inside reads its colours from here. */
@@ -275,15 +299,38 @@
 
 /*
  * Going from one page to another. The browser takes a picture of the old page
- * and the new one and animates between them; the tabs and the deck are not
- * part of either picture, so they hold still. The old page goes quickly and
- * the new one rises in as it leaves, in one movement.
+ * and the new one and animates between them; the rail, the glass's frame and
+ * the console are not part of either picture, so they hold still. The old
+ * page goes quickly and the new one rises in as it leaves, in one movement.
+ * The picture is of the page's own scroller, which is exactly the glass's
+ * size, so nothing of a long page spills over the console while it plays.
  */
 ::view-transition-old(.page) {
   animation: 120ms ease-in both page-out;
 }
 ::view-transition-new(.page) {
   animation: 320ms var(--ease-out-expo) 60ms both page-in;
+}
+/*
+ * The glass's bevel is drawn over the page, during a transition too. The rail
+ * and the console are pictures of their own that change at once rather than
+ * fading, so the key that is lit never shows half on and half off.
+ */
+::view-transition-group(glass-bevel) {
+  animation: none;
+  z-index: 1;
+}
+::view-transition-group(rail),
+::view-transition-group(console),
+::view-transition-new(rail),
+::view-transition-new(console),
+::view-transition-new(glass-bevel) {
+  animation: none;
+}
+::view-transition-old(rail),
+::view-transition-old(console),
+::view-transition-old(glass-bevel) {
+  display: none;
 }
 /* A cover travelling from its tile to the top of the page it opens. */
 ::view-transition-group(.cover) {
@@ -356,21 +403,33 @@
   }
 }
 
-/* A key with travel: a darker lower edge that shortens as it goes down. */
+/*
+ * A key with travel and a chrome lip: light catches its top edge, its lower
+ * edge is darker and shortens as it goes down, and it stands a little off
+ * what it is set into.
+ */
 @utility key {
-  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.2);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 55%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    inset 0 -3px 0 rgb(0 0 0 / 0.22),
+    0 1px 2px rgb(0 0 0 / 0.3);
   padding-bottom: 2px;
   &:active:not(:disabled) {
-    box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.2);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.25),
+      inset 0 -1px 0 rgb(0 0 0 / 0.22),
+      0 0 0 rgb(0 0 0 / 0);
     transform: translateY(1px);
   }
   &:disabled {
+    background-image: none;
     box-shadow: none;
     padding-bottom: 0;
   }
 }
 
-/* A lamp: a hollow ring when off, amber when lit. */
+/* A lamp: a hollow ring when off, amber when lit. On glass and the console a lit lamp glows. */
 @utility lamp {
   display: inline-block;
   width: 9px;
@@ -387,10 +446,59 @@
   /* On print an amber dot needs an ink edge to be seen. */
   .print &[data-lit="true"] {
     border-color: var(--ink);
+    box-shadow: none;
   }
-  .night &[data-lit="true"] {
+  :is(.night, .glass) &[data-lit="true"] {
     border-color: var(--lamp);
+    box-shadow: 0 0 8px rgb(255 196 77 / 0.7);
   }
+}
+
+/* The cabinet: enamel with a little grain, lit from above. */
+@utility enamel {
+  background-color: var(--cab);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.07), transparent 45%), var(--grain);
+  background-size: auto, 160px;
+  background-blend-mode: normal, soft-light;
+}
+
+/*
+ * The glass window set into the cabinet: dark, with a sheen across the top,
+ * a ring of shadow around it and a chrome edge. Its bevel is a separate layer
+ * (`glass-bevel`) so what scrolls under it never covers it.
+ */
+@utility glass-window {
+  background-color: var(--glass);
+  background-image: radial-gradient(120% 60% at 50% 0, rgb(255 255 255 / 0.055), transparent 60%);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 3px rgb(0 0 0 / 0.22),
+    0 0 0 4px rgb(255 255 255 / 0.12);
+}
+@utility glass-bevel {
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px #2b565b,
+    inset 0 3px 12px rgb(0 0 0 / 0.7);
+  view-transition-name: glass-bevel;
+}
+
+/*
+ * A cover lit from underneath in its own colour (`--art`, read from the
+ * picture once it loads), with a hairline of light round its edge. `glow-lit`
+ * is the one that is playing: an amber ring and more light.
+ */
+@utility glow {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 16px 32px -14px var(--art, transparent);
+}
+@utility glow-lit {
+  box-shadow:
+    0 0 0 2px var(--lamp),
+    0 0 30px -2px var(--art, transparent),
+    0 0 24px -6px rgb(255 196 77 / 0.75);
 }
 
 /* A number plate: dark glass with pale numerals, the same on any ground. */
@@ -415,5 +523,53 @@
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* The console along the bottom: enamel a shade darker, lit along its top edge. */
+@utility console {
+  background-color: #12363b;
+  background-image: linear-gradient(180deg, #22505a, #12363b);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 -1px 0 rgb(0 0 0 / 0.45);
+}
+
+/* A small window of glass set into the console or a key: the selection, the waveform. */
+@utility glass-inset {
+  background-color: var(--glass);
+  box-shadow:
+    inset 0 0 0 1px #2b565b,
+    inset 0 2px 8px rgb(0 0 0 / 0.8);
+}
+
+/*
+ * One row of a tile grid (`tileGrid`): only as many tiles as it has columns
+ * at this width, the rest left out. Nothing is clipped, so the glow under
+ * each tile and a focus ring show whole. Keep the widths in step with tileGrid.
+ */
+@utility one-row {
+  & > :nth-child(n + 3) {
+    display: none;
+  }
+  @media (width >= 40rem) {
+    & > :nth-child(3) {
+      display: revert;
+    }
+  }
+  @media (width >= 64rem) {
+    & > :nth-child(4) {
+      display: revert;
+    }
+  }
+  @media (width >= 80rem) {
+    & > :nth-child(5) {
+      display: revert;
+    }
+  }
+  @media (width >= 96rem) {
+    & > :nth-child(6) {
+      display: revert;
+    }
   }
 }

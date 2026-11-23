@@ -13,8 +13,9 @@ const spaceControls = "button, a, [role=button], [role=checkbox], [role=switch],
 const volumeStep = 0.1;
 
 /**
- * The deck's keys, listed in `shortcuts`. Space plays and pauses, digits then
- * Enter pick a numbered row, and letters work the transport, unless the key
+ * The deck's keys, listed in `shortcuts`. Space plays and pauses, a row's
+ * letter and digits then Enter pick a selection ("B3", "07"), and the other
+ * letters work the transport, unless the key
  * belongs to a field, a menu or a slider, or a dialog is asking something.
  * The queue is a dialog only in name: the page behind it is still in use.
  * What needs the audio element or the deck's own state comes in as `actions`.
@@ -72,9 +73,9 @@ export function useDeckKeys(actions: { seekBy: (seconds: number) => void; back: 
       if (target.closest("[role=dialog]:not([data-queue])")) return;
       const selection = useSelection.getState();
 
-      if (/^[0-9]$/.test(event.key)) {
-        selection.type(event.key);
-        // A number left half typed is forgotten after a few seconds.
+      // A digit, or the letter of a row of tiles on screen: part of a selection. Letters that aren't a row's fall through to the shortcuts.
+      if (!event.repeat && event.key.length === 1 && selection.type(event.key)) {
+        // A selection left half typed is forgotten after a few seconds.
         clearTimeout(idle);
         idle = setTimeout(selection.clear, 4000);
       } else if (selection.typed && event.key === "Enter") {

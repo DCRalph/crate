@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>
+      <body className="enamel">
         <ThemeSync />
         <TRPCReactProvider>
           <ConfirmProvider>{children}</ConfirmProvider>

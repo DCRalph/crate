@@ -15,6 +15,7 @@ import {
   listMostPlayed,
   listTracks,
   search,
+  playCounts,
   tracksWith,
   type TrackRow,
 } from "~/server/library/queries";
@@ -156,12 +157,14 @@ export const libraryRouter = router({
   }),
 
   /**
-   * Small waveforms for a page of track rows, in one query: 64 numbers from 0 to 255 a track, or null for one
-   * with none yet (or out of reach). Only what scans stored is read; nothing is decoded on demand.
+   * What a page of track rows draws beside each track: its small waveform (64 numbers from 0 to 255, or null for
+   * one with none yet or out of reach) and how often this person has played it. Only what scans stored is read;
+   * nothing is decoded on demand.
    */
-  waveformThumbs: protectedProcedure
-    .input(z.object({ trackIds: z.array(z.number().int()).max(500) }))
-    .query(({ ctx, input }) => waveformThumbs(ctx.scope, input.trackIds)),
+  trackRows: protectedProcedure.input(z.object({ trackIds: z.array(z.number().int()).max(500) })).query(async ({ ctx, input }) => {
+    const [thumbs, plays] = await Promise.all([waveformThumbs(ctx.scope, input.trackIds), playCounts(ctx.scope, input.trackIds)]);
+    return Object.fromEntries(input.trackIds.map((id) => [id, { peaks: thumbs[id] ?? null, plays: plays.get(id) ?? 0 }]));
+  }),
 
   /** The user's liked tracks, most recently liked first. */
   liked: protectedProcedure.query(async ({ ctx }) => {

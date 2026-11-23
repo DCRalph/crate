@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal, Pause, Play } from "lucide-react";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
@@ -14,9 +15,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import type { WebTrack } from "~/server/api/routers/library";
+import { useTRPC } from "~/trpc/react";
 import { BulkBar } from "./bulk-bar";
 import { Cover } from "./cover";
 import { LikeButton } from "./like-button";
+import { RowWave } from "./row-wave";
 import { contextKit, dropdownKit, TrackActions } from "./track-actions";
 import { TrackInfoDialog } from "./track-info";
 
@@ -37,7 +40,12 @@ const between = (from: number, to: number) => Array.from({ length: Math.abs(to -
  *    that mix albums. Off on an album's own page, where they'd all be the same.
  *  - `onRemove`: adds "Remove from playlist".
  *  - `from`: names the list for the queue ("album:12"), so its Play key knows it is what is playing.
- *  - `plays`: adds a Plays column with what it gives for each track.
+ *  - `plays`: what the Plays column shows for each track, for a list that
+ *    counts its own way (Most played's range). Otherwise it is how often
+ *    this person has played the track, all time.
+ *
+ * Beside each track is its small waveform (on a wide screen) and how often
+ * you have played it, fetched for the whole list in one go.
  */
 export function TrackTable<T extends WebTrack>({
   tracks,
@@ -63,6 +71,9 @@ export function TrackTable<T extends WebTrack>({
   const { play, setPlaying } = usePlayer.getState();
   const playFrom = (index: number) => play(tracks, index, from);
   useNumbered(tracks.length, playFrom);
+  const trpc = useTRPC();
+  const ids = useMemo(() => [...new Set(tracks.map((track) => track.id))].slice(0, 500), [tracks]);
+  const extras = useQuery(trpc.library.trackRows.queryOptions({ trackIds: ids }, { enabled: ids.length > 0, staleTime: 60_000 }));
 
   const clear = () => setChosen({ rows: new Set(), anchor: 0 });
   const any = chosen.rows.size > 0;
@@ -120,7 +131,8 @@ export function TrackTable<T extends WebTrack>({
                   <TableHead>Title</TableHead>
                   <TableHead className="max-md:hidden">Artist</TableHead>
                   {showAlbum ? <TableHead className="max-lg:hidden">Album</TableHead> : null}
-                  {plays ? <TableHead className="w-12 text-right sm:w-16">Plays</TableHead> : null}
+                  <TableHead className="w-32 max-lg:hidden" aria-label="Waveform" />
+                  <TableHead className={cn("w-12 text-right sm:w-14", !plays && "max-sm:hidden")}>Plays</TableHead>
                   <TableHead className="w-10" />
                   <TableHead className="w-12 text-right sm:w-16">Time</TableHead>
                   <TableHead className="w-10" />
@@ -187,7 +199,12 @@ export function TrackTable<T extends WebTrack>({
                           </Link>
                         </TableCell>
                       ) : null}
-                      {plays ? <TableCell className="text-muted-foreground text-right font-normal tabular-nums">{plays(track)}</TableCell> : null}
+                      <TableCell className={cn("py-0 max-lg:hidden", isCurrent ? "text-foreground" : "text-muted-foreground/70")}>
+                        {extras.data?.[track.id]?.peaks ? <RowWave peaks={extras.data[track.id]!.peaks!} /> : null}
+                      </TableCell>
+                      <TableCell className={cn("text-muted-foreground t-num text-right text-[15px] font-normal", !plays && "max-sm:hidden")}>
+                        {(plays ? plays(track) : extras.data?.[track.id]?.plays) || null}
+                      </TableCell>
                       <TableCell className="py-0">
                         {/* A liked heart always shows; an empty one waits for the row to be hovered or focused. */}
                         <LikeButton

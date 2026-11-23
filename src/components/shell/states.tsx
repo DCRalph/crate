@@ -46,11 +46,22 @@ export function LoadError({ error }: { error: Failure }) {
   );
 }
 
-/** A section heading with an optional count and actions on the right. */
-export function SectionHeading({ title, detail, children }: { title: string; detail?: ReactNode; children?: ReactNode }) {
+/**
+ * A section heading with an optional count and actions on the right. A row
+ * of tiles on a page with several has its `letter` on an amber plate before
+ * the title: the first half of its tiles' codes.
+ */
+export function SectionHeading({ title, letter, detail, children }: { title: string; letter?: string; detail?: ReactNode; children?: ReactNode }) {
   return (
     <div className="mb-3 flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2">
-      <h2 className="t-label text-[12.5px]">{title}</h2>
+      <h2 className="t-label flex items-center gap-2.5 text-[12.5px]">
+        {letter ? (
+          <span className="plate text-lamp min-w-[1.375rem] [text-shadow:0_0_8px_rgb(255_196_77/0.5)]" aria-hidden>
+            {letter}
+          </span>
+        ) : null}
+        {title}
+      </h2>
       {detail ? <span className="text-muted-foreground text-xs tabular-nums">{detail}</span> : null}
       {children ? <div className="ml-auto flex items-center gap-2">{children}</div> : null}
     </div>

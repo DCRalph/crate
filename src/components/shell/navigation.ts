@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import { Disc3, Heart, History, House, Library, ListMusic, ListTree, MicVocal, Music, SlidersHorizontal, Smartphone, UserRound, Users } from "lucide-react";
+import { Disc3, Heart, History, House, Library, ListMusic, ListTree, MicVocal, Music, SlidersHorizontal, Smartphone, TrendingUp, UserRound, Users } from "lucide-react";
 
 export type NavItem = { title: string; url: string; icon: LucideIcon };
 export type NavGroup = { title: string; items: NavItem[] };
 
-/** The library: each of these is a tab across the top. */
+/** The library: each of these is a key on the rail. */
 export const libraryNav: NavItem[] = [
   { title: "Home", url: "/home", icon: House },
   { title: "Albums", url: "/albums", icon: Disc3 },
@@ -12,6 +12,7 @@ export const libraryNav: NavItem[] = [
   { title: "Tracks", url: "/tracks", icon: Music },
   { title: "Playlists", url: "/playlists", icon: ListMusic },
   { title: "Liked", url: "/liked", icon: Heart },
+  { title: "Most played", url: "/most-played", icon: TrendingUp },
 ];
 
 /** A person's own settings. Reached from the menu under their initial; on these pages they are the second row of tabs. */

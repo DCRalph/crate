@@ -19,10 +19,11 @@ const sleepLabels: Record<SleepChoice, string> = { 15: "15 minutes", 30: "30 min
  * sent ("FLAC", "MP3 192"). Quality and volume levelling are changed here and
  * apply straight away, and so does the sleep timer; the rest is on the
  * Playback page. Below the width where the deck has room for it, the volume
- * is here too. `onNavigate` runs
- * when the link to that page is followed, for a caller that has to get out of the way.
+ * is here too. `onNavigate` runs when the link to that page is followed, for
+ * a caller that has to get out of the way. On the console (`indicator`) the
+ * button is a lit indicator in a little window of glass while a track is on.
  */
-export function StreamControl({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
+export function StreamControl({ onNavigate, indicator = false, className }: { onNavigate?: () => void; indicator?: boolean; className?: string }) {
   const { cap, quality, track, sent } = usePlayback();
   const normalise = usePlayer((state) => state.normalise);
   const sleep = usePlayer((state) => state.sleep?.choice ?? null);
@@ -38,7 +39,11 @@ export function StreamControl({ onNavigate, className }: { onNavigate?: () => vo
           size="sm"
           aria-label={label ? `Playback settings, sending ${label}` : "Playback settings"}
           // A width of its own, so a change from FLAC to OPUS 256 doesn't shift the scrubber.
-          className={cn("text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground min-w-[4.25rem] px-2 text-[11px] tabular-nums", className)}
+          className={cn(
+            "text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground min-w-[4.25rem] px-2 text-[11px] tabular-nums",
+            indicator && label && "glass-inset text-lamp hover:text-lamp data-[state=open]:text-lamp [text-shadow:0_0_8px_rgb(255_196_77/0.55)] hover:bg-transparent data-[state=open]:bg-transparent",
+            className,
+          )}
         >
           {label ?? <SlidersHorizontal />}
         </Button>

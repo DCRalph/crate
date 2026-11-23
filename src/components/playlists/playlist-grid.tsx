@@ -1,19 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Folder, Pin, Play, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
-import { oneRow, TileSkeleton } from "~/components/library/album-grid";
+import { TileSkeleton } from "~/components/library/album-grid";
+import { oneRow, Tile, tileGrid } from "~/components/library/tile";
 import { Cover } from "~/components/library/cover";
 import { TilePlayKey } from "~/components/library/play-key";
 import { contextKit, QueueActions } from "~/components/library/track-actions";
-import { SharedCover } from "~/components/shell/transitions";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "~/components/ui/context-menu";
-import { rowNumber, useNumbered } from "~/components/player/selection";
+import { rowNumber, tileCode, useNumbered, type RowLetter } from "~/components/player/selection";
 import { playWhenLoaded, usePlayer } from "~/components/player/store";
 import { count } from "~/lib/format";
 import { defaultPlayRange } from "~/lib/most-played";
@@ -26,11 +25,6 @@ type FolderRow = RouterOutputs["playlists"]["tree"]["folders"][number];
 type PlaylistRow = RouterOutputs["playlists"]["tree"]["playlists"][number];
 type Level = Tree<FolderRow, PlaylistRow>;
 
-const grid = "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5";
-const tile = "group animate-rise relative min-w-0";
-const strip = "print block overflow-hidden rounded-b-[3px]";
-const stripName = "t-label block truncate px-2 text-[12.5px] leading-6";
-const stripBand = "bg-brand block truncate px-2 text-xs leading-5 font-medium";
 
 /** The folder `id` and the folders above it, top first, or nothing when it isn't in the tree. */
 function pathTo(level: Level, id: number): TreeNode<FolderRow, PlaylistRow>[] {
@@ -49,12 +43,28 @@ function pathTo(level: Level, id: number): TreeNode<FolderRow, PlaylistRow>[] {
  * level. `flat` shows just those playlists with no folders, for search results.
  * `mostPlayed` puts the Most played tile before everything at the top level.
  */
-export function PlaylistGrid({ tree, flat, numbered = true, row = false, mostPlayed = false }: { tree: Level; flat?: PlaylistRow[]; numbered?: boolean; row?: boolean; mostPlayed?: boolean }) {
+export function PlaylistGrid({
+  tree,
+  flat,
+  numbered = true,
+  letter,
+  row = false,
+  mostPlayed = false,
+}: {
+  tree: Level;
+  flat?: PlaylistRow[];
+  numbered?: boolean;
+  /** A row letter, for a page with several numbered rows: plates then read "A2". */
+  letter?: RowLetter;
+  row?: boolean;
+  mostPlayed?: boolean;
+}) {
   const trpc = useTRPC();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const togglePin = usePin();
+  const sounding = usePlayer((state) => (state.playing ? state.from : null));
   const folderId = Number(useSearchParams().get("folder")) || null;
   const trail = folderId === null || flat ? [] : pathTo(tree, folderId);
   const here: Level = trail.at(-1) ?? tree;
@@ -87,7 +97,9 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false, mostPla
       else void play(playlists[index - folders.length]!);
     },
     numbered,
+    letter,
   );
+  const codeOf = (index: number) => (letter ? tileCode(letter, index) : rowNumber(index));
 
   return (
     <>
@@ -115,7 +127,7 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false, mostPla
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <ul
-              className={cn(grid, row && oneRow)}
+              className={cn(tileGrid, row && oneRow)}
               onContextMenu={(event) => {
                 const tile = event.target instanceof Element ? event.target.closest<HTMLElement>("li[data-playlist]") : null;
                 const playlist = playlists.find((item) => item.id === Number(tile?.dataset.playlist));
@@ -127,68 +139,63 @@ export function PlaylistGrid({ tree, flat, numbered = true, row = false, mostPla
               {folders.map((node, index) => {
                 const inside = itemsUnder(node);
                 return (
-                  <li key={`f${node.folder.id}`} className={tile} style={{ animationDelay: `${Math.min(index, 11) * 28}ms` }}>
-                    <Link
-                      href={`${pathname}?folder=${node.folder.id}`}
-                      className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]"
-                    >
-                      {/* A folder looks like what is in it: up to four of its covers. */}
-                      <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
-                        {inside.slice(0, 4).map((playlist) => (
-                          <Cover key={playlist.id} type="playlist" id={playlist.id} version={playlist.coverKey} size={240} className="size-full rounded-none" />
-                        ))}
-                      </span>
-                      <span className={strip}>
-                        <span className={stripName}>{node.folder.name}</span>
-                        <span className={stripBand}>{count(inside.length, "playlist")}</span>
-                      </span>
-                    </Link>
-                    <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
+                  <Tile
+                    key={`f${node.folder.id}`}
+                    index={index}
+                    href={`${pathname}?folder=${node.folder.id}`}
+                    // A folder looks like what is in it: up to four of its covers.
+                    cover={{
+                      mosaic: (
+                        <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
+                          {inside.slice(0, 4).map((playlist) => (
+                            <Cover key={playlist.id} type="playlist" id={playlist.id} version={playlist.coverKey} size={240} className="size-full rounded-none" />
+                          ))}
+                        </span>
+                      ),
+                    }}
+                    name={node.folder.name}
+                    band={count(inside.length, "playlist")}
+                    lit={sounding !== null && inside.some((playlist) => sounding === `playlist:${playlist.id}`)}
+                    code={
                       <span className="flex items-center gap-1">
                         <Folder className="size-3" />
-                        {rowNumber(index)}
+                        {codeOf(index)}
                       </span>
-                    </span>
-                  </li>
+                    }
+                  />
                 );
               })}
               {playlists.map((playlist, index) => (
-                <li key={`p${playlist.id}`} data-playlist={playlist.id} className={tile} style={{ animationDelay: `${Math.min(folders.length + index, 11) * 28}ms` }}>
-                  <Link href={`/playlists/${playlist.id}`} className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]">
-                    <SharedCover name={`playlist-${playlist.id}`}>
-                      <Cover type="playlist" id={playlist.id} version={playlist.coverKey} size={400} className="w-full rounded-b-none" imageClassName="group-hover:scale-[1.04]" />
-                    </SharedCover>
-                    <span className={strip}>
-                      <span className={stripName}>{playlist.name}</span>
-                      <span className={stripBand}>
-                        {count(playlist.trackCount, "track")}
-                        {playlist.isMine ? "" : ` · ${playlist.ownerName}`}
-                      </span>
-                    </span>
-                  </Link>
-                  {numbered ? (
-                    <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
-                      {rowNumber(folders.length + index)}
-                    </span>
-                  ) : null}
-                  {/* Siblings of the link, not children: a button can't sit inside an anchor. Sized against the square cover. */}
-                  <div className="pointer-events-none absolute inset-x-0 top-0 aspect-square">
-                    <button
-                      type="button"
-                      aria-label={playlist.pinnedAt ? `Unpin ${playlist.name}` : `Pin ${playlist.name} to the top`}
-                      aria-pressed={!!playlist.pinnedAt}
-                      onClick={() => togglePin(playlist)}
-                      className={cn(
-                        "plate focus-visible:ring-ring/60 pointer-events-auto absolute top-1.5 right-1.5 outline-none transition-opacity focus-visible:ring-[3px]",
-                        // A pinned one always shows its pin; the rest offer it on hover.
-                        playlist.pinnedAt ? "text-lamp" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
-                      )}
-                    >
-                      <Pin className={cn("size-3.5", playlist.pinnedAt && "fill-current")} />
-                    </button>
-                    <TilePlayKey from={`playlist:${playlist.id}`} name={playlist.name} onPlay={() => void play(playlist)} />
-                  </div>
-                </li>
+                <Tile
+                  key={`p${playlist.id}`}
+                  data-playlist={playlist.id}
+                  index={folders.length + index}
+                  href={`/playlists/${playlist.id}`}
+                  cover={{ type: "playlist", id: playlist.id, version: playlist.coverKey }}
+                  shared={`playlist-${playlist.id}`}
+                  name={playlist.name}
+                  band={`${count(playlist.trackCount, "track")}${playlist.isMine ? "" : ` · ${playlist.ownerName}`}`}
+                  code={numbered ? codeOf(folders.length + index) : undefined}
+                  lit={sounding === `playlist:${playlist.id}`}
+                  overlay={
+                    <>
+                      <button
+                        type="button"
+                        aria-label={playlist.pinnedAt ? `Unpin ${playlist.name}` : `Pin ${playlist.name} to the top`}
+                        aria-pressed={!!playlist.pinnedAt}
+                        onClick={() => togglePin(playlist)}
+                        className={cn(
+                          "plate focus-visible:ring-ring/60 pointer-events-auto absolute top-1.5 right-1.5 outline-none transition-opacity focus-visible:ring-[3px]",
+                          // A pinned one always shows its pin; the rest offer it on hover.
+                          playlist.pinnedAt ? "text-lamp" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
+                        )}
+                      >
+                        <Pin className={cn("size-3.5", playlist.pinnedAt && "fill-current")} />
+                      </button>
+                      <TilePlayKey from={`playlist:${playlist.id}`} name={playlist.name} onPlay={() => void play(playlist)} />
+                    </>
+                  }
+                />
               ))}
             </ul>
           </ContextMenuTrigger>
@@ -228,41 +235,39 @@ function MostPlayedTile() {
   const albums = [...new Set(tracks.map((track) => track.albumId))];
   const from = `most-played:${defaultPlayRange}`;
 
+  const sounding = usePlayer((state) => state.playing && state.from === from);
+
   return (
-    <li className={tile}>
-      <Link href="/most-played" className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]">
-        {albums.length >= 4 ? (
-          <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
-            {albums.slice(0, 4).map((id) => (
-              <Cover key={id} type="album" id={id} size={240} className="size-full rounded-none" />
-            ))}
-          </span>
-        ) : albums[0] ? (
-          <Cover type="album" id={albums[0]} size={400} className="w-full rounded-b-none" imageClassName="group-hover:scale-[1.04]" />
-        ) : (
-          <span className="bg-secondary block aspect-square rounded-t-[3px]" />
-        )}
-        <span className={strip}>
-          <span className={stripName}>Most played</span>
-          <span className={stripBand}>{mostPlayed.data ? count(tracks.length, "track") : "\u00a0"}</span>
-        </span>
-      </Link>
-      <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
-        <TrendingUp className="size-3" />
-      </span>
-      {tracks.length ? (
-        <div className="pointer-events-none absolute inset-x-0 top-0 aspect-square">
-          <TilePlayKey from={from} name="Most played" onPlay={() => usePlayer.getState().play(tracks, undefined, from)} />
-        </div>
-      ) : null}
-    </li>
+    <Tile
+      index={0}
+      href="/most-played"
+      cover={{
+        mosaic:
+          albums.length >= 4 ? (
+            <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
+              {albums.slice(0, 4).map((id) => (
+                <Cover key={id} type="album" id={id} size={240} className="size-full rounded-none" />
+              ))}
+            </span>
+          ) : albums[0] ? (
+            <Cover type="album" id={albums[0]} size={400} className="w-full rounded-b-none" imageClassName="group-hover:scale-[1.04]" />
+          ) : (
+            <span className="bg-secondary block aspect-square rounded-t-[3px]" />
+          ),
+      }}
+      name="Most played"
+      band={mostPlayed.data ? count(tracks.length, "track") : ""}
+      code={<TrendingUp className="size-3" />}
+      lit={sounding}
+      overlay={tracks.length ? <TilePlayKey from={from} name="Most played" onPlay={() => usePlayer.getState().play(tracks, undefined, from)} /> : undefined}
+    />
   );
 }
 
 /** Static placeholders in the grid's shape while playlists load. */
 export function PlaylistGridSkeleton({ count = 10 }: { count?: number }) {
   return (
-    <div className={grid}>
+    <div className={tileGrid}>
       {Array.from({ length: count }, (_, i) => (
         <TileSkeleton key={i} index={i} />
       ))}

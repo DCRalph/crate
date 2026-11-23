@@ -8,11 +8,11 @@ import { ChevronRight } from "lucide-react";
 import { useCrumbLeaf } from "./crumb";
 import { navItemFor } from "./navigation";
 
-/** Pages that are not tabs but still open with a title. */
-const untabbedPages: Partial<Record<string, string>> = { "/search": "Search", "/most-played": "Most played" };
+/** Pages that are not keys on the rail but still open with a title. */
+const untabbedPages: Partial<Record<string, string>> = { "/search": "Search" };
 
 /**
- * A page's title, worked out from where it is: the tab it belongs to, then
+ * A page's title, worked out from where it is: the rail key it belongs to, then
  * the name a record page announces through `PageCrumb` ("Libraries, Main").
  * As a heading it is the page's large title. As a trail it is the way back
  * in small capitals, for pages with a headline of their own.
@@ -37,8 +37,8 @@ export function PageTitle({ variant, detail, actions }: { variant: "heading" | "
     );
   }
   return (
-    <div className="mb-3 flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 sm:mb-4 sm:min-h-9">
-      <h1 className="font-title flex min-w-0 flex-wrap items-baseline gap-x-2 text-[24px] sm:text-[30px]">
+    <div className="mb-4 flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2 sm:mb-5 lg:min-h-10">
+      <h1 className="font-title flex min-w-0 flex-wrap items-baseline gap-x-2.5 text-[26px] sm:text-[32px] lg:text-[36px]">
         {onRecord ? (
           <>
             <Link href={section.href} className="text-muted-foreground hover:text-foreground outline-none focus-visible:underline">

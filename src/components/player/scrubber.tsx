@@ -36,9 +36,10 @@ const Bars = memo(function Bars({ peaks, count }: { peaks: number[]; count: numb
 
 /**
  * A waveform filling its parent: every bar faint, and the part already played
- * solid on top. As many bars as fit the width. One colour throughout.
+ * solid on top. As many bars as fit the width. One colour throughout, or on
+ * the console (`lit`) the played part lit amber, glowing.
  */
-function Waveform({ peaks, played }: { peaks: number[]; played: number }) {
+function Waveform({ peaks, played, lit }: { peaks: number[]; played: number; lit: boolean }) {
   const [width, setWidth] = useState(0);
   const measure = useCallback((element: HTMLDivElement | null) => {
     if (!element) return;
@@ -55,7 +56,10 @@ function Waveform({ peaks, played }: { peaks: number[]; played: number }) {
           <div className="absolute inset-0 opacity-40">
             <Bars peaks={peaks} count={count} />
           </div>
-          <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${played * 100}%` }}>
+          <div
+            className={cn("absolute inset-y-0 left-0 overflow-hidden", lit && "text-lamp drop-shadow-[0_0_3px_rgb(255_196_77/0.55)]")}
+            style={{ width: `${played * 100}%` }}
+          >
             <div className="h-full" style={{ width }}>
               <Bars peaks={peaks} count={count} />
             </div>
@@ -89,7 +93,7 @@ export function Scrubber({
   time: number;
   duration: number;
   onSeek: (seconds: number) => void;
-  /** Amber for the plain slider on the deck; left out on print, where ink reads better. */
+  /** Amber for the console: the played part of the waveform is lit, and so is the plain slider. Left out on print, where ink reads better. */
   tone?: "lamp";
   className?: string;
 }) {
@@ -130,7 +134,7 @@ export function Scrubber({
     <div className={cn("text-muted-foreground flex w-full items-center gap-2 text-[11px] tabular-nums", className)}>
       <span className="w-9 text-right">{formatDuration(shown)}</span>
       <div className="has-focus-visible:ring-ring/50 text-foreground relative flex h-9 min-w-0 flex-1 items-center rounded-sm has-focus-visible:ring-[3px]">
-        {peaks ? <Waveform key={trackId} peaks={peaks} played={duration ? Math.min(shown / duration, 1) : 0} /> : null}
+        {peaks ? <Waveform key={trackId} peaks={peaks} played={duration ? Math.min(shown / duration, 1) : 0} lit={tone === "lamp"} /> : null}
         <Slider
           tone={tone}
           aria-label="Seek"
