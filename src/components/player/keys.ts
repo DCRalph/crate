@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent } from "react";
 
 import { useSelection } from "./selection";
 import { useShortcutsHelp } from "./shortcuts";
+import { phoneQuery, useNowPlayingView } from "./now-playing-view";
 import { usePlayer } from "./store";
 
 /** What Space presses when it has the keyboard's focus. */
@@ -50,6 +51,11 @@ export function useDeckKeys(actions: { seekBy: (seconds: number) => void; back: 
         return document.querySelector<HTMLElement>("#player-bar [data-like]")?.click(), true;
       case "q":
         return actions.toggleQueue(), true;
+      case "v":
+        // A phone's sheet stands in for Now playing.
+        if (window.matchMedia(phoneQuery).matches) actions.toggleQueue();
+        else if (player.queue.length) useNowPlayingView.getState().toggle();
+        return true;
       case "?":
         return useShortcutsHelp.setState({ open: true }), true;
       default:
@@ -73,8 +79,11 @@ export function useDeckKeys(actions: { seekBy: (seconds: number) => void; back: 
       if (target.closest("[role=dialog]:not([data-queue])")) return;
       const selection = useSelection.getState();
 
-      // A digit, or the letter of a row of tiles on screen: part of a selection. Letters that aren't a row's fall through to the shortcuts.
-      if (!event.repeat && event.key.length === 1 && selection.type(event.key)) {
+      // A digit, or the letter of a row of tiles on screen: part of a selection. Letters that aren't a row's fall
+      // through to the shortcuts. Not while Now playing covers the page, whose rows can't be seen.
+      const covered = useNowPlayingView.getState().open;
+      if (covered && selection.typed) selection.clear();
+      if (!covered && !event.repeat && event.key.length === 1 && selection.type(event.key)) {
         // A selection left half typed is forgotten after a few seconds.
         clearTimeout(idle);
         idle = setTimeout(selection.clear, 4000);

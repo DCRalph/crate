@@ -19,6 +19,8 @@ export const shortcuts: { keys: string[]; does: string }[] = [
   { keys: ["−", "+"], does: "Volume down or up" },
   { keys: ["L"], does: "Like the track that is playing" },
   { keys: ["Q"], does: "Open or close the queue" },
+  { keys: ["V"], does: "Open or close Now playing" },
+  { keys: ["F"], does: "Full screen, in Now playing's Minimal view" },
   { keys: ["0–9", "Enter"], does: "Play the row with that number" },
   { keys: ["A–K", "0–9", "Enter"], does: "Play a tile by its code, like B3" },
   { keys: ["Alt", "↑↓"], does: "Move a queued track, with the keyboard on it" },
