@@ -3,10 +3,10 @@ import { create } from "zustand";
 
 /**
  * Letters a page can give its rows of tiles, in order. Every letter the
- * deck's keys use (L, M, N, P, Q, R, S, V) is left out, so a row's letter is
- * never also a shortcut.
+ * deck's keys use (F, L, M, N, P, Q, R, S, V) is left out, so a row's letter
+ * is never also a shortcut.
  */
-export const rowLetters = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K"] as const;
+export const rowLetters = ["A", "B", "C", "D", "E", "G", "H", "J", "K"] as const;
 export type RowLetter = (typeof rowLetters)[number];
 
 type Selection = {

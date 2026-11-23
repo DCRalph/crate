@@ -11,7 +11,7 @@ import { cn } from "~/lib/utils";
 import { usePlayerEngine } from "./engine";
 import { useDeckKeys } from "./keys";
 import { NowPlaying } from "./now-playing";
-import { NowPlayingKey, NowPlayingView, useNowPlayingView } from "./now-playing-view";
+import { NowPlayingKey, NowPlayingView, phoneQuery, useNowPlayingView } from "./now-playing-view";
 import { Scrubber } from "./scrubber";
 import { useSelection } from "./selection";
 import { ShortcutsDialog } from "./shortcuts";
@@ -55,12 +55,12 @@ export function PlayerBar() {
         {track ? (
           // Keyed by track, so each new one rises into place. It sits back a little until the sound starts.
           <div key={track.id} aria-busy={loading} className={cn("animate-rise flex min-w-0 flex-1 items-center gap-2.5 transition-opacity", loading && "opacity-55")}>
-            {/* The cover opens Now playing. */}
+            {/* The cover opens Now playing; below a desktop's width, the sheet the title strip opens too. */}
             <button
               type="button"
               aria-label={`Now playing: ${track.title}`}
               aria-keyshortcuts="V"
-              onClick={() => useNowPlayingView.getState().toggle()}
+              onClick={() => (window.matchMedia(phoneQuery).matches ? setSheetOpen(true) : useNowPlayingView.getState().toggle())}
               className="focus-visible:ring-ring/60 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px] max-sm:hidden"
             >
               <Cover type="album" id={track.albumId} size={112} glow className="size-12" />

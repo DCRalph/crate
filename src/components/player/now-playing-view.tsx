@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Maximize2, Minimize2, X } from "lucide-react";
@@ -47,15 +47,22 @@ function readMode(): Mode {
 }
 
 const subscribeNothing = () => () => {};
+/** Below this a phone's sheet stands in for Now playing. Matches the console's own breakpoint. */
+export const phoneQuery = "(max-width: 47.99rem)";
 
-/** What the queue was played from, in words: "Low Tide Radio", "Mixes / Late", "Most played". */
-function useFromLabel(from: string | null, track: WebTrack) {
+/**
+ * What the queue was played from, in words: "Low Tide Radio", "Late", "Most
+ * played". Worked out from the source's own id, so tracks added to the queue
+ * from elsewhere don't change it.
+ */
+function useFromLabel(from: string | null) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const queue = usePlayer((state) => state.queue);
   if (!from) return "The queue";
   const [kind, id] = from.split(":");
-  if (kind === "album") return track.albumName;
-  if (kind === "artist") return track.artistName;
+  if (kind === "album") return queue.find((item) => String(item.albumId) === id)?.albumName ?? "An album";
+  if (kind === "artist") return queue.find((item) => String(item.artistId) === id)?.artistName ?? "An artist";
   if (kind === "most-played") return "Most played";
   if (kind === "liked") return "Liked";
   if (kind === "playlist") return queryClient.getQueryData(trpc.playlists.tree.queryKey())?.playlists.find((row) => String(row.id) === id)?.name ?? "A playlist";
@@ -100,38 +107,71 @@ export function NowPlayingView({
     () => null,
   );
 
-  // Nothing left to show: it puts itself away.
+  // Nothing left to show: it puts itself away. So does a screen narrowing to a phone's, which has its own sheet.
   useEffect(() => {
     if (open && !track) close();
   }, [open, track, close]);
+  useEffect(() => {
+    if (!open) return;
+    const phone = window.matchMedia(phoneQuery);
+    const onChange = () => phone.matches && close();
+    onChange();
+    phone.addEventListener("change", onChange);
+    return () => phone.removeEventListener("change", onChange);
+  }, [open, close]);
+
+  // While open it has the keyboard: the page under it can't be reached, and the focus goes back where it came from.
+  useEffect(() => {
+    if (!open || !layer) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const page = layer.parentElement?.querySelector("main");
+    page?.setAttribute("inert", "");
+    panel.current?.focus({ preventScroll: true });
+    return () => {
+      page?.removeAttribute("inert");
+      const back = opener?.isConnected && !page?.contains(opener) ? opener : document.querySelector<HTMLElement>("#player-bar [aria-keyshortcuts='V']");
+      back?.focus({ preventScroll: true });
+    };
+  }, [open, layer]);
+
+  /** Into or out of full screen, where the browser allows it; a refusal changes nothing. */
+  const toggleFullscreen = () => {
+    if (!document.fullscreenEnabled) return;
+    void (document.fullscreenElement ? document.exitFullscreen() : panel.current?.requestFullscreen())?.catch(() => {});
+  };
+  const choose = (next: Mode) => {
+    // Full screen belongs to Minimal; Detailed has no way out of it.
+    if (next === "detailed" && document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    setMode(next);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable], [role=menu], [role=dialog]")) return;
+      // Its own keys work anywhere in it; a field, a menu or another dialog keeps them.
+      if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=dialog]:not([data-queue])")) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape" && !document.fullscreenElement) close();
-      if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && !event.altKey && mode === "minimal") {
+      if ((event.key === "f" || event.key === "F") && useNowPlayingView.getState().mode === "minimal") {
         event.preventDefault();
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void panel.current?.requestFullscreen();
+        toggleFullscreen();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, mode, close]);
+  });
 
   if (!open || !track || !layer) return null;
   const bar = (
     <div className="flex items-center gap-3 px-4 pt-3 sm:px-6 lg:px-8">
       <h2 className={cn("t-label text-[12px]", mode === "minimal" && "sr-only")}>Now playing</h2>
-      <div role="radiogroup" aria-label="Show" className="glass-inset flex rounded-md p-0.5">
+      <div role="group" aria-label="Show" className="glass-inset flex rounded-md p-0.5">
         {(["detailed", "minimal"] as const).map((option) => (
           <button
             key={option}
             type="button"
-            role="radio"
-            aria-checked={mode === option}
-            onClick={() => setMode(option)}
+            aria-pressed={mode === option}
+            onClick={() => choose(option)}
             className={cn(
               "t-label focus-visible:ring-ring/60 rounded-[4px] px-2.5 py-1.5 text-[11px] outline-none transition-colors focus-visible:ring-[3px]",
               mode === option ? "print" : "text-muted-foreground hover:text-foreground",
@@ -142,12 +182,12 @@ export function NowPlayingView({
         ))}
       </div>
       <span className="flex-1" />
-      {mode === "minimal" ? (
+      {mode === "minimal" && document.fullscreenEnabled ? (
         <button
           type="button"
           aria-label="Full screen"
           aria-keyshortcuts="F"
-          onClick={() => (document.fullscreenElement ? void document.exitFullscreen() : void panel.current?.requestFullscreen())}
+          onClick={toggleFullscreen}
           className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 grid size-8 place-items-center rounded-md outline-none focus-visible:ring-[3px]"
         >
           <Maximize2 className="size-4" />
@@ -170,10 +210,11 @@ export function NowPlayingView({
       ref={panel}
       role="dialog"
       aria-modal="false"
+      tabIndex={-1}
       aria-label={`Now playing: ${track.title}, ${track.artistName}`}
       // Marks the one dialog the deck's keys still work in, as the queue is.
       data-queue
-      className="glass animate-arrive absolute inset-0 z-10 flex flex-col overflow-hidden bg-(--glass)"
+      className="glass animate-arrive absolute inset-0 z-10 flex flex-col overflow-hidden bg-(--glass) outline-none"
     >
       {mode === "detailed" ? (
         <Detailed track={track} time={time} duration={duration} playing={playing} onSeek={onSeek} onPrevious={onPrevious} bar={bar} />
@@ -195,20 +236,26 @@ type ViewProps = {
   bar: React.ReactNode;
 };
 
+/** Following a link out of Now playing puts it away, so the page it leads to isn't left behind it. */
+const leave = (event: React.MouseEvent) => {
+  if (!event.metaKey && !event.ctrlKey && !event.shiftKey && event.button === 0) useNowPlayingView.getState().close();
+};
+
 function Detailed({ track, time, duration, playing, onSeek, onPrevious, bar }: ViewProps) {
   const trpc = useTRPC();
   const from = usePlayer((state) => state.from);
-  const fromLabel = useFromLabel(from, track);
+  const fromLabel = useFromLabel(from);
   const { sent } = usePlayback();
   const extras = useQuery(trpc.library.trackRows.queryOptions({ trackIds: [track.id] }, { staleTime: 60_000 }));
   const plays = extras.data?.[track.id]?.plays ?? 0;
   const facts: [string, React.ReactNode][] = [
-    ["Album", <Link key="album" href={`/albums/${track.albumId}`} className="hover:underline">{track.albumName}</Link>],
-    ["Artist", <Link key="artist" href={`/artists/${track.artistId}`} className="hover:underline">{track.artistName}</Link>],
+    ["Album", <Link key="album" href={`/albums/${track.albumId}`} onClick={leave} className="hover:underline">{track.albumName}</Link>],
+    ["Artist", <Link key="artist" href={`/artists/${track.artistId}`} onClick={leave} className="hover:underline">{track.artistName}</Link>],
     ...(track.trackNumber ? [["Track", `${track.discNumber && track.discNumber > 1 ? `Disc ${track.discNumber}, ` : ""}${track.trackNumber}`] as [string, React.ReactNode]] : []),
     ["File", `${track.suffix.toUpperCase()}${track.bitRate ? ` · ${track.bitRate} kbps` : ""}`],
     ...(sent ? [["Sent as", sentLabel(track, sent)] as [string, React.ReactNode]] : []),
-    ...(track.trackGain !== null ? [["ReplayGain", `${track.trackGain > 0 ? "+" : ""}${track.trackGain.toFixed(1)} dB`] as [string, React.ReactNode]] : []),
+    // A queue saved before ReplayGain was kept can lack it altogether.
+    ...(typeof track.trackGain === "number" ? [["ReplayGain", `${track.trackGain > 0 ? "+" : ""}${track.trackGain.toFixed(1)} dB`] as [string, React.ReactNode]] : []),
     ["Your plays", plays ? String(plays) : "None yet"],
     ["Playing from", fromLabel],
   ];
@@ -229,7 +276,7 @@ function Detailed({ track, time, duration, playing, onSeek, onPrevious, bar }: V
             {track.title}
           </h1>
           <div className="mt-2 flex items-center gap-2">
-            <Link href={`/artists/${track.artistId}`} className="text-muted-foreground hover:text-foreground min-w-0 truncate text-[17px] hover:underline">
+            <Link href={`/artists/${track.artistId}`} onClick={leave} className="text-muted-foreground hover:text-foreground min-w-0 truncate text-[17px] hover:underline">
               {track.artistName}
             </Link>
             <LikeButton key={track.id} track={track} />
@@ -253,8 +300,11 @@ function Detailed({ track, time, duration, playing, onSeek, onPrevious, bar }: V
   );
 }
 
-/** What comes after the track that is playing, and the one before it, on print. A row plays when it is chosen. */
-function UpNext({ className }: { className?: string }) {
+/**
+ * What comes after the track that is playing, on print. A row plays when it
+ * is chosen. On its own and memoised, so the clock ticking doesn't draw it again.
+ */
+const UpNext = memo(function UpNext({ className }: { className?: string }) {
   const queue = usePlayer((state) => state.queue);
   const index = usePlayer((state) => state.index);
   const { jump } = usePlayer.getState();
@@ -292,7 +342,7 @@ function UpNext({ className }: { className?: string }) {
       )}
     </section>
   );
-}
+});
 
 /** How long the pointer has to be still before Minimal's keys step back. */
 const idleMs = 3000;
