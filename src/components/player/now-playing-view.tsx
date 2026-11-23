@@ -59,11 +59,13 @@ function useFromLabel(from: string | null) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const queue = usePlayer((state) => state.queue);
+  const [kind, id] = from?.split(":") ?? [];
+  // A track carries its full credit ("A, B feat. C"), so the artist's own name is asked for by id: usually already
+  // in hand from the page that played it, and fetched once after a reload.
+  const artist = useQuery(trpc.library.artist.queryOptions({ id: Number(id) }, { enabled: kind === "artist" && Number(id) > 0, staleTime: Infinity }));
   if (!from) return "The queue";
-  const [kind, id] = from.split(":");
   if (kind === "album") return queue.find((item) => String(item.albumId) === id)?.albumName ?? "An album";
-  // A track carries its full credit ("A, B feat. C"), so the artist's own name comes from their page, which played it.
-  if (kind === "artist") return queryClient.getQueryData(trpc.library.artist.queryKey({ id: Number(id) }))?.name ?? "An artist";
+  if (kind === "artist") return artist.data?.name ?? "An artist";
   if (kind === "most-played") return "Most played";
   if (kind === "liked") return "Liked";
   if (kind === "playlist") return queryClient.getQueryData(trpc.playlists.tree.queryKey())?.playlists.find((row) => String(row.id) === id)?.name ?? "A playlist";
