@@ -69,5 +69,8 @@
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4.3.5",
     "typescript": "^5"
+  },
+  "patchedDependencies": {
+    "@winlinux/smb2@1.1.0": "patches/@winlinux%2Fsmb2@1.1.0.patch"
   }
 }
