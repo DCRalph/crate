@@ -4,7 +4,7 @@ import { Animated, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Screen } from "@/components/screen";
-import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Key, Lamp, Note } from "@/components/ui";
 import { usePlayer } from "@/lib/player";
 import { useServers } from "@/lib/servers";
@@ -18,11 +18,11 @@ export default function Servers() {
   const activeId = useServers((state) => state.activeId);
   const { scrollY, scrollProps } = useScrollHeader();
   const insets = useSafeAreaInsets();
+  const top = useHeaderSpace();
 
   return (
     <Screen scrollY={scrollY} title="Servers" left="back">
-      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
-        <LargeTitle>Servers</LargeTitle>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.md, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
         {servers.length ? (
           <Card>
             {servers.map((server, index) => (

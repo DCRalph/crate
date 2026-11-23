@@ -13,7 +13,7 @@ import { Mark } from "./ui";
  * A page on the cabinet: its scrolling content, under a bar pinned over the
  * top (`PinnedHeader`). The page owns the scroller and hands over `scrollY`
  * from `useScrollHeader`.
- *  - `title`: the name the bar takes on once the page has scrolled `titleAt`.
+ *  - `title`: the page's name, on the bar's one line with its buttons. With `titleAt` it arrives only once the page has scrolled that far, for a page that letters its own name.
  *  - `left`: the wordmark, on the page the app opens on, or a round glass Back on a page reached from another.
  *  - `settings`: a round glass key to Settings.
  */

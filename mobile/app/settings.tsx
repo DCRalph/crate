@@ -3,7 +3,7 @@ import { Alert, Animated, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Screen } from "@/components/screen";
-import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Key, Note, SectionHeading } from "@/components/ui";
 import { useDownloads } from "@/lib/downloads";
 import { count, formatBytes } from "@/lib/format";
@@ -35,11 +35,11 @@ export default function Settings() {
   const bytes = keptTracks.reduce((sum, kept) => sum + kept.bytes, 0);
   const { scrollY, scrollProps } = useScrollHeader();
   const insets = useSafeAreaInsets();
+  const top = useHeaderSpace();
 
   return (
     <Screen scrollY={scrollY} title="Settings" left="back">
-      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.xl }}>
-        <LargeTitle>Settings</LargeTitle>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.md, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.xl }}>
 
         {server ? (
           <View>

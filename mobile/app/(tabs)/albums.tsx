@@ -3,7 +3,7 @@ import { Animated, View } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
-import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { AlbumTile } from "@/components/tile";
 import { Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
@@ -15,6 +15,7 @@ export default function Albums() {
   const albums = useInfiniteQuery(trpc.library.albums.infiniteQueryOptions({ sort: "added" }, { getNextPageParam: (last) => last.nextCursor }));
   const items = albums.data?.pages.flatMap((page) => page.items) ?? [];
   const { scrollY, scrollProps } = useScrollHeader();
+  const top = useHeaderSpace();
   const bottom = useBottomSpace(true);
 
   return (
@@ -25,8 +26,7 @@ export default function Albums() {
         keyExtractor={(album) => String(album.id)}
         numColumns={2}
         columnWrapperStyle={{ gap: space.md }}
-        contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}
-        ListHeaderComponent={<LargeTitle>Albums</LargeTitle>}
+        contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}
         ListEmptyComponent={albums.isPending ? null : <Note>{albums.isError ? "Couldn't reach the server." : "No albums yet."}</Note>}
         renderItem={({ item }) => (
           <View style={{ flex: 1 }}>

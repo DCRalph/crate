@@ -5,7 +5,7 @@ import { Animated, Pressable, Text, View } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
-import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Cover, Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
 import { useDownloads } from "@/lib/downloads";
@@ -26,6 +26,7 @@ export default function Playlists() {
   const tree = useQuery(trpc.playlists.tree.queryOptions());
   const kept = useDownloads((state) => (server ? state.shelves[server.id]?.playlists : undefined));
   const { scrollY, scrollProps } = useScrollHeader();
+  const top = useHeaderSpace();
   const bottom = useBottomSpace(true);
 
   const folders = new Map((tree.data?.folders ?? []).map((folder) => [folder.id, folder]));
@@ -41,8 +42,7 @@ export default function Playlists() {
         {...scrollProps}
         data={playlists}
         keyExtractor={(playlist) => String(playlist.id)}
-        contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: bottom }}
-        ListHeaderComponent={<LargeTitle>Playlists</LargeTitle>}
+        contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom }}
         ListEmptyComponent={tree.isPending ? null : <Note>{tree.isError ? "Couldn't reach the server. What you have kept is under Kept." : "No playlists yet."}</Note>}
         renderItem={({ item, index }) => (
           <Card style={{ borderRadius: 0, borderTopLeftRadius: index ? 0 : 8, borderTopRightRadius: index ? 0 : 8, borderBottomLeftRadius: index === playlists.length - 1 ? 8 : 0, borderBottomRightRadius: index === playlists.length - 1 ? 8 : 0 }}>

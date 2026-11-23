@@ -4,7 +4,7 @@ import { Animated, Pressable, Text, View } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
-import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Cover, Lamp, Note } from "@/components/ui";
 import { progressOf, useDownloads } from "@/lib/downloads";
 import { count, formatBytes } from "@/lib/format";
@@ -24,12 +24,13 @@ export default function Kept() {
   const playlists = Object.values(shelf?.playlists ?? {}).sort((a, b) => a.name.localeCompare(b.name));
   const bytes = Object.values(shelf?.tracks ?? {}).reduce((sum, kept) => sum + kept.bytes, 0);
   const { scrollY, scrollProps } = useScrollHeader();
+  const top = useHeaderSpace();
   const bottom = useBottomSpace(true);
 
   return (
     <Screen scrollY={scrollY} title="Kept" settings>
-      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: bottom }}>
-        <LargeTitle note={playlists.length ? `${count(playlists.length, "playlist")}, ${formatBytes(bytes)}` : undefined}>Kept</LargeTitle>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.md }}>
+        {playlists.length ? <Note>{`${count(playlists.length, "playlist")}, ${formatBytes(bytes)}`}</Note> : null}
         {playlists.length ? (
           <Card>
             {playlists.map((playlist, index) => {

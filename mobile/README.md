@@ -30,6 +30,14 @@ bunx expo run:ios                 # or build in Xcode, then `bun start`
 
 The simulator reaches a server on the same Mac at `localhost:3000`.
 
+To put it on a phone, with the phone plugged in or on the same network and unlocked:
+
+```sh
+TEAM_ID=XXXXXXXXXX ./scripts/install-ios.sh   # your Apple developer team
+```
+
+That copy carries its own JavaScript and runs without the bundler.
+
 ## Layout
 
 - `app/` the pages (expo-router), on a native stack. `(tabs)` holds the library's four pages; an album, a playlist and the settings are pushed over them, and the deck floats over all of it.

@@ -1,14 +1,12 @@
 import { useRef, type ReactNode } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-import { font, label, space, usePalette } from "@/lib/theme";
+import { font, space, usePalette } from "@/lib/theme";
 
 /** Height of the pinned bar below the status bar. */
 export const headerHeight = 52;
-/** How far a `LargeTitle` scrolls before the bar takes over its name. */
-const largeTitleReveal = 50;
 /** The soft edge under the bar once it is solid, so content fades out rather than cuts. */
 const headerTail = 20;
 
@@ -27,13 +25,13 @@ export function useScrollHeader() {
 const reveal = (scrollY: Animated.Value, at: number, over = 16) => scrollY.interpolate({ inputRange: [Math.max(0, at - over), at], outputRange: [0, 1], extrapolate: "clamp" });
 
 /**
- * The bar pinned over the top of a scrolling page, in the manner of an iOS
- * large title. At rest it is only its buttons, floating; once the page moves
- * it fills in with the cabinet's colour, with a short fade below so content
- * dissolves into it, and the small `title` arrives when the page's own large
- * title has gone under. `left` and `right` are always on screen.
+ * The bar pinned over the top of a scrolling page: one line holding the way
+ * back, the page's name lettered large, and its buttons. At rest it has no
+ * ground of its own; once the page moves it fills in with the cabinet's
+ * colour, with a short fade below so content dissolves into it.
+ *  - `titleAt`: for a page that letters its own name in its content, the scroll offset at which the bar takes the name over. Without it the name is always there.
  */
-export function PinnedHeader({ scrollY, title, titleAt = largeTitleReveal, left, right }: { scrollY: Animated.Value; title?: string; titleAt?: number; left?: ReactNode; right?: ReactNode }) {
+export function PinnedHeader({ scrollY, title, titleAt, left, right }: { scrollY: Animated.Value; title?: string; titleAt?: number; left?: ReactNode; right?: ReactNode }) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const height = insets.top + headerHeight;
@@ -45,35 +43,19 @@ export function PinnedHeader({ scrollY, title, titleAt = largeTitleReveal, left,
         <Fade from={palette.cab} style={{ top: height, height: headerTail }} />
       </Animated.View>
       <View pointerEvents="box-none" style={styles.row}>
-        <View style={styles.side}>{left}</View>
-        {title ? (
-          <Animated.Text numberOfLines={1} style={[label, styles.title, { color: palette.chrome, opacity: reveal(scrollY, titleAt) }]}>
-            {title}
-          </Animated.Text>
-        ) : (
-          <View style={{ flex: 1 }} />
-        )}
-        <View style={[styles.side, { alignItems: "flex-end" }]}>{right}</View>
+        {left}
+        <Animated.Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: palette.chrome, opacity: titleAt === undefined ? 1 : reveal(scrollY, titleAt) }]}>
+          {title}
+        </Animated.Text>
+        {right}
       </View>
     </View>
   );
 }
 
-/** Room a page with no large title leaves above its content, for the pinned bar. */
+/** Room a page leaves above its content, for the pinned bar. */
 export function useHeaderSpace() {
   return useSafeAreaInsets().top + headerHeight;
-}
-
-/** The large title a page opens on, just under the pinned bar. Its name passes to the bar as it scrolls away. */
-export function LargeTitle({ children, note }: { children: string; note?: string }) {
-  const palette = usePalette();
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={{ paddingTop: insets.top + headerHeight, flexDirection: "row", alignItems: "baseline", gap: space.md, marginBottom: space.md }}>
-      <Text style={{ fontFamily: font.title, fontSize: 40, lineHeight: 44, color: palette.chrome, textTransform: "uppercase", letterSpacing: 0.4 }}>{children}</Text>
-      {note ? <Text style={{ fontFamily: font.body, fontSize: 13.5, color: palette.chrome2 }}>{note}</Text> : null}
-    </View>
-  );
 }
 
 /** Content dissolving into the cabinet at the bottom edge, under the floating tabs and deck. Fixed, and ignores touches. */
@@ -104,6 +86,5 @@ const styles = StyleSheet.create({
   backdrop: { position: "absolute", top: 0, left: 0, right: 0 },
   fade: { position: "absolute", left: 0, right: 0 },
   row: { flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, gap: space.md },
-  side: { minWidth: 44, flexShrink: 0 },
-  title: { flex: 1, fontSize: 13.5, textAlign: "center" },
+  title: { flex: 1, fontFamily: font.title, fontSize: 30, lineHeight: 36, textTransform: "uppercase", letterSpacing: 0.4 },
 });
