@@ -1,12 +1,32 @@
 import type { ReactNode } from "react";
+import { Image } from "expo-image";
 import { Pause, Play } from "lucide-react-native";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import type { Track } from "@/lib/api";
+import { coverSource } from "@/lib/media";
 import { usePlayer } from "@/lib/player";
 import { useActiveServer } from "@/lib/servers";
-import { band, font, ink, space } from "@/lib/theme";
+import { band, font, ink, space, usePalette } from "@/lib/theme";
+import { Fade } from "./screen-header";
 import { Card, Key } from "./ui";
+
+/**
+ * The cover again, out of focus, behind the top of an album or playlist page:
+ * the page takes the record's colour, and the glass of the bar has something
+ * to bend. It is the first thing in the page's scroller and leaves with it.
+ */
+export function Backdrop({ type, id, version }: { type: "album" | "playlist"; id: number; version?: string }) {
+  const server = useActiveServer();
+  const palette = usePalette();
+  if (!server) return null;
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 380 }}>
+      <Image source={coverSource(server, type, id, 160, version)} blurRadius={24} contentFit="cover" cachePolicy="disk" style={StyleSheet.absoluteFill} />
+      <Fade from={palette.cab} up style={{ bottom: 0, height: 240 }} />
+    </View>
+  );
+}
 
 /**
  * The top of an album or playlist page, as a printed card: the cover at the

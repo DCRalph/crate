@@ -1,8 +1,10 @@
 import { useRouter } from "expo-router";
-import { Alert, ScrollView, Switch, Text, View } from "react-native";
+import { Alert, Animated, Switch, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Screen } from "@/components/screen";
-import { Card, Key, Note, SectionHeading, Title } from "@/components/ui";
+import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { Card, Key, Note, SectionHeading } from "@/components/ui";
 import { useDownloads } from "@/lib/downloads";
 import { count, formatBytes } from "@/lib/format";
 import { usePlayer } from "@/lib/player";
@@ -31,11 +33,13 @@ export default function Settings() {
   const shelf = useDownloads((state) => (server ? state.shelves[server.id] : undefined));
   const keptTracks = Object.values(shelf?.tracks ?? {});
   const bytes = keptTracks.reduce((sum, kept) => sum + kept.bytes, 0);
+  const { scrollY, scrollProps } = useScrollHeader();
+  const insets = useSafeAreaInsets();
 
   return (
-    <Screen back="Back" bare>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.xl }}>
-        <Title>Settings</Title>
+    <Screen scrollY={scrollY} title="Settings" left="back">
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.xl }}>
+        <LargeTitle>Settings</LargeTitle>
 
         {server ? (
           <View>
@@ -94,7 +98,7 @@ export default function Settings() {
             <Note>Kept tracks are stored sealed: encrypted for this phone with a key it agreed with the server. Away from this app they are not audio.</Note>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </Screen>
   );
 }

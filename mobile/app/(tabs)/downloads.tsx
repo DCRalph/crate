@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
 import { Check } from "lucide-react-native";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 
+import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
-import { Card, Cover, Lamp, Note, Title } from "@/components/ui";
+import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { Card, Cover, Lamp, Note } from "@/components/ui";
 import { progressOf, useDownloads } from "@/lib/downloads";
 import { count, formatBytes } from "@/lib/format";
 import { useActiveServer } from "@/lib/servers";
@@ -21,14 +23,13 @@ export default function Kept() {
   const shelf = useDownloads((state) => (server ? state.shelves[server.id] : undefined));
   const playlists = Object.values(shelf?.playlists ?? {}).sort((a, b) => a.name.localeCompare(b.name));
   const bytes = Object.values(shelf?.tracks ?? {}).reduce((sum, kept) => sum + kept.bytes, 0);
+  const { scrollY, scrollProps } = useScrollHeader();
+  const bottom = useBottomSpace(true);
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: space.md }}>
-          <Title>Kept</Title>
-          {playlists.length ? <Text style={{ fontFamily: font.body, fontSize: 13.5, color: palette.chrome2 }}>{`${count(playlists.length, "playlist")}, ${formatBytes(bytes)}`}</Text> : null}
-        </View>
+    <Screen scrollY={scrollY} title="Kept" settings>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: bottom }}>
+        <LargeTitle note={playlists.length ? `${count(playlists.length, "playlist")}, ${formatBytes(bytes)}` : undefined}>Kept</LargeTitle>
         {playlists.length ? (
           <Card>
             {playlists.map((playlist, index) => {
@@ -51,7 +52,7 @@ export default function Kept() {
                       {progress ? (done ? `${count(progress.total, "track")}, ${formatBytes(progress.bytes)}` : `${progress.done} of ${count(progress.total, "track")} so far`) : ""}
                     </Text>
                   </View>
-                  {done ? <Check size={16} color={ink2} /> : <Lamp lit onPrint />}
+                  {done ? <Check size={16} color={ink2} /> : <Lamp lit on="print" />}
                 </Pressable>
               );
             })}
@@ -59,7 +60,7 @@ export default function Kept() {
         ) : (
           <Note>Nothing kept yet. Open a playlist and press Keep, and it plays here with no connection.</Note>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </Screen>
   );
 }

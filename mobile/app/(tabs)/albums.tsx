@@ -1,9 +1,11 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { FlatList, View } from "react-native";
+import { Animated, View } from "react-native";
 
+import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
+import { LargeTitle, useScrollHeader } from "@/components/screen-header";
 import { AlbumTile } from "@/components/tile";
-import { Note, Title } from "@/components/ui";
+import { Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
 import { space } from "@/lib/theme";
 
@@ -12,16 +14,19 @@ export default function Albums() {
   const trpc = useTRPC();
   const albums = useInfiniteQuery(trpc.library.albums.infiniteQueryOptions({ sort: "added" }, { getNextPageParam: (last) => last.nextCursor }));
   const items = albums.data?.pages.flatMap((page) => page.items) ?? [];
+  const { scrollY, scrollProps } = useScrollHeader();
+  const bottom = useBottomSpace(true);
 
   return (
-    <Screen>
-      <FlatList
+    <Screen scrollY={scrollY} title="Albums" settings>
+      <Animated.FlatList
+        {...scrollProps}
         data={items}
         keyExtractor={(album) => String(album.id)}
         numColumns={2}
         columnWrapperStyle={{ gap: space.md }}
-        contentContainerStyle={{ padding: space.lg, gap: space.lg }}
-        ListHeaderComponent={<Title>Albums</Title>}
+        contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}
+        ListHeaderComponent={<LargeTitle>Albums</LargeTitle>}
         ListEmptyComponent={albums.isPending ? null : <Note>{albums.isError ? "Couldn't reach the server." : "No albums yet."}</Note>}
         renderItem={({ item }) => (
           <View style={{ flex: 1 }}>

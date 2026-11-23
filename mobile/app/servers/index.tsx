@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
 import { Plus } from "lucide-react-native";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Screen } from "@/components/screen";
-import { Card, Key, Lamp, Note, Title } from "@/components/ui";
+import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { Card, Key, Lamp, Note } from "@/components/ui";
 import { usePlayer } from "@/lib/player";
 import { useServers } from "@/lib/servers";
 import { font, ink, ink2, space, usePalette } from "@/lib/theme";
@@ -14,11 +16,13 @@ export default function Servers() {
   const palette = usePalette();
   const servers = useServers((state) => state.servers);
   const activeId = useServers((state) => state.activeId);
+  const { scrollY, scrollProps } = useScrollHeader();
+  const insets = useSafeAreaInsets();
 
   return (
-    <Screen back="Back" bare>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
-        <Title>Servers</Title>
+    <Screen scrollY={scrollY} title="Servers" left="back">
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
+        <LargeTitle>Servers</LargeTitle>
         {servers.length ? (
           <Card>
             {servers.map((server, index) => (
@@ -36,7 +40,7 @@ export default function Servers() {
                 }}
                 style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderTopWidth: index ? 1 : 0, borderTopColor: palette.stripLine, backgroundColor: pressed ? palette.strip2 : "transparent" })}
               >
-                <Lamp lit={server.id === activeId} onPrint />
+                <Lamp lit={server.id === activeId} on="print" />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text numberOfLines={1} style={{ fontFamily: font.medium, fontSize: 15.5, color: ink }}>
                     {server.name}
@@ -54,7 +58,7 @@ export default function Servers() {
         <View style={{ flexDirection: "row" }}>
           <Key tone="brand" icon={Plus} label="Add a server" onPress={() => router.push("/servers/add")} />
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </Screen>
   );
 }

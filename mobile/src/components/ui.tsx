@@ -1,16 +1,17 @@
 import type { ReactNode } from "react";
 import { Image } from "expo-image";
 import { Disc3, type LucideIcon } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { coverSource } from "@/lib/media";
 import { useActiveServer } from "@/lib/servers";
-import { band, bandDown, font, glass, ink, ink2, label, lamp, radius, space, usePalette } from "@/lib/theme";
+import { band, bandDown, deck, font, glass, ink, ink2, label, lamp, radius, space, usePalette } from "@/lib/theme";
 
-/** A lamp: a small ring, amber when lit. Lit means live: playing, on, kept. */
-export function Lamp({ lit, onPrint = false, size = 9 }: { lit: boolean; onPrint?: boolean; size?: number }) {
+/** A lamp: a small ring, amber when lit. Lit means live: playing, on, kept. It is drawn for the cabinet unless told it is `on` print or night glass. */
+export function Lamp({ lit, on = "cabinet", size = 9 }: { lit: boolean; on?: "cabinet" | "print" | "night"; size?: number }) {
   const palette = usePalette();
-  const rim = lit ? (onPrint ? ink : lamp) : onPrint ? ink2 : palette.chrome2;
+  const onPrint = on === "print";
+  const rim = lit ? (onPrint ? ink : lamp) : onPrint ? ink2 : on === "night" ? deck.chrome2 : palette.chrome2;
   return <View style={{ width: size, height: size, borderRadius: size, borderWidth: 1.5, borderColor: rim, backgroundColor: lit ? lamp : "transparent", opacity: lit ? 1 : 0.6 }} />;
 }
 
@@ -29,7 +30,7 @@ export function Mark({ lit }: { lit: boolean }) {
   return (
     <View style={[styles.mark, { backgroundColor: palette.strip }]}>
       <Text style={styles.markText}>CRATE</Text>
-      <Lamp lit={lit} onPrint />
+      <Lamp lit={lit} on="print" />
     </View>
   );
 }
@@ -118,12 +119,6 @@ export function SectionHeading({ title, children }: { title: string; children?: 
       {children}
     </View>
   );
-}
-
-/** A page's large title, lettered like a selection number. */
-export function Title({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  const palette = usePalette();
-  return <Text style={[{ fontFamily: font.title, fontSize: 28, color: palette.chrome, textTransform: "uppercase", letterSpacing: 0.4 }, style]}>{children}</Text>;
 }
 
 /** One muted sentence, for a list with nothing in it or something that couldn't be had. */

@@ -50,7 +50,7 @@ export function TrackList({ tracks, showCover = false, from }: { tracks: Track[]
             })}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 7, width: 36 }}>
-              <Lamp lit={isCurrent && playing} onPrint />
+              <Lamp lit={isCurrent && playing} on="print" />
               <Text style={{ fontFamily: font.num, fontSize: 15, color: isCurrent ? ink : ink2 }}>{rowNumber(index)}</Text>
             </View>
             {showCover ? <Cover type="album" id={track.albumId} size={96} style={{ width: 34, borderRadius: 3 }} /> : null}

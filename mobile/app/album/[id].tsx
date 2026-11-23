@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
-import { ScrollView } from "react-native";
+import { Animated } from "react-native";
 
-import { Hero } from "@/components/hero";
+import { useBottomSpace } from "@/components/bottom";
+import { Backdrop, Hero } from "@/components/hero";
 import { Screen } from "@/components/screen";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { TrackList } from "@/components/track-list";
 import { Cover, Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
@@ -17,10 +19,14 @@ export default function AlbumPage() {
   const album = useQuery(trpc.library.album.queryOptions({ id }));
   const data = album.data;
   const from = `album:${id}`;
+  const { scrollY, scrollProps } = useScrollHeader();
+  const top = useHeaderSpace();
+  const bottom = useBottomSpace();
 
   return (
-    <Screen back="Albums">
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+    <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back">
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
+        <Backdrop type="album" id={id} />
         {data ? (
           <>
             <Hero
@@ -35,7 +41,7 @@ export default function AlbumPage() {
         ) : album.isError ? (
           <Note>{album.error.message}</Note>
         ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
     </Screen>
   );
 }

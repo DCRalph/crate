@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { ArrowDownToLine, Check } from "lucide-react-native";
-import { Alert, ScrollView } from "react-native";
+import { Alert, Animated } from "react-native";
 
-import { Hero } from "@/components/hero";
+import { useBottomSpace } from "@/components/bottom";
+import { Backdrop, Hero } from "@/components/hero";
 import { Screen } from "@/components/screen";
+import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { TrackList } from "@/components/track-list";
 import { Cover, Key, Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
@@ -27,6 +29,9 @@ export default function PlaylistPage() {
   const kept = shelf?.playlists[id];
   const progress = progressOf(shelf, id);
   const from = `playlist:${id}`;
+  const { scrollY, scrollProps } = useScrollHeader();
+  const top = useHeaderSpace();
+  const bottom = useBottomSpace();
 
   // What the server says, or failing that the copy on the phone.
   const data = playlist.data
@@ -54,8 +59,9 @@ export default function PlaylistPage() {
   );
 
   return (
-    <Screen back="Playlists">
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+    <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back">
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
+        <Backdrop type="playlist" id={id} version={data?.coverKey} />
         {data ? (
           <>
             <Hero
@@ -73,7 +79,7 @@ export default function PlaylistPage() {
         ) : playlist.isError ? (
           <Note>{playlist.error.message}</Note>
         ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
     </Screen>
   );
 }

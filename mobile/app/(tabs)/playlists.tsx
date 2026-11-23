@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { ArrowDownToLine, Pin } from "lucide-react-native";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 
+import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
-import { Card, Cover, Note, Title } from "@/components/ui";
+import { LargeTitle, useScrollHeader } from "@/components/screen-header";
+import { Card, Cover, Note } from "@/components/ui";
 import { useTRPC } from "@/lib/api";
 import { useDownloads } from "@/lib/downloads";
 import { count } from "@/lib/format";
@@ -23,6 +25,8 @@ export default function Playlists() {
   const server = useActiveServer();
   const tree = useQuery(trpc.playlists.tree.queryOptions());
   const kept = useDownloads((state) => (server ? state.shelves[server.id]?.playlists : undefined));
+  const { scrollY, scrollProps } = useScrollHeader();
+  const bottom = useBottomSpace(true);
 
   const folders = new Map((tree.data?.folders ?? []).map((folder) => [folder.id, folder]));
   const pathOf = (folderId: number | null): string[] => {
@@ -32,12 +36,13 @@ export default function Playlists() {
   const playlists = [...(tree.data?.playlists ?? [])].sort((a, b) => Number(!!b.pinnedAt) - Number(!!a.pinnedAt));
 
   return (
-    <Screen>
-      <FlatList
+    <Screen scrollY={scrollY} title="Playlists" settings>
+      <Animated.FlatList
+        {...scrollProps}
         data={playlists}
         keyExtractor={(playlist) => String(playlist.id)}
-        contentContainerStyle={{ padding: space.lg }}
-        ListHeaderComponent={<Title style={{ marginBottom: space.md }}>Playlists</Title>}
+        contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: bottom }}
+        ListHeaderComponent={<LargeTitle>Playlists</LargeTitle>}
         ListEmptyComponent={tree.isPending ? null : <Note>{tree.isError ? "Couldn't reach the server. What you have kept is under Kept." : "No playlists yet."}</Note>}
         renderItem={({ item, index }) => (
           <Card style={{ borderRadius: 0, borderTopLeftRadius: index ? 0 : 8, borderTopRightRadius: index ? 0 : 8, borderBottomLeftRadius: index === playlists.length - 1 ? 8 : 0, borderBottomRightRadius: index === playlists.length - 1 ? 8 : 0 }}>

@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { Deck } from "@/components/deck";
 import { ServerProvider } from "@/lib/api";
 import { useDownloads } from "@/lib/downloads";
 import { useActiveServer, useServers } from "@/lib/servers";
@@ -17,8 +18,11 @@ void SplashScreen.preventAutoHideAsync();
 
 /**
  * The app's frame. It waits for the fonts and for the saved servers and
- * downloads, then shows the pages. Everything inside talks to the server in
- * use; with none paired yet, the tabs send the person to add one.
+ * downloads, then shows the pages: a native stack, with the tabs at its foot
+ * and an album, a playlist or the settings pushed over them, so going back is
+ * the system's own swipe. The deck floats over all of it. Everything inside
+ * talks to the server in use; with none paired yet, the tabs send the person
+ * to add one.
  */
 export default function RootLayout() {
   const palette = usePalette();
@@ -39,13 +43,18 @@ export default function RootLayout() {
   const base = palette.isNight ? DarkTheme : DefaultTheme;
   const theme = { ...base, colors: { ...base.colors, background: palette.cab, card: palette.cab, text: palette.chrome, border: palette.line, primary: palette.chrome } };
   const pages = (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.cab } }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="now-playing" options={{ presentation: "modal" }} />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="servers/index" />
-      <Stack.Screen name="servers/add" options={{ presentation: "modal" }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.cab } }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="album/[id]" />
+        <Stack.Screen name="playlist/[id]" />
+        <Stack.Screen name="now-playing" options={{ presentation: "modal" }} />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="servers/index" />
+        <Stack.Screen name="servers/add" options={{ presentation: "modal" }} />
+      </Stack>
+      <Deck />
+    </>
   );
 
   return (
