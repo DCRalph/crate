@@ -32,7 +32,8 @@ The simulator reaches a server on the same Mac at `localhost:3000`.
 
 ## Layout
 
-- `app/` the pages (expo-router). `(tabs)` holds the library, with an album and a playlist as pages inside it so the deck stays under them.
+- `app/` the pages (expo-router), on a native stack. `(tabs)` holds the library's four pages; an album, a playlist and the settings are pushed over them, and the deck floats over all of it.
+- `src/components/glass.tsx` Liquid Glass (a blur before iOS 26), for the tabs, the deck and the round buttons of a page's bar.
 - `src/lib/servers.ts` paired servers, pairing, and the keychain.
 - `src/lib/sealed.ts` key agreement and opening sealed files.
 - `src/lib/downloads.ts` what is kept, and fetching it.
