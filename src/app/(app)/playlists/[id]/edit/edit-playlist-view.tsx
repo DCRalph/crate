@@ -9,15 +9,15 @@ import { toast } from "sonner";
 
 import { useConfirm } from "~/components/confirm-provider";
 import { Cover } from "~/components/library/cover";
+import { AudienceSetting } from "~/components/playlists/audience-picker";
 import { CoverPicker } from "~/components/playlists/cover-picker";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
-import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
+import { Field, FormActions, FormSection } from "~/components/shell/form";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import { count, formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
@@ -26,7 +26,7 @@ import { CardSkeleton } from "~/components/shell/skeletons";
 
 type Playlist = RouterOutputs["playlists"]["byId"];
 
-/** Everything about one playlist that can change: its name, where it sits, who sees it, and the order of its tracks. */
+/** Everything about one playlist that can change: its name, where it sits, who can listen, and the order of its tracks. */
 export function EditPlaylistView({ id }: { id: number }) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -101,7 +101,12 @@ export function EditPlaylistView({ id }: { id: number }) {
             </Button>
           </FormActions>
         </FormSection>
-        {/* How it looks is still the owner's to choose. */}
+        {/* How it looks, and who can listen, are still the owner's to choose. */}
+        {data.canShare ? (
+          <FormSection title="Sharing">
+            <AudienceSetting target={{ type: "playlist", id }} />
+          </FormSection>
+        ) : null}
         {data.canSetCover ? <CoverPicker playlist={data} /> : null}
       </Page>
     );
@@ -125,15 +130,7 @@ export function EditPlaylistView({ id }: { id: number }) {
               onChange={(folderId) => update.mutate({ id, folderId }, { onSuccess: () => toast(`Moved ${data.name}`) })}
             />
           </Field>
-          <SettingRow label="Public" detail="Everyone can see it. They still only hear the tracks their libraries allow.">
-            <Switch
-              aria-label="Public"
-              checked={data.isPublic}
-              onCheckedChange={(isPublic) =>
-                update.mutate({ id, isPublic }, { onSuccess: () => toast(isPublic ? "Everyone can see this playlist" : "Only you can see this playlist") })
-              }
-            />
-          </SettingRow>
+          <AudienceSetting target={{ type: "playlist", id }} />
         </div>
       </FormSection>
 

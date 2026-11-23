@@ -5,15 +5,18 @@ import { db } from "~/server/db";
 import { activity } from "~/server/db/app-schema";
 import { clientIp } from "~/server/request-origin";
 
+/** Where an action came from: the request's headers, or an address worked out already. */
+export type ActivityOrigin = { headers?: Headers; ip?: string | null };
+
 /** Adds a row to the activity log. Pass the request's headers so it records where the action came from. */
-export async function recordActivity(entry: {
-  action: ActivityAction;
-  actor: { id: string | null; name: string | null };
-  target?: string;
-  detail?: Record<string, unknown>;
-  headers?: Headers;
-  ip?: string | null;
-}) {
+export async function recordActivity(
+  entry: {
+    action: ActivityAction;
+    actor: { id: string | null; name: string | null };
+    target?: string;
+    detail?: Record<string, unknown>;
+  } & ActivityOrigin,
+) {
   await db.insert(activity).values({
     action: entry.action,
     actorId: entry.actor.id,

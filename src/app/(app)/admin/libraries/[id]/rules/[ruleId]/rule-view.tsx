@@ -6,14 +6,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { ModePicker, playlistFileNote, RulePreview, ruleModes } from "~/components/admin/folder-rule-parts";
+import { RuleAudiences } from "~/components/admin/rule-audiences";
 import { useConfirm } from "~/components/confirm-provider";
+import { AudienceSetting } from "~/components/playlists/audience-picker";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
-import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
+import { Field, FormActions, FormSection } from "~/components/shell/form";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
-import { Switch } from "~/components/ui/switch";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 import { CardSkeleton } from "~/components/shell/skeletons";
@@ -120,13 +121,7 @@ export function RuleView({ id }: { id: number }) {
         ) : (
           <p className="text-muted-foreground text-sm">{data.ownerName} made this rule, and what it makes sits among their playlists. Only they can move it.</p>
         )}
-        <SettingRow label="Everyone can see it" detail="People still only see playlists with tracks from libraries they can reach.">
-          <Switch
-            aria-label="Everyone can see it"
-            checked={data.isPublic}
-            onCheckedChange={(isPublic) => update.mutate({ id, isPublic }, { onSuccess: () => toast(isPublic ? "Everyone can see these" : "Only the owner sees these") })}
-          />
-        </SettingRow>
+        <AudienceSetting target={{ type: "rule", id }} />
       </FormSection>
 
       <FormSection
@@ -134,6 +129,10 @@ export function RuleView({ id }: { id: number }) {
         description={<>These follow the files, so nobody edits them by hand. Anyone can make their own copy of a playlist to change. {playlistFileNote[data.mode]}</>}
       >
         <RulePreview libraryId={data.libraryId} path={data.path} mode={data.mode} />
+      </FormSection>
+
+      <FormSection title="Sharing" description="Each folder and playlist follows the one above it unless it sets its own. Settings stay through rescans.">
+        <RuleAudiences ruleId={id} ownerName={data.isMine ? undefined : data.ownerName} />
       </FormSection>
 
       <FormSection title="Remove" description="The rule goes, along with the folders and playlists it made. Copies people made are theirs and stay.">

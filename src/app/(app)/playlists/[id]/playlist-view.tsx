@@ -30,12 +30,8 @@ import { SharedCover } from "~/components/shell/transitions";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
+import { sharedNote } from "~/lib/audience";
 import { count, formatLength } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
@@ -135,7 +131,7 @@ export function PlaylistView({ id }: { id: number }) {
             : `By ${data.isMine ? "you" : data.ownerName}`,
           count(data.tracks.length, "track"),
           formatLength(data.duration),
-          data.isPublic && !data.readOnly ? "Public" : null,
+          data.canShare ? sharedNote(data.audience) : null,
         ]
           .filter(Boolean)
           .map((fact) => (

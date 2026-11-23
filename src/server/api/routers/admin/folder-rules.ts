@@ -2,10 +2,13 @@ import { TRPCError } from "@trpc/server";
 import { count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { audienceSchema, sameAudience } from "~/lib/audience";
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, folderRuleModes, library, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
+import { loadAudiences } from "~/server/library/queries";
+import { logMove, logNewAudience, placeName, ruleAudiences, settleAudience } from "~/server/playlists/audience";
 import { planRule, syncFolderRules } from "~/server/playlists/folder-rules";
 import { assertPlace, FolderError } from "~/server/playlists/folders";
 import { openLibrarySource } from "~/server/storage";
@@ -50,7 +53,8 @@ const rules = () => {
       libraryPath: library.path,
       path: folderRule.path,
       mode: folderRule.mode,
-      isPublic: folderRule.isPublic,
+      /** Who can listen to the top of what it makes. Null follows the folder it is put in. */
+      audience: folderRule.audience,
       ownerId: folderRule.ownerId,
       ownerName: sql<string>`coalesce(${user.username}, ${user.name})`,
       parentFolderId: folderRule.parentFolderId,
@@ -99,17 +103,19 @@ export const folderRulesRouter = router({
 
   /** Adds a rule and builds what it stands for straight away from what is already scanned. */
   create: adminProcedure
-    .input(z.object({ libraryId: id, path: rulePath, mode, isPublic: z.boolean(), parentFolderId: id.nullable().default(null) }))
-    .mutation(async ({ ctx, input }) => {
+    .input(z.object({ libraryId: id, path: rulePath, mode, audience: audienceSchema.nullable(), parentFolderId: id.nullable().default(null) }))
+    .mutation(async ({ ctx, input: { audience, ...input } }) => {
       const [lib] = await db.select().from(library).where(eq(library.id, input.libraryId));
       if (!lib) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
       const exists = await openLibrarySource(lib).hasFolder(input.path);
       if (!exists) throw new TRPCError({ code: "BAD_REQUEST", message: "There is no folder at that path in the library." });
       await checkPlace(ctx.scope.user.id, input.parentFolderId);
 
+      // Saved with the rule, before the rebuild makes anything that follows it.
+      const own = await settleAudience(audience, ctx.scope.user.id);
       const [created] = await db
         .insert(folderRule)
-        .values({ ...input, ownerId: ctx.scope.user.id })
+        .values({ ...input, audience: own.audience, ownerId: ctx.scope.user.id })
         .returning({ id: folderRule.id });
       await syncFolderRules(lib.id, created!.id);
       await recordActivity({
@@ -119,16 +125,34 @@ export const folderRulesRouter = router({
         detail: { mode: input.mode },
         headers: ctx.headers,
       });
+      await logNewAudience(ctx.scope, { type: "rule", id: created!.id }, `Folder rule ${input.path ? `${lib.name}/${input.path}` : lib.name}`, own, {
+        headers: ctx.headers,
+      });
       return created!;
     }),
 
-  /** Changes how a rule builds, who sees the result, or where it sits, then rebuilds. The folder it follows is fixed. */
+  /**
+   * Changes how a rule builds or where it sits, then rebuilds. The folder it
+   * follows is fixed. Who can listen is `playlists.setAudience`, for the
+   * rule's default and for anything it makes. A move that changes who can
+   * listen to what follows the rule is logged, as moving a folder is.
+   */
   update: adminProcedure
-    .input(z.object({ id, mode: mode.optional(), isPublic: z.boolean().optional(), parentFolderId: id.nullable().optional() }))
+    .input(z.object({ id, mode: mode.optional(), parentFolderId: id.nullable().optional() }))
     .mutation(async ({ ctx, input: { id: ruleId, ...change } }) => {
       const [found] = await rules().where(eq(folderRule.id, ruleId));
       if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found." });
-      if (change.parentFolderId !== undefined) await checkPlace(found.ownerId, change.parentFolderId);
+      const to = change.parentFolderId;
+      if (to !== undefined) await checkPlace(found.ownerId, to);
+      // What the rule makes follows its default or, with none, the folder it is put in, so a move can change who listens.
+      const move =
+        to === undefined || to === found.parentFolderId
+          ? null
+          : await loadAudiences().then((audiences) => ({
+              to,
+              was: audiences.inherited({ folderId: found.parentFolderId, ruleId }).audience,
+              now: audiences.inherited({ folderId: to, ruleId }).audience,
+            }));
       await db.update(folderRule).set(change).where(eq(folderRule.id, ruleId));
       await syncFolderRules(found.libraryId, ruleId);
       await recordActivity({
@@ -138,7 +162,15 @@ export const folderRulesRouter = router({
         detail: change,
         headers: ctx.headers,
       });
+      if (move && !sameAudience(move.was, move.now)) {
+        const moved = `what it makes from ${await placeName(found.parentFolderId)} to ${await placeName(move.to)}`;
+        const item = { name: `Folder rule ${found.path ? `${found.libraryName}/${found.path}` : found.libraryName}`, ownerId: found.ownerId };
+        await logMove(ctx.scope, { type: "rule", id: ruleId }, item, { moved, was: move.was, now: move.now }, { headers: ctx.headers });
+      }
     }),
+
+  /** What a rule has made, each folder and playlist with its own audience and who can listen now. */
+  made: adminProcedure.input(z.object({ id })).query(({ input }) => ruleAudiences(input.id)),
 
   /** Rebuilds a rule from what is scanned now, without waiting for the next scan. */
   sync: adminProcedure.input(z.object({ id })).mutation(async ({ input }) => {

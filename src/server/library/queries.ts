@@ -1,23 +1,28 @@
 import "server-only";
-import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 
 import { playsSince, type PlayRange } from "~/lib/most-played";
 import { inScope, type Scope } from "~/server/access";
-import { db } from "~/server/db";
+import { db, type Db } from "~/server/db";
 import {
   album,
   annotation,
   artist,
+  folderRule,
   library,
   playEvent,
   playlist,
+  playlistFolder,
   playlistPin,
   playlistTrack,
+  ruleItemAudience,
   track,
   trackArtist,
   type AnnotationType,
 } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
+import { seenBy } from "~/lib/audience";
+import { audienceResolver, canListen, type AudienceResolver } from "~/server/playlists/resolve-audience";
 
 // Every read of the library, for both the web API and the Subsonic API. Each
 // takes a scope and only ever returns what that scope's libraries contain.
@@ -368,7 +373,6 @@ export async function annotate(
 
 // --- Playlists ---
 
-
 /** Whether a scope may rename, fill or delete a playlist. Ones a folder rule made follow the disk, so nobody may. */
 export const canEditPlaylist = (scope: Scope, row: { ownerId: string; readOnly: boolean }) =>
   !row.readOnly && (row.ownerId === scope.user.id || scope.isAdmin);
@@ -380,15 +384,65 @@ export const canEditPlaylist = (scope: Scope, row: { ownerId: string; readOnly: 
  */
 export const canSetPlaylistCover = (scope: Scope, row: { ownerId: string }) => row.ownerId === scope.user.id || scope.isAdmin;
 
+/** Whether a scope may choose who listens to a playlist or folder: its owner, even when it follows the disk, and admins. */
+export const canShare = (scope: Scope, row: { ownerId: string }) => row.ownerId === scope.user.id || scope.isAdmin;
+
+/** Joins the audience someone gave a folder or playlist a rule made, which is kept by the rule and the disk path. */
+export const ruleItemAudienceOf = (kind: "folder" | "playlist", ruleId: AnyColumn, sourcePath: AnyColumn) =>
+  and(eq(ruleItemAudience.ruleId, ruleId), eq(ruleItemAudience.kind, kind), eq(ruleItemAudience.sourcePath, sourcePath));
+
+/** What reads run on: the database, or a transaction. */
+export type Reader = Pick<Db, "select">;
+
+/**
+ * Runs reads that have to agree with each other in one snapshot: a
+ * REPEATABLE READ transaction sees what was committed before its first read
+ * and nothing after. Who can listen is worked out from several reads (the
+ * folders, the rules, the rows asked about), and a write landing between two
+ * of them could otherwise show a new playlist without the rule or folder
+ * that restricts it.
+ */
+export const snapshot = <T>(read: (tx: Reader) => Promise<T>) =>
+  db.transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" });
+
+/**
+ * Everything needed to say who can listen to anything in the playlist tree:
+ * every folder's own setting and every rule's default, in two queries. Every
+ * way in (the website, the app, Subsonic) asks the resolver this returns.
+ * Pass `tx` to read alongside other reads in a `snapshot`, or in a rebuild's
+ * transaction to see its own changes; without one it takes a snapshot of its own.
+ */
+export async function loadAudiences(tx?: Reader): Promise<AudienceResolver> {
+  if (!tx) return snapshot(loadAudiences);
+  const [folders, rules] = await Promise.all([
+    tx
+      .select({
+        id: playlistFolder.id,
+        parentId: playlistFolder.parentId,
+        ruleId: playlistFolder.ruleId,
+        own: playlistFolder.audience,
+        fromRule: ruleItemAudience.audience,
+      })
+      .from(playlistFolder)
+      .leftJoin(ruleItemAudience, ruleItemAudienceOf("folder", playlistFolder.ruleId, playlistFolder.sourcePath)),
+    tx.select({ id: folderRule.id, audience: folderRule.audience }).from(folderRule),
+  ]);
+  return audienceResolver({ folders: folders.map(({ own, fromRule, ...folder }) => ({ ...folder, audience: own ?? fromRule })), rules });
+}
+
 export type PlaylistRow = Awaited<ReturnType<typeof listPlaylists>>[number];
 
 /**
  * Playlists a scope can see, with counts of the tracks it can actually play:
- * its own, all of them for admins, and public ones that hold at least one
- * track it can reach. A public playlist of music you have no access to stays
- * hidden, so its name doesn't give away what a private library holds.
+ * its own, all of them for admins, and ones whose audience includes it that
+ * hold at least one track it can reach. A shared playlist of music you have
+ * no access to stays hidden, so its name doesn't give away what a private
+ * library holds. `audience` is who can listen, worked out up the folder tree;
+ * `ownAudience` is the playlist's own setting, null when it follows its folder.
+ * The rows and who can listen are read in one `snapshot`; pass `within` to
+ * read in the caller's, with the audiences it has loaded there if it has.
  */
-export async function listPlaylists(scope: Scope, where?: SQL) {
+export async function listPlaylists(scope: Scope, where?: SQL, within?: { tx: Reader; audiences?: AudienceResolver }) {
   const totals = db
     .select({
       playlistId: playlistTrack.playlistId,
@@ -400,59 +454,74 @@ export async function listPlaylists(scope: Scope, where?: SQL) {
     .groupBy(playlistTrack.playlistId)
     .as("totals");
 
-  return db
-    .select({
-      id: playlist.id,
-      name: playlist.name,
-      ownerId: playlist.ownerId,
-      ownerName: sql<string>`coalesce(${user.username}, ${user.name})`,
-      isPublic: playlist.isPublic,
-      readOnly: playlist.readOnly,
-      comment: playlist.comment,
-      folderId: playlist.folderId,
-      coverSeed: playlist.coverSeed,
-      coverAlbumId: playlist.coverAlbumId,
-      coverUpload: playlist.coverUpload,
-      /** Changes whenever the cover would, so a page can ask for the new picture. */
-      coverKey: sql<string>`concat_ws('-', ${playlist.coverSeed}, ${playlist.coverAlbumId}, ${playlist.coverUpload}, md5(${playlist.name}))`,
-      /** When this person pinned it to the top of their list, if they have. */
-      pinnedAt: playlistPin.pinnedAt,
-      ruleId: playlist.ruleId,
-      sourcePath: playlist.sourcePath,
-      fromFolder: sql<boolean>`${playlist.ruleId} is not null`,
-      createdAt: playlist.createdAt,
-      updatedAt: playlist.updatedAt,
-      trackCount: sql<number>`coalesce(${totals.trackCount}, 0)::int`,
-      duration: sql<number>`coalesce(${totals.duration}, 0)::int`,
-    })
-    .from(playlist)
-    .innerJoin(user, eq(user.id, playlist.ownerId))
-    .leftJoin(totals, eq(totals.playlistId, playlist.id))
-    .leftJoin(playlistPin, and(eq(playlistPin.playlistId, playlist.id), eq(playlistPin.userId, scope.user.id)))
-    .where(
-      and(
-        scope.isAdmin
-          ? undefined
-          : or(eq(playlist.ownerId, scope.user.id), and(eq(playlist.isPublic, true), sql`${totals.trackCount} > 0`)),
-        where,
-      ),
-    )
-    .orderBy(asc(sql`lower(${playlist.name})`));
+  const read = (tx: Reader) =>
+    Promise.all([
+      within?.audiences ?? loadAudiences(tx),
+      tx
+        .select({
+          id: playlist.id,
+          name: playlist.name,
+          ownerId: playlist.ownerId,
+          ownerName: sql<string>`coalesce(${user.username}, ${user.name})`,
+          readOnly: playlist.readOnly,
+          comment: playlist.comment,
+          folderId: playlist.folderId,
+          coverSeed: playlist.coverSeed,
+          coverAlbumId: playlist.coverAlbumId,
+          coverUpload: playlist.coverUpload,
+          /** Changes whenever the cover would, so a page can ask for the new picture. */
+          coverKey: sql<string>`concat_ws('-', ${playlist.coverSeed}, ${playlist.coverAlbumId}, ${playlist.coverUpload}, md5(${playlist.name}))`,
+          /** When this person pinned it to the top of their list, if they have. */
+          pinnedAt: playlistPin.pinnedAt,
+          ruleId: playlist.ruleId,
+          sourcePath: playlist.sourcePath,
+          fromFolder: sql<boolean>`${playlist.ruleId} is not null`,
+          createdAt: playlist.createdAt,
+          updatedAt: playlist.updatedAt,
+          trackCount: sql<number>`coalesce(${totals.trackCount}, 0)::int`,
+          duration: sql<number>`coalesce(${totals.duration}, 0)::int`,
+          own: playlist.audience,
+          fromRule: ruleItemAudience.audience,
+        })
+        .from(playlist)
+        .innerJoin(user, eq(user.id, playlist.ownerId))
+        .leftJoin(totals, eq(totals.playlistId, playlist.id))
+        .leftJoin(playlistPin, and(eq(playlistPin.playlistId, playlist.id), eq(playlistPin.userId, scope.user.id)))
+        .leftJoin(ruleItemAudience, ruleItemAudienceOf("playlist", playlist.ruleId, playlist.sourcePath))
+        .where(where)
+        .orderBy(asc(sql`lower(${playlist.name})`)),
+    ]);
+  const [resolver, rows] = await (within ? read(within.tx) : snapshot(read));
+
+  const viewer = { id: scope.user.id, isAdmin: scope.isAdmin };
+  return rows.flatMap(({ own, fromRule, ...row }) => {
+    const ownAudience = own ?? fromRule;
+    const audience = resolver.playlist({ folderId: row.folderId, ruleId: row.ruleId, audience: ownAudience });
+    if (canShare(scope, row)) return [{ ...row, audience, ownAudience }];
+    if (!row.trackCount || !canListen(audience, row.ownerId, viewer)) return [];
+    return [{ ...row, audience: seenBy(audience, scope.user.id), ownAudience: ownAudience && seenBy(ownAudience, scope.user.id) }];
+  });
 }
 
-/** One playlist and its tracks in order, or null when the scope can't see it. */
+/**
+ * One playlist and its tracks in order, or null when the scope can't see it.
+ * Read in one snapshot, so the tracks are the ones of the playlist as it was
+ * when the scope was let see it.
+ */
 export async function getPlaylist(scope: Scope, id: number) {
-  const [row] = await listPlaylists(scope, eq(playlist.id, id));
-  if (!row) return null;
-  const tracks = await db
-    .select({ ...trackColumns, position: playlistTrack.position })
+  return snapshot(async (tx) => {
+    const [row] = await listPlaylists(scope, eq(playlist.id, id), { tx });
+    if (!row) return null;
+    const tracks = await tx
+      .select({ ...trackColumns, position: playlistTrack.position })
     .from(playlistTrack)
     .innerJoin(track, eq(track.id, playlistTrack.trackId))
     .innerJoin(album, eq(album.id, track.albumId))
     .leftJoin(annotation, annotationOf(scope, "track", track.id))
-    .where(and(eq(playlistTrack.playlistId, id), inScope(track.libraryId, scope)))
-    .orderBy(asc(playlistTrack.position));
-  return { ...row, canEdit: canEditPlaylist(scope, row), tracks };
+      .where(and(eq(playlistTrack.playlistId, id), inScope(track.libraryId, scope)))
+      .orderBy(asc(playlistTrack.position));
+    return { ...row, canEdit: canEditPlaylist(scope, row), tracks };
+  });
 }
 
 /** The ids from `trackIds` that exist and are in scope, in the order given. */

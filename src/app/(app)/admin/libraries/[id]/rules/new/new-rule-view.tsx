@@ -7,17 +7,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { LibraryFolderPicker, ModePicker, playlistFileNote, RulePreview } from "~/components/admin/folder-rule-parts";
+import { AudiencePicker } from "~/components/playlists/audience-picker";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
-import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/form";
+import { Field, FormActions, FormSection } from "~/components/shell/form";
 import { Page } from "~/components/shell/page";
 import { Button } from "~/components/ui/button";
-import { Switch } from "~/components/ui/switch";
+import type { Audience } from "~/lib/audience";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
 
 type Mode = RouterOutputs["admin"]["folderRules"]["list"][number]["mode"];
 
-/** Sets up a folder rule in one library: which folder to follow, what to make of it, who sees it, and a preview of the result before saving. */
+/** Sets up a folder rule in one library: which folder to follow, what to make of it, who can listen, and a preview of the result before saving. */
 export function NewRuleView({ libraryId }: { libraryId: number }) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -26,8 +27,10 @@ export function NewRuleView({ libraryId }: { libraryId: number }) {
   const back = `/admin/libraries/${libraryId}`;
   const [path, setPath] = useState("");
   const [mode, setMode] = useState<Mode>("tree");
-  const [isPublic, setIsPublic] = useState(true);
+  const [audience, setAudience] = useState<Audience | null>({ kind: "everyone" });
   const [parentFolderId, setParentFolderId] = useState<number | null>(null);
+  const tree = useQuery(trpc.playlists.tree.queryOptions());
+  const parent = tree.data?.folders.find((row) => row.id === parentFolderId);
   const create = useMutation(
     trpc.admin.folderRules.create.mutationOptions({
       onSuccess: async (created) => {
@@ -45,7 +48,7 @@ export function NewRuleView({ libraryId }: { libraryId: number }) {
         className="flex flex-col gap-6"
         onSubmit={(event) => {
           event.preventDefault();
-          create.mutate({ libraryId, path, mode, isPublic, parentFolderId });
+          create.mutate({ libraryId, path, mode, audience, parentFolderId });
         }}
       >
         <FormSection title="Folder to follow" description={library.data ? `A folder inside ${library.data.name}, or the whole of it.` : undefined} className="grid gap-4">
@@ -57,9 +60,13 @@ export function NewRuleView({ libraryId }: { libraryId: number }) {
           <Field label="Put it in" htmlFor="rule-parent" hint="One of your own playlist folders, or the top level.">
             <FolderSelect id="rule-parent" value={parentFolderId} onChange={setParentFolderId} />
           </Field>
-          <SettingRow label="Everyone can see it" detail="People still only see playlists with tracks from libraries they can reach.">
-            <Switch aria-label="Everyone can see it" checked={isPublic} onCheckedChange={setIsPublic} />
-          </SettingRow>
+          <AudiencePicker
+            id="rule-audience"
+            value={audience}
+            onChange={setAudience}
+            follows={parent ? { name: parent.name, audience: parent.audience } : null}
+            holds="rule"
+          />
         </FormSection>
 
         <FormSection

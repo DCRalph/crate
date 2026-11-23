@@ -54,7 +54,7 @@ function PlaylistFacts({ id }: { id: number }) {
       <Fact label="Description">{data.comment}</Fact>
       <Fact label="Owner">{data.isMine ? "You" : data.ownerName}</Fact>
       <Fact label="Folder">{data.folderPath ?? "None"}</Fact>
-      <Fact label="Public">{data.isPublic ? "Yes" : "No"}</Fact>
+      <Fact label="Who can listen">{data.whoCanListen}</Fact>
       <Fact label="From disk">
         <span className="break-all">{fromDisk(data)}</span>
       </Fact>

@@ -3,13 +3,14 @@ import { and, asc, between, desc, eq, inArray, isNotNull, sql, type SQL } from "
 
 import { inScope, type Scope } from "~/server/access";
 import { db } from "~/server/db";
-import { album, annotation, artist, library, track } from "~/server/db/app-schema";
+import { album, annotation, artist, library, playlist, track } from "~/server/db/app-schema";
 import { coverFile } from "~/server/library/cover";
 import { readPlayQueue, savePlayQueue } from "~/server/library/play-queue";
 import {
   albumsWith,
   annotate,
   findTrackFile,
+  canEditPlaylist,
   getPlaylist,
   listAlbums,
   listAlbumsByPlays,
@@ -25,6 +26,7 @@ import { scanProgress } from "~/server/library/scanner";
 import { recordPlay } from "~/server/logs";
 import { fileResponse, transcodeResponse } from "~/server/media/stream";
 import { decideStream } from "~/server/media/transcode";
+import { AudienceError, setAudience } from "~/server/playlists/audience";
 import { namedByFolder, withoutFolderName } from "~/server/playlists/folders";
 import { createPlaylist, deletePlaylist, PlaylistError, updatePlaylist } from "~/server/playlists/mutations";
 import { openLibrarySource } from "~/server/storage";
@@ -91,8 +93,69 @@ async function playlistWrite<T>(work: () => Promise<T>) {
   try {
     return await work();
   } catch (error) {
-    if (error instanceof PlaylistError) throw new SubsonicError(error.reason === "not_found" ? 70 : 50, error.message);
+    if (error instanceof PlaylistError || error instanceof AudienceError) throw new SubsonicError(error.reason === "not_found" ? 70 : 50, error.message);
     throw error;
+  }
+}
+
+/**
+ * Applies Subsonic's `public` flag, which reads true when everyone can listen
+ * (see `toPlaylist`): true makes everyone the playlist's own setting, false
+ * makes it the owner's alone. A flag that already matches is left alone, so a
+ * client that sends it back with every change doesn't undo a folder's setting
+ * or a list of chosen people.
+ */
+/**
+ * What Subsonic's `public` flag asks of a playlist, worked out before anything
+ * is written: nothing, or a change to Everyone (widening) or Only me
+ * (narrowing). A playlist the caller can't edit is refused here, so a
+ * rejected update changes nothing at all.
+ */
+async function publicChange(ctx: Context, playlistId: number) {
+  const flag = ctx.params.get("public");
+  const [row] = await listPlaylists(ctx.scope, eq(playlist.id, playlistId));
+  if (!row) throw new PlaylistError("not_found");
+  if (!canEditPlaylist(ctx.scope, row)) throw new PlaylistError("read_only");
+  if (flag === undefined) return null;
+  const isPublic = flag === "true";
+  if ((row.audience.kind === "everyone") === isPublic) return null;
+  return {
+    widens: isPublic,
+    apply: () => setAudience(ctx.scope, { type: "playlist", id: playlistId }, { kind: isPublic ? "everyone" : "owner" }, { headers: ctx.request.headers, ip: ctx.ip }),
+  };
+}
+
+/**
+ * Changes a playlist's content and, when the flag asks, who can listen, in
+ * the order that never shares more than intended: narrowing before the
+ * content changes, widening after. Either way, a step that fails leaves the
+ * playlist no more shared than it was.
+ */
+async function writeWithPublic(ctx: Context, playlistId: number, write: () => Promise<unknown>) {
+  await oneAtATime(playlistId, async () => {
+    const change = await publicChange(ctx, playlistId);
+    if (change && !change.widens) await change.apply();
+    await write();
+    if (change?.widens) await change.apply();
+  });
+}
+
+/** The Subsonic writes under way, by playlist. */
+const writing = new Map<number, Promise<unknown>>();
+
+/**
+ * Runs Subsonic writes to one playlist one after another, so two clients
+ * saving it at once can't interleave a decision about who can listen with
+ * the other's tracks. Crate runs as one server, so a queue in it is enough.
+ */
+async function oneAtATime<T>(playlistId: number, work: () => Promise<T>) {
+  const before = writing.get(playlistId) ?? Promise.resolve();
+  const turn = before.catch(() => {}).then(work);
+  writing.set(playlistId, turn);
+  try {
+    return await turn;
+  } finally {
+    if (writing.get(playlistId) === turn) writing.delete(playlistId);
   }
 }
 
@@ -383,28 +446,31 @@ export const handlers: Record<string, Handler> = {
     const existing = params.get("playlistId");
     // With a playlistId this replaces that playlist's songs; otherwise it makes a new one.
     const id = await playlistWrite(async () => {
-      if (!existing) return createPlaylist(scope, { name: params.required("name"), trackIds });
+      if (!existing) {
+        // A new playlist starts at the top level, where only its owner listens; the flag can only widen it.
+        const created = await createPlaylist(scope, { name: params.required("name"), trackIds });
+        await writeWithPublic(ctx, created, async () => {});
+        return created;
+      }
       const playlistId = writablePlaylistId(existing);
-      await updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds });
+      await writeWithPublic(ctx, playlistId, () => updatePlaylist(scope, playlistId, { name: params.get("name"), trackIds }));
       return playlistId;
     });
     return playlistPayload(ctx, id);
   },
 
-  updatePlaylist: async ({ scope, params }) => {
-    const isPublic = params.get("public");
+  updatePlaylist: async (ctx) => {
+    const { scope, params } = ctx;
     const playlistId = writablePlaylistId(params.required("playlistId"));
     const name = params.get("name");
-    await playlistWrite(async () =>
-      updatePlaylist(scope, playlistId, {
-        // A client that renames usually sends back the name it was given, folders included.
-        name: name === undefined ? undefined : await withoutFolderName(playlistId, name),
-        comment: params.get("comment"),
-        isPublic: isPublic === undefined ? undefined : isPublic === "true",
-        addTrackIds: params.all("songIdToAdd").map((value) => idOf(value, "track")),
-        removeIndexes: params.all("songIndexToRemove").map(Number).filter(Number.isInteger),
-      }),
-    );
+    // Everything asked for is read and checked before anything is written.
+    const addTrackIds = params.all("songIdToAdd").map((value) => idOf(value, "track"));
+    const removeIndexes = params.all("songIndexToRemove").map(Number).filter(Number.isInteger);
+    await playlistWrite(async () => {
+      // A client that renames usually sends back the name it was given, folders included.
+      const newName = name === undefined ? undefined : await withoutFolderName(playlistId, name);
+      await writeWithPublic(ctx, playlistId, () => updatePlaylist(scope, playlistId, { name: newName, comment: params.get("comment"), addTrackIds, removeIndexes }));
+    });
     return {};
   },
 
