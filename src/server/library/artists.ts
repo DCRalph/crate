@@ -170,13 +170,18 @@ const numberedNames = /^(?:50 cent|2 chainz|21 savage|3 doors down|30 seconds to
 /**
  * What a file's name says about a track with no tags, for names in the
  * common "Artist - Title" form. A leading position ("07 - ", "065 ") and a
- * placeholder artist ("Unknown - ") are dropped first. Without a spaced dash
- * the whole name is the title and no artist is guessed.
+ * placeholder artist ("Unknown - ") are dropped first, and so is a position
+ * in the middle ("Artist - Album - 04 - Title"). Without a spaced dash the
+ * whole name is the title and no artist is guessed.
  */
 export function fromFileName(name: string): { artist?: string; title: string } {
-  let rest = name.trim();
-  if (!numberedNames.test(rest)) rest = rest.replace(/^\d{1,3}(?:\s*[-.]\s+|\s+)(?=\S)/, "");
-  rest = rest.replace(/^unknown(?: artist)?\s+-\s+/i, "");
+  // A position can come before or after the placeholder ("07 - Unknown - ", "Unknown - 07 - ").
+  const withoutPosition = (text: string) => (numberedNames.test(text) ? text : text.replace(/^\d{1,3}(?:\s*[-.]\s+|\s+)(?=\S)/, ""));
+  let rest = withoutPosition(name.trim());
+  rest = withoutPosition(rest.replace(/^unknown(?: artist)?\s+-\s+/i, ""));
+  // A position in the middle ("Artist - Album - 04 - Title") ends the lead: the artist is its first part, and the title is everything after the position.
+  const middle = /^(.+?)\s+[-–]\s+\d{1,3}\s+[-–]\s+(\S.*)$/.exec(rest);
+  if (middle) return { artist: middle[1]!.split(/\s+[-–]\s+/)[0]!.trim(), title: middle[2]!.trim() };
   const dash = rest.search(/\s+[-–]\s+/);
   if (dash <= 0) return { title: rest || name.trim() };
   const title = rest.slice(dash).replace(/^\s+[-–]\s+/, "").trim();

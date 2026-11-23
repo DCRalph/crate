@@ -36,6 +36,13 @@
       "when": 1795389770050,
       "tag": "0004_playlist_covers_and_pins",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795394591772,
+      "tag": "0005_unlock_orphaned_playlists",
+      "breakpoints": true
     }
   ]
 }

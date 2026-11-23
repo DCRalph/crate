@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
@@ -11,8 +12,17 @@ import { useTRPC, type RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["admin"]["playlists"]["list"]["rows"][number];
 
+/** The row is clickable for the mouse; this link is the same destination for the keyboard, and for a new tab. */
+function NameCell({ row }: { row: Row }) {
+  return (
+    <Link href={`/playlists/${row.id}`} className="font-medium outline-none hover:underline focus-visible:underline" onClick={(event) => event.stopPropagation()}>
+      {row.name}
+    </Link>
+  );
+}
+
 const columns: DataTableColumn<Row>[] = [
-  { id: "name", header: "Playlist", sortable: true, hideable: false, cell: (row) => <span className="font-medium">{row.name}</span> },
+  { id: "name", header: "Playlist", sortable: true, hideable: false, cell: (row) => <NameCell row={row} /> },
   { id: "owner", header: "Owner", sortable: true, filterable: true },
   { id: "folder", header: "Folder", showFrom: 760, cell: (row) => <span className="text-muted-foreground">{row.folder ?? "Top level"}</span> },
   { id: "trackCount", header: "Tracks", type: "number", align: "right", sortable: true },
@@ -43,7 +53,7 @@ export function AllPlaylistsView() {
   return (
     <Page>
       {playlists.isError ? (
-        <LoadError message={playlists.error.message} />
+        <LoadError error={playlists.error} />
       ) : (
         <DataTable
           api={table}

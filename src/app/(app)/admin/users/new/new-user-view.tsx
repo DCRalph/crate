@@ -99,7 +99,7 @@ export function NewUserView() {
           }
         >
           {libraries.isError ? (
-            <LoadError message={libraries.error.message} />
+            <LoadError error={libraries.error} />
           ) : !libraries.data ? (
             <Skeleton className="h-24" />
           ) : libraries.data.length ? (

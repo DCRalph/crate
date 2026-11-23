@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Info, ListEnd, Pencil, Pin, Play } from "lucide-react";
+import { Copy, Image as ImageIcon, Info, ListEnd, MoreHorizontal, Pencil, Pin, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
+import { HeroSkeleton } from "~/components/shell/skeletons";
 import { usePin } from "~/components/playlists/use-pin";
 import { Hero } from "~/components/library/hero";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
@@ -17,6 +18,7 @@ import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { count, formatLength } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
@@ -32,7 +34,21 @@ export function PlaylistView({ id }: { id: number }) {
 
   const refresh = () => queryClient.invalidateQueries(trpc.playlists.pathFilter());
   const onError = (error: { message: string }) => toast.error(error.message);
-  const removeTrack = useMutation(trpc.playlists.removeTrack.mutationOptions({ onSuccess: refresh, onError }));
+  // One at a time and in order, so a second removal is counted against the list the first one left.
+  const removeTrack = useMutation(
+    trpc.playlists.removeTrack.mutationOptions({
+      scope: { id: "playlist-tracks" },
+      onError,
+      onSettled: refresh,
+    }),
+  );
+  /** Takes a row out at once, then tells the server which track it was, so a list that has moved on can't lose a different one. */
+  const remove = (index: number) => {
+    const track = playlist.data?.tracks[index];
+    if (!track) return;
+    queryClient.setQueryData(trpc.playlists.byId.queryKey({ id }), (old) => old && { ...old, tracks: old.tracks.filter((_, i) => i !== index) });
+    removeTrack.mutate({ id, index, trackId: track.id }, { onSuccess: () => toast(`Removed ${track.title}`) });
+  };
   const copy = useMutation(
     trpc.playlists.duplicate.mutationOptions({
       onSuccess: async (copyId) => {
@@ -45,16 +61,17 @@ export function PlaylistView({ id }: { id: number }) {
 
   if (playlist.isError) {
     return (
-      <Page maxWidth="max-w-5xl">
-        <LoadError message={playlist.error.message} />
+      <Page maxWidth="max-w-5xl" title="trail">
+        <LoadError error={playlist.error} />
       </Page>
     );
   }
   const data = playlist.data;
   if (!data) {
     return (
-      <Page maxWidth="max-w-5xl">
-        <TrackTableSkeleton />
+      <Page maxWidth="max-w-5xl" title="trail">
+        <HeroSkeleton />
+        <TrackTableSkeleton covers />
       </Page>
     );
   }
@@ -63,7 +80,7 @@ export function PlaylistView({ id }: { id: number }) {
     <Page maxWidth="max-w-5xl" title="trail">
       <PageCrumb label={data.name} />
       <Hero
-        cover={<Cover type="playlist" id={id} size={480} className="w-40 sm:w-48" />}
+        cover={<Cover type="playlist" id={id} version={data.coverKey} size={480} className="w-40 sm:w-48" />}
         title={data.name}
         note={data.comment}
         band={[
@@ -90,35 +107,46 @@ export function PlaylistView({ id }: { id: number }) {
           }}
         >
           <ListEnd />
-          Add to queue
+          {/* On a phone the keys keep to one row: these two show their sign alone. */}
+          <span className="max-sm:sr-only">Add to queue</span>
         </Button>
         {data.canEdit ? (
           <Button variant="outline" asChild>
             <Link href={`/playlists/${id}/edit`}>
               <Pencil />
-              Edit
+              <span className="max-sm:sr-only">Edit</span>
             </Link>
           </Button>
-        ) : (
-          <Button variant="outline" disabled={copy.isPending} onClick={() => copy.mutate({ id })}>
-            <Copy />
-            Make a copy
-          </Button>
-        )}
-        <Button variant="outline" aria-pressed={!!data.pinnedAt} onClick={() => togglePin(data)}>
-          <Pin className={data.pinnedAt ? "fill-current" : undefined} />
-          {data.pinnedAt ? "Unpin" : "Pin"}
-        </Button>
-        {/* A playlist that follows the disk can't be edited, but its owner can still choose its cover. */}
-        {data.canSetCover && !data.canEdit ? (
-          <Button variant="outline" asChild>
-            <Link href={`/playlists/${id}/edit`}>Change cover</Link>
-          </Button>
         ) : null}
-        <Button variant="outline" onClick={() => setInfoOpen(true)}>
-          <Info />
-          Get info
+        <Button variant="outline" size="icon" aria-pressed={!!data.pinnedAt} aria-label={data.pinnedAt ? "Unpin" : "Pin to the top"} onClick={() => togglePin(data)}>
+          <Pin className={data.pinnedAt ? "text-brand fill-current" : undefined} />
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label={`More for ${data.name}`}>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem disabled={copy.isPending} onSelect={() => copy.mutate({ id })}>
+              <Copy />
+              Make a copy
+            </DropdownMenuItem>
+            {/* A playlist that follows the disk can't be edited, but its owner can still choose its cover. */}
+            {data.canSetCover && !data.canEdit ? (
+              <DropdownMenuItem asChild>
+                <Link href={`/playlists/${id}/edit`}>
+                  <ImageIcon />
+                  Change cover
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem onSelect={() => setInfoOpen(true)}>
+              <Info />
+              Get info
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </Hero>
       <PlaylistInfoDialog playlist={data} open={infoOpen} onOpenChange={setInfoOpen} />
 
@@ -127,7 +155,7 @@ export function PlaylistView({ id }: { id: number }) {
           tracks={data.tracks}
           showAlbum
           showCover
-          onRemove={data.canEdit ? (index) => removeTrack.mutate({ id, index }) : undefined}
+          onRemove={data.canEdit ? remove : undefined}
         />
       ) : (
         <Empty>{data.canEdit ? "No tracks yet. Add some from any track's menu." : "No tracks."}</Empty>

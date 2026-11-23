@@ -101,8 +101,8 @@ async function setTrackArtists(tx: Tx, trackId: number, artistIds: number[]) {
   await tx.insert(trackArtist).values(artistIds.map((artistId, position) => ({ trackId, artistId, position })));
 }
 
-/** Removes artists nothing is credited to any more. */
-async function removeUnusedArtists() {
+/** Removes artists nothing is credited to any more. Run after a scan, and after a library is removed. */
+export async function removeUnusedArtists() {
   const unused = (table: typeof album | typeof track | typeof trackArtist) =>
     notExists(db.select({ one: sql`1` }).from(table).where(eq(table.artistId, artist.id)));
   await db.delete(artist).where(and(unused(album), unused(track), unused(trackArtist)));
@@ -335,10 +335,14 @@ async function readTags(file: string) {
   // A file with no tags usually still says who and what it is in its name.
   const fileName = fromFileName(path.basename(file, path.extname(file)));
   const albumArtist = readCredit(common.albumartist, common.albumartists);
-  const artist = readCredit(common.artist, common.artists) ?? albumArtist ?? readCredit(fileName.artist) ?? named("Unknown Artist");
+  const tagged = readCredit(common.artist, common.artists) ?? albumArtist;
+  const artist = tagged ?? readCredit(fileName.artist) ?? named("Unknown Artist");
   const album = common.album?.trim();
+  const titleTag = common.title?.trim();
+  // On a file with no artist tag, a title tag that is the file's name over again ("1. Artist - Title") is read the way the name is.
+  const fromTitle = titleTag && !tagged ? fromFileName(titleTag) : null;
   return {
-    title: common.title?.trim() || fileName.title,
+    title: fromTitle?.artist && fromTitle.artist === fileName.artist ? fromTitle.title : titleTag || fileName.title,
     artist,
     // With no album tag the folder is the album, and a folder of loose files is by whoever is in it.
     albumArtist: albumArtist ?? (common.compilation || !album ? named("Various Artists") : artist),

@@ -19,7 +19,17 @@ type Listing = RouterOutputs["admin"]["libraries"]["list"];
 type Row = Listing["libraries"][number] & { running: Listing["scan"] };
 
 const columns: DataTableColumn<Row>[] = [
-  { id: "name", header: "Library", hideable: false, cell: (row) => <span className="font-medium">{row.name}</span> },
+  {
+    id: "name",
+    header: "Library",
+    hideable: false,
+    // The row is clickable for the mouse; this link is the same destination for the keyboard, and for a new tab.
+    cell: (row) => (
+      <Link href={`/admin/libraries/${row.id}`} className="font-medium outline-none hover:underline focus-visible:underline" onClick={(event) => event.stopPropagation()}>
+        {row.name}
+      </Link>
+    ),
+  },
   { id: "path", header: "Folder", showFrom: 860, cell: (row) => <span className="text-muted-foreground font-mono text-xs">{row.path}</span> },
   { id: "albumCount", header: "Albums", type: "number", align: "right", showFrom: 620 },
   { id: "trackCount", header: "Tracks", type: "number", align: "right" },
@@ -63,7 +73,7 @@ export function LibrariesView() {
       detail={libraries.data ? count(rows.length, "library", "libraries") : null}
       actions={
         <>
-          <Button variant="secondary" size="sm" disabled={!!libraries.data?.scan || !rows.length} onClick={() => scan.mutate({})}>
+          <Button variant="secondary" size="sm" disabled={!!libraries.data?.scan || !rows.length || scan.isPending} onClick={() => scan.mutate({})}>
             <RefreshCw />
             Scan all
           </Button>
@@ -77,7 +87,7 @@ export function LibrariesView() {
       }
     >
       {libraries.isError ? (
-        <LoadError message={libraries.error.message} />
+        <LoadError error={libraries.error} />
       ) : (
         <DataTable
           api={table}

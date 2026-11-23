@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { ModePicker, playlistFileNote, RulePreview } from "~/components/admin/folder-rule-parts";
+import { ModePicker, playlistFileNote, RulePreview, ruleModes } from "~/components/admin/folder-rule-parts";
 import { useConfirm } from "~/components/confirm-provider";
 import { FolderSelect } from "~/components/playlists/folder-select";
 import { PageCrumb } from "~/components/shell/crumb";
@@ -13,10 +13,10 @@ import { Field, FormActions, FormSection, SettingRow } from "~/components/shell/
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Switch } from "~/components/ui/switch";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 /** One folder rule: what it follows, what it makes, and the result as it stands. Changes rebuild it straight away. */
 export function RuleView({ id }: { id: number }) {
@@ -31,18 +31,28 @@ export function RuleView({ id }: { id: number }) {
   const sync = useMutation(trpc.admin.folderRules.sync.mutationOptions({ onSuccess: refresh, onError }));
   const remove = useMutation(
     trpc.admin.folderRules.delete.mutationOptions({
-      onSuccess: async () => {
-        await refresh();
+      // Not awaited: the page shows a placeholder from here until it has left (see below).
+      onSuccess: () => {
+        void refresh();
         router.push("/admin/folder-playlists");
       },
       onError,
     }),
   );
 
+  // Removed and on the way out. Asking for the rule again would only say it isn't there.
+  if (remove.isSuccess) {
+    return (
+      <Page maxWidth="max-w-4xl">
+        <CardSkeleton sections={2} />
+      </Page>
+    );
+  }
+
   if (rule.isError) {
     return (
       <Page maxWidth="max-w-4xl">
-        <LoadError message={rule.error.message} />
+        <LoadError error={rule.error} />
       </Page>
     );
   }
@@ -50,12 +60,23 @@ export function RuleView({ id }: { id: number }) {
   if (!data) {
     return (
       <Page maxWidth="max-w-4xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={2} />
       </Page>
     );
   }
   // The folder as people name it: the library, then the path inside it when the rule isn't on the whole library.
   const where = data.path ? `${data.libraryName}/${data.path}` : data.libraryName;
+  /** Changing what a rule makes throws away what it made, pins on those playlists included, so it is asked about first. */
+  const changeMode = async (mode: typeof data.mode) => {
+    if (mode === data.mode) return;
+    const made = [data.folderCount ? count(data.folderCount, "folder") : null, count(data.playlistCount, "playlist")].filter(Boolean).join(" and ");
+    const ok = await confirm({
+      title: `Change to "${ruleModes[mode].label}"?`,
+      description: `The ${made} this rule made ${data.folderCount + data.playlistCount === 1 ? "is" : "are"} removed and built again in the new shape. Pins on them are lost.`,
+      confirmLabel: "Change",
+    });
+    if (ok) update.mutate({ id, mode }, { onSuccess: () => toast("Rebuilt") });
+  };
 
   return (
     <Page maxWidth="max-w-4xl" className="flex flex-col gap-6">
@@ -86,12 +107,21 @@ export function RuleView({ id }: { id: number }) {
       </FormSection>
 
       <FormSection title="What it makes" className="grid gap-4">
-        <ModePicker value={data.mode} disabled={update.isPending} onChange={(mode) => mode !== data.mode && update.mutate({ id, mode }, { onSuccess: () => toast("Rebuilt") })} />
-        <Field label="Put it in" htmlFor="rule-parent" hint={`One of ${data.ownerName}'s own playlist folders, or the top level.`}>
-          <FolderSelect id="rule-parent" value={data.parentFolderId} onChange={(parentFolderId) => update.mutate({ id, parentFolderId }, { onSuccess: () => toast("Moved") })} />
-        </Field>
+        <ModePicker value={data.mode} disabled={update.isPending} onChange={changeMode} />
+        {/* The folders offered are the viewer's own, and only the rule's owner's can hold what it makes. */}
+        {data.isMine ? (
+          <Field label="Put it in" htmlFor="rule-parent" hint="One of your own playlist folders, or the top level.">
+            <FolderSelect id="rule-parent" value={data.parentFolderId} onChange={(parentFolderId) => update.mutate({ id, parentFolderId }, { onSuccess: () => toast("Moved") })} />
+          </Field>
+        ) : (
+          <p className="text-muted-foreground text-sm">{data.ownerName} made this rule, and what it makes sits among their playlists. Only they can move it.</p>
+        )}
         <SettingRow label="Everyone can see it" detail="People still only see playlists with tracks from libraries they can reach.">
-          <Switch aria-label="Everyone can see it" checked={data.isPublic} onCheckedChange={(isPublic) => update.mutate({ id, isPublic })} />
+          <Switch
+            aria-label="Everyone can see it"
+            checked={data.isPublic}
+            onCheckedChange={(isPublic) => update.mutate({ id, isPublic }, { onSuccess: () => toast(isPublic ? "Everyone can see these" : "Only the owner sees these") })}
+          />
         </SettingRow>
       </FormSection>
 
@@ -106,6 +136,7 @@ export function RuleView({ id }: { id: number }) {
         <FormActions>
           <Button
             variant="outline"
+            disabled={remove.isPending}
             onClick={async () => {
               const ok = await confirm({
                 title: "Remove this rule?",

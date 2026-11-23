@@ -65,7 +65,7 @@ export const accountRouter = router({
       .delete(appPassword)
       .where(and(eq(appPassword.id, input.id), eq(appPassword.userId, ctx.scope.user.id)))
       .returning({ name: appPassword.name });
-    if (!removed) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!removed) throw new TRPCError({ code: "NOT_FOUND", message: "App password not found." });
     await recordActivity({ action: "app_password.revoked", actor: ctx.actor, target: removed.name, headers: ctx.headers });
   }),
 });

@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent } from "react";
 import { create } from "zustand";
 
 type Selection = {
-  /** Digits typed so far, shown in the selection window. */
+  /** Digits typed so far, shown above the deck while there are any. */
   typed: string;
   /** Plays a row of the list on screen, by the number printed on it. */
   choose: ((number: number) => void) | null;

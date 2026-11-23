@@ -10,9 +10,9 @@ import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { authClient } from "~/lib/auth-client";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 /** The signed-in person's own name and password. Their music apps and playback have pages of their own. */
 export function AccountView() {
@@ -22,12 +22,12 @@ export function AccountView() {
   return (
     <Page maxWidth="max-w-2xl" className="flex flex-col gap-6">
       {profile.isError ? (
-        <LoadError message={profile.error.message} />
+        <LoadError error={profile.error} />
       ) : profile.data ? (
         // Keyed by what is saved, so the field starts from it again after each save.
         <ProfileForm key={profile.data.name} profile={profile.data} />
       ) : (
-        <Skeleton className="h-44" />
+        <CardSkeleton lines={2} />
       )}
       <PasswordForm />
     </Page>
@@ -82,7 +82,8 @@ function ProfileForm({ profile }: { profile: RouterOutputs["account"]["profile"]
 function PasswordForm() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  /** What went wrong, and which of the two fields it is about. */
+  const [error, setError] = useState<{ field: "current" | "next"; message: string } | null>(null);
   const [pending, setPending] = useState(false);
 
   return (
@@ -91,17 +92,28 @@ function PasswordForm() {
         event.preventDefault();
         setPending(true);
         setError(null);
-        const result = await authClient.changePassword({ currentPassword: current, newPassword: next, revokeOtherSessions: true });
-        setPending(false);
-        if (result.error) return setError(result.error.message ?? "Couldn't change the password.");
-        setCurrent("");
-        setNext("");
-        toast("Password changed");
+        try {
+          const result = await authClient.changePassword({ currentPassword: current, newPassword: next, revokeOtherSessions: true });
+          if (result.error) {
+            const wrongCurrent = result.error.code === "INVALID_PASSWORD";
+            return setError({
+              field: wrongCurrent ? "current" : "next",
+              message: wrongCurrent ? "That isn't your current password." : (result.error.message ?? "Couldn't change the password."),
+            });
+          }
+          setCurrent("");
+          setNext("");
+          toast("Password changed");
+        } catch {
+          toast.error("Couldn't reach the server. Try again.");
+        } finally {
+          setPending(false);
+        }
       }}
     >
       <FormSection title="Password" description="For signing in to this website. Changing it signs you out everywhere else." className="grid gap-4">
         <div className="grid gap-4 sm:max-w-xs">
-          <Field label="Current password" htmlFor="current-password">
+          <Field label="Current password" htmlFor="current-password" error={error?.field === "current" ? error.message : null}>
             <Input
               id="current-password"
               type="password"
@@ -109,9 +121,10 @@ function PasswordForm() {
               required
               value={current}
               onChange={(event) => setCurrent(event.target.value)}
+              aria-invalid={error?.field === "current"}
             />
           </Field>
-          <Field label="New password" htmlFor="new-password" error={error} hint="At least 12 characters.">
+          <Field label="New password" htmlFor="new-password" error={error?.field === "next" ? error.message : null} hint="At least 12 characters.">
             <Input
               id="new-password"
               type="password"
@@ -120,7 +133,7 @@ function PasswordForm() {
               minLength={12}
               value={next}
               onChange={(event) => setNext(event.target.value)}
-              aria-invalid={!!error}
+              aria-invalid={error?.field === "next"}
             />
           </Field>
         </div>

@@ -15,9 +15,12 @@ export function usePin() {
       onError: (error) => toast.error(error.message),
     }),
   );
-  return (playlist: { id: number; name: string; pinnedAt: Date | null }) =>
+  return (playlist: { id: number; name: string; pinnedAt: Date | null }) => {
+    // One write at a time, so a double click doesn't pin and unpin.
+    if (pin.isPending) return;
     pin.mutate(
       { id: playlist.id, pinned: !playlist.pinnedAt },
       { onSuccess: () => toast(playlist.pinnedAt ? `Unpinned ${playlist.name}` : `Pinned ${playlist.name} to the top`) },
     );
+  };
 }

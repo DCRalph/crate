@@ -13,9 +13,9 @@ import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
 import { count, formatLength } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
+import { HeroSkeleton } from "~/components/shell/skeletons";
 
 /** One album: its cover, what it is, and its tracks. */
 export function AlbumView({ id }: { id: number }) {
@@ -26,7 +26,7 @@ export function AlbumView({ id }: { id: number }) {
   if (album.isError) {
     return (
       <Page maxWidth="max-w-5xl">
-        <LoadError message={album.error.message} />
+        <LoadError error={album.error} />
       </Page>
     );
   }
@@ -67,7 +67,7 @@ export function AlbumView({ id }: { id: number }) {
           </Button>
         </Hero>
       ) : (
-        <Skeleton className="mb-4 h-56" />
+        <HeroSkeleton />
       )}
       {data ? <TrackTable tracks={data.tracks} /> : <TrackTableSkeleton />}
     </Page>

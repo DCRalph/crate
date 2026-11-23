@@ -18,11 +18,11 @@ import { LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { count } from "~/lib/format";
 import { ruleModes } from "~/components/admin/folder-rule-parts";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
+import { CardSkeleton } from "~/components/shell/skeletons";
 
 type Library = RouterOutputs["admin"]["libraries"]["byId"];
 const number = new Intl.NumberFormat("en");
@@ -57,8 +57,9 @@ export function LibraryView({ id }: { id: number }) {
   const setAccess = useMutation(trpc.admin.users.setAccess.mutationOptions({ onSuccess: refresh, onError }));
   const remove = useMutation(
     trpc.admin.libraries.delete.mutationOptions({
-      onSuccess: async () => {
-        await refresh();
+      // Not awaited: the page shows a placeholder from here until it has left (see below).
+      onSuccess: () => {
+        void refresh();
         router.push("/admin/libraries");
       },
       onError,
@@ -67,21 +68,34 @@ export function LibraryView({ id }: { id: number }) {
   const data = library.data;
   useScanAnnouncements(data ? [data] : undefined);
 
+  // Removed and on the way out. Asking for the library again would only say it isn't there.
+  if (remove.isSuccess) {
+    return (
+      <Page maxWidth="max-w-4xl">
+        <CardSkeleton sections={2} />
+      </Page>
+    );
+  }
+
   if (library.isError) {
     return (
       <Page maxWidth="max-w-4xl">
-        <LoadError message={library.error.message} />
+        <LoadError error={library.error} />
       </Page>
     );
   }
   if (!data) {
     return (
       <Page maxWidth="max-w-4xl">
-        <Skeleton className="h-64" />
+        <CardSkeleton sections={2} />
       </Page>
     );
   }
   const scanning = !!data.scan;
+  // Its folder rules go with it, and so do the playlists they made, so the warning counts them.
+  const removes = `Its albums and tracks go from the server and from any playlists${
+    data.ruleCount ? `, and so do its ${count(data.ruleCount, "folder rule")} and the playlists made from ${data.ruleCount === 1 ? "it" : "them"}` : ""
+  }. The files on disk are not touched.`;
 
   return (
     <Page maxWidth="max-w-4xl" className="flex flex-col gap-6">
@@ -94,11 +108,11 @@ export function LibraryView({ id }: { id: number }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ScanStatus library={data} running={data.scan} />
           <FormActions>
-            <Button variant="secondary" size="sm" disabled={scanning} onClick={() => scan.mutate({ id })}>
+            <Button variant="secondary" size="sm" disabled={scanning || scan.isPending} onClick={() => scan.mutate({ id })}>
               Scan now
             </Button>
             {/* A normal scan skips files that haven't changed; this reads all of them again. */}
-            <Button variant="outline" size="sm" disabled={scanning} onClick={() => scan.mutate({ id, full: true })}>
+            <Button variant="outline" size="sm" disabled={scanning || scan.isPending} onClick={() => scan.mutate({ id, full: true })}>
               Rescan every file
             </Button>
           </FormActions>
@@ -180,19 +194,21 @@ export function LibraryView({ id }: { id: number }) {
               />
             ))}
           </ListRows>
+        ) : rules.isError ? (
+          <LoadError error={rules.error} />
         ) : (
-          <p className="text-muted-foreground text-sm">None yet.</p>
+          <p className="text-muted-foreground text-sm">{rules.isPending ? "Loading" : "None yet."}</p>
         )}
       </FormSection>
 
-      <FormSection title="Remove" description="Its albums and tracks go from the server and from any playlists. The files on disk are not touched.">
+      <FormSection title="Remove" description={removes}>
         <Button
           variant="outline"
-          disabled={scanning}
+          disabled={scanning || remove.isPending}
           onClick={async () => {
             const ok = await confirm({
               title: `Remove ${data.name}?`,
-              description: "Its albums and tracks go from the server and from any playlists. The files on disk are not touched.",
+              description: removes,
               confirmLabel: "Remove",
               variant: "destructive",
             });

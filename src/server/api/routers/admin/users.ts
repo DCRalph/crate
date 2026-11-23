@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "~/lib/auth";
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
-import { appPassword, library, libraryAccess } from "~/server/db/app-schema";
+import { appPassword, folderRule, library, libraryAccess } from "~/server/db/app-schema";
 import { session, user } from "~/server/db/schema";
 import { buildListQuery, listResult, type ListColumnMap } from "~/server/list/build-list-query";
 import { listInputSchema } from "~/server/list/list-input";
@@ -103,9 +103,10 @@ export const usersRouter = router({
   }),
 
   /** One user, every library with what they can do there, their app passwords, and when they were last seen. */
-  byId: adminProcedure.input(z.object({ id: userId })).query(async ({ input }) => {
+  byId: adminProcedure.input(z.object({ id: userId })).query(async ({ ctx, input }) => {
     const found = await findUser(input.id);
-    const [access, appPasswords, [onWeb]] = await Promise.all([
+    const [ruleCount, access, appPasswords, [onWeb]] = await Promise.all([
+      db.$count(folderRule, eq(folderRule.ownerId, input.id)),
       db
         .select({
           libraryId: library.id,
@@ -142,6 +143,10 @@ export const usersRouter = router({
       maxBitRate: found.maxBitRate,
       createdAt: found.createdAt,
       lastSeenAt: seen.length ? new Date(Math.max(...seen)) : null,
+      /** Whether this is the admin's own account, which they can't demote, disable or delete. */
+      isSelf: found.id === ctx.actor.id,
+      /** Folder rules they own. These, and the playlists they made, go if the account does. */
+      ruleCount,
       access,
       appPasswords,
     };
@@ -295,7 +300,7 @@ export const usersRouter = router({
 
   revokeAppPassword: adminProcedure.input(z.object({ id: z.number().int() })).mutation(async ({ ctx, input }) => {
     const [removed] = await db.delete(appPassword).where(eq(appPassword.id, input.id)).returning();
-    if (!removed) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!removed) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
     const owner = await findUser(removed.userId);
     await recordActivity({
       action: "app_password.revoked",

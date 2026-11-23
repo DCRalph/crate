@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ListMusic, Pause, Play, SkipBack, SkipForward, Volume1, Volume2, VolumeX, X } from "lucide-react";
+import { ListMusic, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
@@ -17,9 +17,10 @@ import type { WebTrack } from "~/server/api/routers/library";
 import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { levelFor, usePlayback } from "./playback";
-import { rowNumber, useSelection } from "./selection";
-import { usePlayer } from "./store";
+import { useSelection } from "./selection";
+import { useCanSkip, usePlayer } from "./store";
 import { StreamControl } from "./stream-control";
+import { Volume } from "./volume";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
 const playedAfter = (duration: number) => Math.min(duration / 2, 240);
@@ -31,6 +32,12 @@ type Clock = {
   /** Where to move a file to once enough of it has loaded to seek. */
   seekOnLoad: number | null;
 };
+
+/** What Space presses when it has the keyboard's focus. */
+const spaceControls = "button, a, [role=button], [role=checkbox], [role=switch], [role=radio], [role=tab], [role=option]";
+
+/** Previous goes back a track only this early in one, in seconds. Later than that it starts the track over. */
+const restartAfter = 3;
 
 /** How far into the track the element is, in seconds. */
 const positionOf = (clock: Clock, audio: HTMLAudioElement) => clock.seekOnLoad ?? clock.offset + audio.currentTime;
@@ -59,10 +66,15 @@ function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecisi
  * The bar across the bottom of the app, and the only audio element. It
  * follows the player store: a new current track loads, `playing` plays or
  * pauses, and the playback preferences decide what is asked for and how loud
- * it is. Media keys and lock-screen controls work through the Media Session API.
+ * it is. Media keys and lock-screen controls (skip, and seeking where the
+ * device offers it) work through the Media Session API.
  *
  * A file the browser turns out not to play is asked for again as a
- * conversion, once, and only a conversion that fails is reported.
+ * conversion, once, and only a conversion that fails is reported. The queue
+ * then goes on to the next track, and stops if that one fails as well.
+ *
+ * Nothing is fetched until something is played, so opening the app with a
+ * saved queue costs the server nothing.
  *
  * Phones get a slimmer bar (title, play, next); tapping it opens the Now
  * playing sheet, which has the scrubber, the full transport and the queue.
@@ -72,15 +84,20 @@ export function PlayerBar() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { track, sent } = usePlayback();
   const playing = usePlayer((state) => state.playing);
-  const index = usePlayer((state) => state.index);
   const volume = usePlayer((state) => state.volume);
   const normalise = usePlayer((state) => state.normalise);
-  const { next, previous, setPlaying, setVolume, toggleMute, markUnplayable } = usePlayer.getState();
+  const turn = usePlayer((state) => state.turn);
+  const { next, previous, setPlaying, markUnplayable } = usePlayer.getState();
   const [time, setTime] = useState(0);
+  /** Sound has been asked for and hasn't started: a stream still loading or converting, or one that stalled. */
+  const [waiting, setWaiting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const queueButton = useRef<HTMLButtonElement>(null);
   const clock = useRef<Clock>({ offset: 0, seekOnLoad: null });
-  /** The track the element has loaded, to tell a new play from the same one loaded again. */
-  const loadedTrack = useRef<number | undefined>(undefined);
+  /** What the element has loaded, to tell a new play from the same one loaded again. */
+  const loaded = useRef<{ trackId: number; turn: number } | undefined>(undefined);
+  /** Tracks in a row that couldn't be played. */
+  const failures = useRef(0);
   /** Counts plays, so each is recorded once however often its stream is loaded (a seek, a change of quality). */
   const plays = useRef(0);
   const recordedPlay = useRef(0);
@@ -99,20 +116,22 @@ export function PlayerBar() {
   const source = track && sent ? webStreamUrl(track.id, sent) : null;
   const onSource = useEffectEvent((audio: HTMLAudioElement) => {
     if (!track) {
-      loadedTrack.current = undefined;
+      loaded.current = undefined;
       audio.removeAttribute("src");
       audio.load();
       return;
     }
-    // The same track from another address is a change of quality or format, or a file that failed and is now converted. Not a new play: it carries on from where it was.
-    const samePlay = loadedTrack.current === track.id;
+    // The same track from another address, without having been chosen again, is a change of quality or format, or a
+    // file that failed and is now converted. Not a new play: it carries on from where it was.
+    const samePlay = loaded.current?.trackId === track.id && loaded.current.turn === turn;
     if (!samePlay) plays.current++;
-    loadedTrack.current = track.id;
+    loaded.current = { trackId: track.id, turn };
     load(audio, samePlay && !audio.ended ? positionOf(clock.current, audio) : 0);
   });
+  // `turn` as well as the address: choosing the track that is already playing (its row, Next onto a second copy) starts it over.
   useEffect(() => {
     if (audioRef.current) onSource(audioRef.current);
-  }, [source]);
+  }, [source, turn]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -126,28 +145,23 @@ export function PlayerBar() {
     if (audioRef.current) audioRef.current.volume = volume * level;
   }, [volume, level]);
 
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    navigator.mediaSession.metadata = track
-      ? new MediaMetadata({
-          title: track.title,
-          artist: track.artistName,
-          album: track.albumName,
-          artwork: [{ src: `/api/cover/album/${track.albumId}?size=512`, sizes: "512x512", type: "image/jpeg" }],
-        })
-      : null;
-    navigator.mediaSession.setActionHandler("nexttrack", () => usePlayer.getState().next());
-    navigator.mediaSession.setActionHandler("previoustrack", () => usePlayer.getState().previous());
-  }, [track]);
-
   // Space plays and pauses, and digits then Enter pick a numbered row, unless
-  // the key belongs to a control or a text field.
+  // the key belongs to a field, a menu or a slider, or a dialog is asking
+  // something. The queue is a dialog only in name: the page behind it is still in use.
   useEffect(() => {
     let idle: ReturnType<typeof setTimeout> | undefined;
+    let spaceTaken = false;
+    /** The control that has focus only because it was just clicked. Tab hands the keyboard back to the controls. */
+    let clicked: Element | null = null;
+    const onPointerDown = (event: PointerEvent) => {
+      clicked = event.target instanceof Element ? event.target.closest(spaceControls) : null;
+    };
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (target.closest("input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=dialog], [role=slider]")) return;
+      if (event.key === "Tab") clicked = null;
+      const target = event.target;
+      if (event.metaKey || event.ctrlKey || event.altKey || !(target instanceof HTMLElement)) return;
+      if (target.closest("input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=slider], [role=alertdialog]")) return;
+      if (target.closest("[role=dialog]:not([data-queue])")) return;
       const selection = useSelection.getState();
 
       if (/^[0-9]$/.test(event.key)) {
@@ -161,16 +175,30 @@ export function PlayerBar() {
         selection.commit();
       } else if (selection.typed && event.key === "Backspace") selection.back();
       else if (selection.typed && event.key === "Escape") selection.clear();
-      else if (event.code === "Space" && !target.closest("button, a, [role]")) {
+      // A control reached with the keyboard keeps Space for itself. One that only has focus because it was just
+      // clicked doesn't: Space after clicking Next should pause, not skip again.
+      else if (event.code === "Space" && (target.closest(spaceControls) ?? clicked) === clicked) {
         event.preventDefault();
+        spaceTaken = true;
+        if (event.repeat) return;
         const state = usePlayer.getState();
         state.setPlaying(!state.playing);
       }
     };
+    // Some browsers press a focused button when Space comes up, whatever happened on the way down.
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !spaceTaken) return;
+      spaceTaken = false;
+      event.preventDefault();
+    };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("pointerdown", onPointerDown, true);
     return () => {
       clearTimeout(idle);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("pointerdown", onPointerDown, true);
     };
   }, []);
 
@@ -178,22 +206,63 @@ export function PlayerBar() {
   const seek = (seconds: number) => {
     const audio = audioRef.current;
     if (!audio || !sent) return;
-    // A converted stream can't be sought, so it is loaded again from there.
-    if (sent.transcode) load(audio, seconds);
+    // A converted stream can't be sought, so it is loaded again from there. Never from the very end, which would be an empty stream.
+    if (sent.transcode) load(audio, Math.min(seconds, Math.max(duration - 2, 0)));
     // A file that hasn't loaded far enough to seek is moved when it has.
     else if (audio.readyState === 0) clock.current = { offset: 0, seekOnLoad: seconds };
     else audio.currentTime = seconds;
     setTime(seconds);
   };
-  const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: previous };
+  /** Previous, the way every player does it: back a track from the start of one, otherwise back to the start of this one. */
+  const back = () => {
+    const audio = audioRef.current;
+    if (audio && usePlayer.getState().index > 0 && positionOf(clock.current, audio) <= restartAfter) return previous();
+    seek(0);
+    setPlaying(true);
+  };
+  const onBack = useEffectEvent(back);
+  // A media key on the last track leaves it playing, like the key on the deck, which is switched off there.
+  const onSkip = useEffectEvent(() => {
+    const { index, queue, repeat } = usePlayer.getState();
+    if (index < queue.length - 1 || repeat !== "off") next();
+  });
+  const onSeek = useEffectEvent(seek);
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.metadata = track
+      ? new MediaMetadata({
+          title: track.title,
+          artist: track.artistName,
+          album: track.albumName,
+          artwork: [{ src: `/api/cover/album/${track.albumId}?size=512`, sizes: "512x512", type: "image/jpeg" }],
+        })
+      : null;
+    navigator.mediaSession.setActionHandler("nexttrack", () => onSkip());
+    navigator.mediaSession.setActionHandler("previoustrack", () => onBack());
+    navigator.mediaSession.setActionHandler("seekto", ({ seekTime }) => {
+      if (seekTime !== undefined) onSeek(seekTime);
+    });
+  }, [track]);
+
+  const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: back };
+  const loading = playing && waiting;
 
   return (
-    // Always the night cabinet, so the lamp and the selection number read the same at any hour.
+    // Always the night cabinet, so the lamps read the same at any hour.
     <footer id="player-bar" className="night bg-muted relative z-50 flex h-(--player-height) shrink-0 items-center gap-2.5 border-t px-3 sm:gap-3.5 sm:px-4">
       <audio
         ref={audioRef}
-        preload="auto"
-        onLoadStart={(event) => setTime(positionOf(clock.current, event.currentTarget))}
+        preload="none"
+        onLoadStart={(event) => {
+          setWaiting(true);
+          setTime(positionOf(clock.current, event.currentTarget));
+        }}
+        onWaiting={() => setWaiting(true)}
+        onCanPlay={() => setWaiting(false)}
+        onPlaying={() => {
+          setWaiting(false);
+          failures.current = 0;
+        }}
         onLoadedMetadata={(event) => {
           const { seekOnLoad } = clock.current;
           if (seekOnLoad === null) return;
@@ -208,20 +277,13 @@ export function PlayerBar() {
             recordPlay.mutate({ trackId: track.id });
           }
         }}
-        onEnded={(event) => {
-          const before = usePlayer.getState().queue[usePlayer.getState().index]?.id;
-          next();
-          const after = usePlayer.getState();
-          if (after.queue[after.index]?.id !== before) return;
-          if (after.playing) {
-            // The same track twice in a row doesn't load again, so it is restarted by hand, as a new play.
-            plays.current++;
-            seek(0);
-            start(event.currentTarget);
-          } else if (sent?.transcode) {
-            // The queue ran out. Playing a finished file starts it over; a converted stream has to be loaded again to do that.
-            seek(0);
-          }
+        onEnded={() => {
+          const ended = usePlayer.getState();
+          // Repeating one track chooses it again, which starts it over as a new play.
+          if (ended.repeat === "one") ended.jump(ended.index);
+          else next();
+          // The queue ran out. Playing a finished file starts it over; a converted stream has to be loaded again to do that.
+          if (!usePlayer.getState().playing && sent?.transcode) seek(0);
         }}
         onPlay={() => setPlaying(true)}
         // Paused from outside (media keys, headphones). Not the pause a track change causes while loading.
@@ -238,8 +300,12 @@ export function PlayerBar() {
             markUnplayable(track.id);
             return;
           }
-          setPlaying(false);
+          setWaiting(false);
           toast.error(`Couldn't play ${track.title}.`);
+          // One bad file shouldn't stop the music, so the queue goes on. Two in a row means something bigger is wrong.
+          const { index, queue } = usePlayer.getState();
+          if (++failures.current < 2 && index < queue.length - 1) next();
+          else setPlaying(false);
         }}
       />
 
@@ -249,12 +315,12 @@ export function PlayerBar() {
         style={{ transform: `scaleX(${duration ? Math.min(time / duration, 1) : 0})` }}
       />
 
-      <SelectionWindow playing={playing} index={track ? index : null} />
+      <TypedSelection />
 
-      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-72 md:flex-none">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-64 md:flex-none lg:w-72">
         {track ? (
-          // Keyed by track, so each new one rises into place.
-          <div key={track.id} className="animate-rise flex min-w-0 flex-1 items-center gap-2.5">
+          // Keyed by track, so each new one rises into place. It sits back a little until the sound starts.
+          <div key={track.id} aria-busy={loading} className={cn("animate-rise flex min-w-0 flex-1 items-center gap-2.5 transition-opacity", loading && "opacity-55")}>
             <Cover type="album" id={track.albumId} size={96} className="size-11 max-sm:hidden" />
             {/* The track as a title strip: name on ivory, artist on the band. */}
             <div className="print min-w-0 flex-1 overflow-hidden rounded-[3px] max-md:hidden">
@@ -266,7 +332,12 @@ export function PlayerBar() {
               </Link>
             </div>
             {/* Phones: the whole strip opens Now playing. */}
-            <button type="button" className="print min-w-0 flex-1 overflow-hidden rounded-[3px] text-left outline-none md:hidden" onClick={() => setSheetOpen(true)}>
+            <button
+              type="button"
+              aria-label={`Now playing: ${track.title}, ${track.artistName}`}
+              className="print focus-visible:ring-ring/60 min-w-0 flex-1 overflow-hidden rounded-[3px] text-left outline-none focus-visible:ring-[3px] md:hidden"
+              onClick={() => setSheetOpen(true)}
+            >
               <span className="t-label block truncate px-2 text-[12.5px] leading-6">{track.title}</span>
               <span className="bg-brand block truncate px-2 text-xs leading-5 font-medium">{track.artistName}</span>
             </button>
@@ -278,12 +349,13 @@ export function PlayerBar() {
         {track ? <LikeButton key={`like-${track.id}`} track={track} className="max-md:hidden" /> : null}
       </div>
 
-      <Transport {...transport} className="max-md:[&>[data-previous]]:hidden" />
+      <Transport {...transport} className="max-md:[&>[data-wide]]:hidden" />
       <Scrubber time={time} duration={duration} disabled={!track} onSeek={seek} tone="lamp" className="min-w-0 flex-1 max-md:hidden" />
 
       <div className="flex items-center justify-end gap-1">
         <StreamControl className="max-md:hidden" />
         <Button
+          ref={queueButton}
           variant="ghost"
           size="icon-sm"
           aria-label="Queue"
@@ -293,15 +365,16 @@ export function PlayerBar() {
         >
           <ListMusic />
         </Button>
-        <div className="flex items-center gap-1 max-lg:hidden">
-          <Button variant="ghost" size="icon-sm" aria-label={volume ? "Mute" : "Unmute"} className="text-muted-foreground" onClick={toggleMute}>
-            {volume === 0 ? <VolumeX /> : volume < 0.5 ? <Volume1 /> : <Volume2 />}
-          </Button>
-          <Slider aria-label="Volume" className="w-24" min={0} max={1} step={0.02} value={[volume]} onValueChange={([value]) => setVolume(value ?? 0)} />
-        </div>
+        {/* Narrower screens find the volume in the playback settings. */}
+        <Volume className="max-lg:hidden" />
       </div>
 
-      <NowPlaying open={sheetOpen} onOpenChange={setSheetOpen} track={track}>
+      {/* What a screen reader hears when the track changes. */}
+      <p className="sr-only" aria-live="polite">
+        {track ? `${track.title}, ${track.artistName}` : ""}
+      </p>
+
+      <NowPlaying open={sheetOpen} onOpenChange={setSheetOpen} track={track} returnFocusTo={queueButton}>
         <Scrubber time={time} duration={duration} disabled={!track} onSeek={seek} />
         <Transport {...transport} large />
         {/* The settings page would open behind the sheet, so following the link to it closes the sheet. */}
@@ -312,25 +385,43 @@ export function PlayerBar() {
 }
 
 /**
- * The selection window: the number of the row that is playing, in amber on
- * dark glass. While a number is being typed it shows that instead. The number
- * rolls in once each time it changes.
+ * The number being typed to pick a row, in amber on dark glass just above the
+ * deck. It is only there while a number is being typed, and rolls once for
+ * each digit.
  */
-function SelectionWindow({ playing, index }: { playing: boolean; index: number | null }) {
+function TypedSelection() {
   const typed = useSelection((state) => state.typed);
-  const label = typed ? "Select" : index === null ? "Ready" : playing ? "Playing" : "Paused";
-  const number = typed || (index === null ? "00" : rowNumber(index));
+  if (!typed) return null;
   return (
-    <div className="bg-glass shrink-0 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)]" aria-live="polite">
-      <span className="t-label text-muted-foreground block text-[9.5px] tracking-[0.1em]">{label}</span>
-      <span key={number} className={cn("t-num animate-roll block text-[26px] tracking-[0.06em]", index === null && !typed ? "text-muted-foreground/50" : "text-lamp")}>
-        {number}
+    <div role="status" className="bg-glass animate-rise absolute bottom-full left-3 mb-2 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)]">
+      <span className="t-label text-muted-foreground block text-[9.5px] tracking-[0.1em]">Select</span>
+      <span key={typed} className="t-num animate-roll text-lamp block text-[26px] tracking-[0.06em]">
+        {typed}
       </span>
     </div>
   );
 }
 
-/** Previous, play or pause, next. */
+/** A key that switches a way of playing on and off. Its lamp is lit while it is on. */
+function ModeKey({ label, lit, large, onClick, children }: { label: string; lit: boolean; large: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Button
+      data-wide
+      variant="ghost"
+      size={large ? "icon-lg" : "icon-sm"}
+      aria-label={label}
+      title={label}
+      aria-pressed={lit}
+      className={cn("relative", lit ? "text-foreground" : "text-muted-foreground")}
+      onClick={onClick}
+    >
+      {children}
+      {lit ? <span className="lamp animate-pop absolute bottom-px left-1/2 size-1.5 -translate-x-1/2" data-lit /> : null}
+    </Button>
+  );
+}
+
+/** Shuffle, previous, play or pause, next, repeat. The slim bar on a phone keeps only play and next. */
 function Transport({
   playing,
   disabled,
@@ -348,9 +439,16 @@ function Transport({
   onPrevious: () => void;
   className?: string;
 }) {
+  const canSkip = useCanSkip();
+  const shuffle = usePlayer((state) => state.lineup !== null);
+  const repeat = usePlayer((state) => state.repeat);
+  const { toggleShuffle, cycleRepeat } = usePlayer.getState();
   return (
     <div className={cn("flex shrink-0 items-center justify-center", large ? "gap-3" : "gap-1.5", className)}>
-      <Button data-previous size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
+      <ModeKey label={shuffle ? "Shuffle is on" : "Shuffle"} lit={shuffle} large={large} onClick={toggleShuffle}>
+        <Shuffle />
+      </ModeKey>
+      <Button data-wide size={large ? "icon-lg" : "icon-sm"} aria-label="Previous" disabled={disabled} onClick={onPrevious}>
         <SkipBack className="fill-current" />
       </Button>
       {/* The one coral key on the deck. */}
@@ -363,16 +461,22 @@ function Transport({
       >
         {playing ? <Pause className={cn("fill-current", large && "size-5")} /> : <Play className={cn("fill-current", large && "size-5")} />}
       </Button>
-      <Button size={large ? "icon-lg" : "icon-sm"} aria-label="Next" disabled={disabled} onClick={onNext}>
+      {/* Off on the last track unless repeating: there is nowhere to go, and it shouldn't stop the music. */}
+      <Button size={large ? "icon-lg" : "icon-sm"} aria-label="Next" disabled={disabled || !canSkip} onClick={onNext}>
         <SkipForward className="fill-current" />
       </Button>
+      <ModeKey label={repeat === "one" ? "Repeating this track" : repeat === "all" ? "Repeating the queue" : "Repeat"} lit={repeat !== "off"} large={large} onClick={cycleRepeat}>
+        {repeat === "one" ? <Repeat1 /> : <Repeat />}
+      </ModeKey>
     </div>
   );
 }
 
 /**
- * Elapsed time, the seek slider, and the track's length. A drag shows where it
- * will land and seeks when it is let go; an arrow key seeks straight away.
+ * Elapsed time, the seek slider, and the track's length. Moving the thumb
+ * shows where it will land; the seek itself waits for the drag to be let go,
+ * or for the arrow keys to be still for a moment, so holding one down is one
+ * seek and not one for every repeat.
  */
 function Scrubber({
   time,
@@ -390,16 +494,29 @@ function Scrubber({
   tone?: "lamp";
   className?: string;
 }) {
-  const [dragging, setDragging] = useState<number | null>(null);
-  // Only a pointer drag has a "let go". For a key press the slider reports the commit before the change, so the two can't share a path.
+  /** Where the thumb has been moved to and the track hasn't yet. */
+  const [moved, setMoved] = useState<number | null>(null);
+  const movedTo = useRef<number | null>(null);
   const pointerDown = useRef(false);
-  const shown = dragging ?? time;
+  const still = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(still.current), []);
+
+  const commit = () => {
+    clearTimeout(still.current);
+    pointerDown.current = false;
+    if (movedTo.current !== null) onSeek(movedTo.current);
+    movedTo.current = null;
+    setMoved(null);
+  };
+  const shown = moved ?? time;
+
   return (
     <div className={cn("text-muted-foreground flex w-full items-center gap-2 text-[11px] tabular-nums", className)}>
       <span className="w-9 text-right">{formatDuration(shown)}</span>
       <Slider
         tone={tone}
         aria-label="Seek"
+        aria-valuetext={`${formatDuration(shown)} of ${formatDuration(duration)}`}
         disabled={disabled}
         min={0}
         max={Math.max(duration, 1)}
@@ -408,15 +525,17 @@ function Scrubber({
         onPointerDown={() => {
           pointerDown.current = true;
         }}
-        onValueChange={([value]) => {
-          if (pointerDown.current) setDragging(value ?? 0);
-          else onSeek(value ?? 0);
+        onValueChange={([value = 0]) => {
+          movedTo.current = value;
+          setMoved(value);
+          if (pointerDown.current) return;
+          clearTimeout(still.current);
+          still.current = setTimeout(commit, 250);
         }}
-        onValueCommit={([value]) => {
-          if (!pointerDown.current) return;
-          pointerDown.current = false;
-          onSeek(value ?? 0);
-          setDragging(null);
+        // The drag being let go, wherever the pointer ended up. The slider's own commit is skipped when the thumb
+        // comes back to where it started, which would leave the clock stuck on the drag.
+        onLostPointerCapture={() => {
+          if (pointerDown.current) commit();
         }}
       />
       <span className="w-9">{formatDuration(duration)}</span>
@@ -434,21 +553,26 @@ function NowPlaying({
   open,
   onOpenChange,
   track,
+  returnFocusTo,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   track: WebTrack | undefined;
+  /** Where the keyboard goes back to when the sheet closes. */
+  returnFocusTo: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }) {
-  const queue = usePlayer((state) => state.queue);
-  const index = usePlayer((state) => state.index);
-  const { jump, remove, play } = usePlayer.getState();
+  const length = usePlayer((state) => state.queue.length);
+  /** Whether the sheet is closing because something on the page was clicked, which then keeps the focus. */
+  const clickedAway = useRef(false);
 
   return (
     // Not modal: the player bar stays live while the queue is open.
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
+        // Marks the one dialog that Space and the number keys still work in.
+        data-queue
         className="w-full gap-0 outline-none md:bottom-(--player-height)! md:h-auto!"
         // Focus goes to the sheet itself, not to "Clear" just because it is the first control.
         onOpenAutoFocus={(event) => {
@@ -458,6 +582,13 @@ function NowPlaying({
         // Using the bar (skipping, the queue button itself, its playback settings) shouldn't count as clicking away.
         onInteractOutside={(event) => {
           if ((event.target as HTMLElement).closest("#player-bar, [data-player-settings]")) event.preventDefault();
+          else clickedAway.current = true;
+        }}
+        // Closed from inside (Escape, the close key), the keyboard goes back to the queue button.
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (!clickedAway.current) returnFocusTo.current?.focus();
+          clickedAway.current = false;
         }}
       >
         <SheetHeader className="border-b">
@@ -466,9 +597,13 @@ function NowPlaying({
             <span className="max-md:hidden">Queue</span>
           </SheetTitle>
           <SheetDescription className="flex items-center gap-3 text-xs">
-            <span className="tabular-nums">{count(queue.length, "track")}</span>
-            {queue.length ? (
-              <button type="button" className="hover:text-foreground underline-offset-4 hover:underline" onClick={() => play([])}>
+            <span className="tabular-nums">{count(length, "track")}</span>
+            {length > 1 ? (
+              <button
+                type="button"
+                className="hover:text-foreground focus-visible:text-foreground underline-offset-4 outline-none hover:underline focus-visible:underline"
+                onClick={usePlayer.getState().clear}
+              >
                 Clear
               </button>
             ) : null}
@@ -489,31 +624,52 @@ function NowPlaying({
           </div>
         ) : null}
 
-        {queue.length ? (
-          <ol className="no-scrollbar flex-1 overflow-y-auto p-2">
-            {queue.map((item, i) => (
-              <li key={`${item.id}-${i}`} className="group hover:bg-accent/50 flex items-center gap-2 rounded-md pr-1 transition-colors">
-                <button type="button" className="min-w-0 flex-1 px-2 py-1.5 text-left outline-none" onClick={() => jump(i)}>
-                  <p className={cn("truncate text-sm", i === index && "text-brand-text")}>{item.title}</p>
-                  <p className="text-muted-foreground truncate text-xs">{item.artistName}</p>
-                </button>
-                <span className="text-muted-foreground text-xs tabular-nums">{formatDuration(item.duration)}</span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remove ${item.title} from queue`}
-                  className="text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-                  onClick={() => remove(i)}
-                >
-                  <X />
-                </Button>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-muted-foreground p-4 text-sm">The queue is empty. Line something up.</p>
-        )}
+        <QueueList />
       </SheetContent>
     </Sheet>
   );
 }
+
+/**
+ * The queue's rows. On its own and memoised, because the sheet around it is
+ * drawn again every time the clock ticks, and a long queue shouldn't be.
+ */
+const QueueList = memo(function QueueList() {
+  const queue = usePlayer((state) => state.queue);
+  const index = usePlayer((state) => state.index);
+  const playing = usePlayer((state) => state.playing);
+  const { jump, remove } = usePlayer.getState();
+  // The queue opens on the track that is playing, with what comes next below it, and follows it from one track to the
+  // next. A ref, not an effect: the sheet's rows don't exist yet when it is told to open.
+  const showCurrent = useCallback((row: HTMLLIElement | null) => row?.scrollIntoView({ block: "start" }), []);
+
+  if (!queue.length) return <p className="text-muted-foreground p-4 text-sm">The queue is empty. Line something up.</p>;
+  return (
+    <ol className="no-scrollbar flex-1 overflow-y-auto p-2">
+      {queue.map((item, i) => (
+        <li
+          key={`${item.id}-${i}`}
+          ref={i === index ? showCurrent : undefined}
+          aria-current={i === index ? "true" : undefined}
+          className="group hover:bg-accent/50 has-focus-visible:bg-accent/50 flex scroll-mt-1 items-center gap-2 rounded-md pr-1 pl-2 transition-colors"
+        >
+          <span className="lamp" data-lit={i === index && playing} />
+          <button type="button" className="min-w-0 flex-1 px-1 py-1.5 text-left outline-none" onClick={() => jump(i)}>
+            <p className={cn("truncate text-sm group-has-focus-visible:underline", i === index && "text-brand-text")}>{item.title}</p>
+            <p className="text-muted-foreground truncate text-xs">{item.artistName}</p>
+          </button>
+          <span className="text-muted-foreground text-xs tabular-nums">{formatDuration(item.duration)}</span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Remove ${item.title} from queue`}
+            className="text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+            onClick={() => remove(i)}
+          >
+            <X />
+          </Button>
+        </li>
+      ))}
+    </ol>
+  );
+});

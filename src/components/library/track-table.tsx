@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Info, ListEnd, ListPlus, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
+import { Disc3, Download, Info, ListEnd, ListPlus, ListStart, MicVocal, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
@@ -20,7 +20,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { Skeleton } from "~/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
@@ -30,6 +29,7 @@ import { Cover } from "./cover";
 import { LikeButton } from "./like-button";
 import { usePendingTracks } from "./pending-tracks";
 import { TrackInfoDialog } from "./track-info";
+import { RowsSkeleton } from "~/components/shell/skeletons";
 
 /**
  * The list of tracks on an album, playlist or search page, printed as a card.
@@ -73,7 +73,7 @@ export function TrackTable({
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="animate-arrive">
             {tracks.map((track, index) => {
               const isCurrent = current?.id === track.id;
               // The playing row's button pauses and resumes; any other row starts the list from there.
@@ -82,7 +82,10 @@ export function TrackTable({
                 <TableRow
                   key={`${track.id}-${index}`}
                   className={cn("group select-none", isCurrent && "bg-muted hover:bg-muted font-semibold")}
-                  onDoubleClick={() => play(tracks, index)}
+                  // A double click on the heart, the menu or a link is two clicks on that, not a request to play the row.
+                  onDoubleClick={(event) => {
+                    if (!(event.target instanceof Element && event.target.closest("button, a"))) play(tracks, index);
+                  }}
                 >
                   <TableCell className="pl-4">
                     <button
@@ -126,7 +129,7 @@ export function TrackTable({
                     {/* A liked heart always shows; an empty one waits for the row to be hovered or focused. */}
                     <LikeButton
                       track={track}
-                      className={cn(!track.starred && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100")}
+                      className={cn(!track.starred && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-pressed:opacity-100 pointer-coarse:opacity-100")}
                     />
                   </TableCell>
                   <TableCell className="text-muted-foreground text-right font-normal tabular-nums">{formatDuration(track.duration)}</TableCell>
@@ -148,7 +151,7 @@ export function TrackTable({
 export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo: () => void; onRemove?: () => void }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const enqueue = usePlayer((state) => state.enqueue);
+  const { enqueue, playNext } = usePlayer.getState();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // Only asked for once a menu is opened, not once per row.
@@ -176,6 +179,15 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem
             onSelect={() => {
+              playNext([track]);
+              toast(`Playing next: ${track.title}`);
+            }}
+          >
+            <ListStart />
+            Play next
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
               enqueue([track]);
               toast(`Added to queue: ${track.title}`);
             }}
@@ -199,6 +211,7 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
                 <Plus />
                 New playlist
               </DropdownMenuItem>
+              {playlists.isPending ? <DropdownMenuItem disabled>Loading playlists</DropdownMenuItem> : null}
               {editable.length ? <DropdownMenuSeparator /> : null}
               {editable.map((playlist) => (
                 <DropdownMenuItem
@@ -212,6 +225,18 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+          <DropdownMenuItem asChild>
+            <Link href={`/albums/${track.albumId}`}>
+              <Disc3 />
+              Go to album
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={`/artists/${track.artistId}`}>
+              <MicVocal />
+              Go to artist
+            </Link>
+          </DropdownMenuItem>
           {track.canDownload ? (
             <DropdownMenuItem asChild>
               <a href={`/api/download/${track.id}`} download>
@@ -239,12 +264,6 @@ export function TrackMenu({ track, onInfo, onRemove }: { track: WebTrack; onInfo
 }
 
 /** Static placeholder rows while a track list loads. */
-export function TrackTableSkeleton({ rows = 8 }: { rows?: number }) {
-  return (
-    <div className="flex flex-col gap-2 pt-2">
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-8 w-full" />
-      ))}
-    </div>
-  );
+export function TrackTableSkeleton({ rows = 8, covers = false }: { rows?: number; covers?: boolean }) {
+  return <RowsSkeleton rows={rows} covers={covers} />;
 }

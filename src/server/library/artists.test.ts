@@ -94,6 +94,12 @@ test("fromFileName reads Artist - Title names, dropping a position and a placeho
   expect(fromFileName("Rihanna - Pon de Replay (OJ's Speed Garage Remix)")).toEqual({ artist: "Rihanna", title: "Pon de Replay (OJ's Speed Garage Remix)" });
   // The title keeps any later dashes.
   expect(fromFileName("55 - 4K - MURDA STYLE - master")).toEqual({ artist: "4K", title: "MURDA STYLE - master" });
+  // A position after the placeholder is still a position, not an artist.
+  expect(fromFileName("Unknown - 01 - GUTTER BLACK DONK")).toEqual({ title: "GUTTER BLACK DONK" });
+  expect(fromFileName("Unknown - 1. Metrodome & Sl8r - Cold & Numb")).toEqual({ artist: "Metrodome & Sl8r", title: "Cold & Numb" });
+  // A position in the middle is dropped too, and the title is what follows it.
+  expect(fromFileName("Royel Otis - Foam - 01 - Foam - Sam Alfred Remix")).toEqual({ artist: "Royel Otis", title: "Foam - Sam Alfred Remix" });
+  expect(fromFileName("83 LDDR EX 010 - 04 - ENTITY - HYPERDRIVE VIP")).toEqual({ artist: "LDDR EX 010", title: "ENTITY - HYPERDRIVE VIP" });
 });
 
 test("fromFileName guesses no artist without a spaced dash, and keeps numbers that belong to a name", () => {

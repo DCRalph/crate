@@ -29,9 +29,9 @@ export function LikedView() {
       }
     >
       {liked.isPending ? (
-        <TrackTableSkeleton />
+        <TrackTableSkeleton covers />
       ) : liked.isError ? (
-        <LoadError message={liked.error.message} />
+        <LoadError error={liked.error} />
       ) : tracks.length === 0 ? (
         <Empty>Nothing liked yet. Give a heart to anything you would play twice.</Empty>
       ) : (

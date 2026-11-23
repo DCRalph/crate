@@ -40,7 +40,7 @@ function TrackFacts({ id, onLeave }: { id: number; onLeave: () => void }) {
   // Plays and likes change while the page is open, so each opening asks again.
   const info = useQuery(trpc.info.track.queryOptions({ id }, { staleTime: 0 }));
 
-  if (info.isError) return <LoadError message={info.error.message} />;
+  if (info.isError) return <LoadError error={info.error} />;
   const data = info.data;
   if (!data) return <FactsSkeleton rows={12} />;
 

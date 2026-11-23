@@ -6,18 +6,12 @@ import { Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { rowNumber, useNumbered } from "~/components/player/selection";
-import { usePlayer } from "~/components/player/store";
+import { playWhenLoaded } from "~/components/player/store";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useTRPC } from "~/trpc/react";
 import { Cover } from "./cover";
 
 export type AlbumTile = { id: number; name: string; artistName: string; year: number | null };
-
-/**
- * Counts tile plays across every grid, so an album asked for earlier (even from
- * another page) can't start over a later one when its tracks arrive late.
- */
-let playRequests = 0;
 
 const grid = "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6";
 
@@ -32,10 +26,9 @@ export function AlbumGrid({ albums, showArtist = true }: { albums: AlbumTile[]; 
   const queryClient = useQueryClient();
 
   const playAlbum = async (album: AlbumTile) => {
-    const request = ++playRequests;
     try {
-      const { tracks } = await queryClient.fetchQuery(trpc.library.album.queryOptions({ id: album.id }));
-      if (request === playRequests) usePlayer.getState().play(tracks);
+      const result = await playWhenLoaded(async () => (await queryClient.fetchQuery(trpc.library.album.queryOptions({ id: album.id }))).tracks);
+      if (result === "empty") toast(`${album.name} has no tracks.`);
     } catch {
       toast.error(`Couldn't play ${album.name}.`);
     }
@@ -86,11 +79,23 @@ export function AlbumGridSkeleton({ count = 12 }: { count?: number }) {
   return (
     <div className={grid}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i}>
-          <Skeleton className="aspect-square w-full rounded-b-none" />
-          <Skeleton className="h-11 w-full rounded-t-none opacity-60" />
-        </div>
+        <TileSkeleton key={i} index={i} />
       ))}
+    </div>
+  );
+}
+
+/** A tile that hasn't arrived: the cover's square, then the title strip as it will be, ivory over the band. */
+export function TileSkeleton({ index }: { index: number }) {
+  return (
+    <div aria-hidden>
+      <Skeleton className="aspect-square w-full rounded-b-none" />
+      <div className="print overflow-hidden rounded-b-[3px]">
+        <div className="flex h-6 items-center px-2">
+          <Skeleton className="h-2.5" style={{ width: `${45 + ((index * 17) % 40)}%` }} />
+        </div>
+        <div className="bg-brand h-5" />
+      </div>
     </div>
   );
 }

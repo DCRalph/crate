@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AppPasswordTable } from "~/components/shell/app-passwords";
 import { FormSection } from "~/components/shell/form";
 import { Page } from "~/components/shell/page";
+import { RowsSkeleton } from "~/components/shell/skeletons";
 import { LoadError, SectionHeading } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -35,7 +36,7 @@ export function AppsView() {
         description="Any Subsonic app can play from this server. Each app signs in with its own password, so you can cut one off without touching the others."
       >
         {connection.isError ? (
-          <LoadError message={connection.error.message} />
+          <LoadError error={connection.error} />
         ) : connection.data ? (
           <>
             <CopyField label="Server" value={connection.data.serverUrl} />
@@ -56,7 +57,7 @@ export function AppsView() {
           </Button>
         </SectionHeading>
         {passwords.isError ? (
-          <LoadError message={passwords.error.message} />
+          <LoadError error={passwords.error} />
         ) : passwords.data ? (
           <AppPasswordTable
             rows={passwords.data}
@@ -64,7 +65,7 @@ export function AppsView() {
             emptyMessage="No app passwords yet."
           />
         ) : (
-          <Skeleton className="h-24" />
+          <RowsSkeleton rows={2} />
         )}
       </section>
     </Page>

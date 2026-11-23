@@ -6,9 +6,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Folder, Pin, Play } from "lucide-react";
 import { toast } from "sonner";
 
+import { TileSkeleton } from "~/components/library/album-grid";
 import { Cover } from "~/components/library/cover";
 import { rowNumber, useNumbered } from "~/components/player/selection";
-import { usePlayer } from "~/components/player/store";
+import { playWhenLoaded } from "~/components/player/store";
 import { count } from "~/lib/format";
 import { itemsUnder, type Tree, type TreeNode } from "~/lib/tree";
 import { cn } from "~/lib/utils";
@@ -18,9 +19,6 @@ import { usePin } from "./use-pin";
 type FolderRow = RouterOutputs["playlists"]["tree"]["folders"][number];
 type PlaylistRow = RouterOutputs["playlists"]["tree"]["playlists"][number];
 type Level = Tree<FolderRow, PlaylistRow>;
-
-/** Counts tile plays, so a playlist asked for earlier can't start over a later one when its tracks arrive late. */
-let playRequests = 0;
 
 const grid = "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5";
 const tile = "group animate-rise relative min-w-0";
@@ -62,10 +60,9 @@ export function PlaylistGrid({ tree, flat }: { tree: Level; flat?: PlaylistRow[]
   const open = (id: number | null) => router.push(id === null ? pathname : `${pathname}?folder=${id}`);
 
   const play = async (playlist: PlaylistRow) => {
-    const request = ++playRequests;
     try {
-      const { tracks } = await queryClient.fetchQuery(trpc.playlists.byId.queryOptions({ id: playlist.id }));
-      if (request === playRequests) usePlayer.getState().play(tracks);
+      const result = await playWhenLoaded(async () => (await queryClient.fetchQuery(trpc.playlists.byId.queryOptions({ id: playlist.id }))).tracks);
+      if (result === "empty") toast(`${playlist.name} is empty.`);
     } catch {
       toast.error(`Couldn't play ${playlist.name}.`);
     }
@@ -175,5 +172,16 @@ export function PlaylistGrid({ tree, flat }: { tree: Level; flat?: PlaylistRow[]
         <p className="text-muted-foreground py-6 text-sm">{flat ? "Nothing called that." : "This folder is empty."}</p>
       )}
     </>
+  );
+}
+
+/** Static placeholders in the grid's shape while playlists load. */
+export function PlaylistGridSkeleton({ count = 10 }: { count?: number }) {
+  return (
+    <div className={grid}>
+      {Array.from({ length: count }, (_, i) => (
+        <TileSkeleton key={i} index={i} />
+      ))}
+    </div>
   );
 }

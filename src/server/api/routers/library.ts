@@ -13,6 +13,7 @@ import {
   listArtists,
   listTracks,
   search,
+  tracksWith,
   type TrackRow,
 } from "~/server/library/queries";
 import { buildListQuery, listResult, type ListColumnMap } from "~/server/list/build-list-query";
@@ -112,7 +113,7 @@ export const libraryRouter = router({
   /** Everyone credited on a track or album, joint credits split into their artists. */
   artists: protectedProcedure.query(({ ctx }) => listArtists(ctx.scope)),
 
-  /** One artist with every album they are on, including other people's. */
+  /** One artist with every album they are on, including other people's, and every track they are credited on. */
   artist: protectedProcedure.input(z.object({ id: z.number().int() })).query(async ({ ctx, input }) => {
     const [found] = await listArtists(ctx.scope, { where: eq(artist.id, input.id) });
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Artist not found." });
@@ -121,7 +122,12 @@ export const libraryRouter = router({
       orderBy: [desc(sql`coalesce(${album.year}, 0)`), byAlbumName],
       limit: 2000,
     });
-    return { ...found, albums };
+    const tracks = await listTracks(ctx.scope, {
+      where: tracksWith(input.id),
+      orderBy: [asc(sql`lower(${track.title})`), asc(track.id)],
+      limit: 2000,
+    });
+    return { ...found, albums, tracks: tracks.map((row) => toWebTrack(ctx.scope, row)) };
   }),
 
   search: protectedProcedure.input(z.object({ query: z.string().trim().min(1).max(200) })).query(async ({ ctx, input }) => {
@@ -146,7 +152,7 @@ export const libraryRouter = router({
   /** Called by the web player once a track has mostly played. */
   recordPlay: protectedProcedure.input(z.object({ trackId: z.number().int() })).mutation(async ({ ctx, input }) => {
     const [found] = await listTracks(ctx.scope, { where: eq(track.id, input.trackId) });
-    if (!found) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Track not found." });
     await recordPlay({
       userId: ctx.scope.user.id,
       username: ctx.scope.user.username,

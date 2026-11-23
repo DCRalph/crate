@@ -131,7 +131,11 @@ const DataTableRow = memo(function DataTableRow<TRow>({
       data-state={selected ? "selected" : undefined}
       className={cn("border-border", clickable && "cursor-pointer")}
       onClick={clickable ? () => handlers.current.onRowClick?.(row) : undefined}
-      onDoubleClick={() => handlers.current.onRowDoubleClick?.(row)}
+      // A double click on a control in the row is two clicks on that control.
+      onDoubleClick={(event) => {
+        if (event.target instanceof Element && event.target.closest("button, a, input, [role=checkbox]")) return;
+        handlers.current.onRowDoubleClick?.(row);
+      }}
       draggable={draggable || undefined}
       onDragStart={
         draggable
@@ -246,11 +250,7 @@ export function DataTable<TRow>({
       <div className={cn("flex flex-col gap-4", className)}>
         {(title || description) && (
           <div className="flex flex-col gap-0.5">
-            {title && (
-              <h2 className="text-sm font-semibold">
-                {title}
-              </h2>
-            )}
+            {title && <h2 className="text-sm font-semibold">{title}</h2>}
             {description && (
               <p className="text-muted-foreground text-sm">{description}</p>
             )}
@@ -331,11 +331,11 @@ export function DataTable<TRow>({
                   return (
                     <TableHead
                       key={column.id}
+                      aria-sort={isSorted ? (sortState.desc ? "descending" : "ascending") : undefined}
                       className={cn(
                         "",
                         alignClass(column.align),
-                        column.sortable &&
-                          "cursor-pointer select-none",
+                        column.sortable && "cursor-pointer select-none",
                         column.headerClassName,
                       )}
                       onClick={
@@ -350,9 +350,7 @@ export function DataTable<TRow>({
                           column.align === "right" && "flex-row-reverse",
                         )}
                       >
-                        {column.icon && (
-                          <column.icon className="size-4" />
-                        )}
+                        {column.icon && <column.icon className="size-4" />}
                         {column.header}
                         {column.sortable &&
                           (isSorted ? (
@@ -371,8 +369,14 @@ export function DataTable<TRow>({
               </TableRow>
             </TableHeader>
 
+            {/* Keyed, so the first rows fade in where the placeholders were. A later page or sort only dims. */}
             <TableBody
-              className={cn(isFetching && "opacity-60 transition-opacity")}
+              key={isLoading ? "loading" : "rows"}
+              className={cn(
+                !isLoading && "animate-arrive",
+                "transition-opacity",
+                isFetching && "opacity-60",
+              )}
             >
               {isLoading &&
                 Array.from({ length: Math.min(api.pageSize, 8) }).map(
@@ -442,7 +446,9 @@ export function DataTable<TRow>({
           )}
         </div>
 
-        {enablePagination && <DataTablePagination api={api} total={total} />}
+        {enablePagination && (
+          <DataTablePagination api={api} total={total} isLoading={isLoading} />
+        )}
       </div>
     </TableWidthProvider>
   );

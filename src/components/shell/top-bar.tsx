@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, Search } from "lucide-react";
 
-import { usePlayer } from "~/components/player/store";
+import { forgetQueue, usePlayer } from "~/components/player/store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { authClient } from "~/lib/auth-client";
+import { site } from "~/lib/site";
 import { cn } from "~/lib/utils";
 import { Mark } from "./mark";
 import { adminNav, libraryNav, navGroupFor, navItemFor, youNav, type NavItem } from "./navigation";
@@ -39,7 +41,7 @@ function Tab({ href, current, children }: { href: string; current: boolean; chil
       aria-current={current ? "page" : undefined}
       className={cn(
         "t-label focus-visible:ring-ring/60 shrink-0 rounded-t-md px-3.5 pt-2 text-[12.5px] outline-none transition-colors focus-visible:ring-[3px]",
-        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-muted-foreground hover:text-foreground pb-[7px]",
+        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-foreground/80 hover:text-foreground pb-[7px]",
       )}
     >
       {children}
@@ -63,7 +65,7 @@ export function TopBar({ user }: { user: HeaderUser }) {
   return (
     <header className="bg-muted shrink-0">
       <div className="border-strip flex flex-wrap items-end gap-x-3 border-b-[3px] px-3 pt-2.5 sm:px-4">
-        <Link href="/albums" aria-label="Albums" className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
+        <Link href="/albums" aria-label={`${site.name}, to albums`} className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
           <Mark lit={playing} />
         </Link>
         <div className="mb-2 flex min-w-0 flex-1 items-center justify-end gap-2 md:order-3 md:flex-none">
@@ -243,6 +245,7 @@ const themes: { value: ThemeChoice; label: string }[] = [
 /** The menu under a person's initial: their own pages, day or night, and signing out. */
 function UserMenu({ user }: { user: HeaderUser }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [theme, setTheme] = useThemeChoice();
   return (
     <DropdownMenu>
@@ -286,6 +289,10 @@ function UserMenu({ user }: { user: HeaderUser }) {
           className="flex items-center gap-3 py-2"
           onSelect={async () => {
             await authClient.signOut();
+            // The next person to sign in on this browser shouldn't find this one's queue on the deck, or their
+            // lists still in memory.
+            forgetQueue();
+            queryClient.clear();
             router.push("/signin");
             router.refresh();
           }}

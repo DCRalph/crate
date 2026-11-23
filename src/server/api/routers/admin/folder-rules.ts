@@ -75,10 +75,11 @@ export const folderRulesRouter = router({
         .orderBy(library.name, folderRule.path),
     ),
 
-  byId: adminProcedure.input(z.object({ id })).query(async ({ input }) => {
+  /** One rule. `isMine` says whether the admin asking owns it: only its owner's folders can hold what it makes. */
+  byId: adminProcedure.input(z.object({ id })).query(async ({ ctx, input }) => {
     const [found] = await rules().where(eq(folderRule.id, input.id));
     if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found." });
-    return found;
+    return { ...found, isMine: found.ownerId === ctx.actor.id };
   }),
 
   /**
@@ -155,7 +156,7 @@ export const folderRulesRouter = router({
       const [rule] = await tx.delete(folderRule).where(eq(folderRule.id, input.id)).returning();
       return rule;
     });
-    if (!removed) throw new TRPCError({ code: "NOT_FOUND" });
+    if (!removed) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found." });
     await recordActivity({ action: "folder_rule.deleted", actor: ctx.actor, target: removed.path || "/", headers: ctx.headers });
   }),
 });
