@@ -155,23 +155,24 @@ type FolderRow = RouterOutputs["playlists"]["tree"]["folders"][number];
 type PlaylistRow = RouterOutputs["playlists"]["tree"]["playlists"][number];
 type Level = Tree<FolderRow, PlaylistRow>;
 
-// Which folders are open in the rail's tree, kept in the browser so the tree comes back the way it was left.
+// Which folders are open in the rail's tree. Kept in memory, and in the browser where it allows, so the tree comes
+// back the way it was left. A browser that refuses storage still opens and closes folders for the visit.
 const openKey = "crate-rail-open";
 const openChanged = "crate-rail-open-change";
+let openSaved: string | null = null;
 function readOpen(): string {
-  try {
-    return window.localStorage.getItem(openKey) ?? "[]";
-  } catch {
-    return "[]";
+  if (openSaved === null) {
+    try {
+      openSaved = window.localStorage.getItem(openKey) ?? "[]";
+    } catch {
+      openSaved = "[]";
+    }
   }
+  return openSaved;
 }
 function subscribeOpen(notify: () => void) {
   window.addEventListener(openChanged, notify);
-  window.addEventListener("storage", notify);
-  return () => {
-    window.removeEventListener(openChanged, notify);
-    window.removeEventListener("storage", notify);
-  };
+  return () => window.removeEventListener(openChanged, notify);
 }
 /** The folders open in the rail, and a way to open or close one. */
 function useOpenFolders() {
@@ -186,10 +187,11 @@ function useOpenFolders() {
   const toggle = (id: number) => {
     const next = new Set(open);
     if (!next.delete(id)) next.add(id);
+    openSaved = JSON.stringify([...next]);
     try {
-      window.localStorage.setItem(openKey, JSON.stringify([...next]));
+      window.localStorage.setItem(openKey, openSaved);
     } catch {
-      // Private windows can refuse storage; the tree then just doesn't remember.
+      // Private windows can refuse storage; the tree then only remembers for this visit.
     }
     window.dispatchEvent(new Event(openChanged));
   };

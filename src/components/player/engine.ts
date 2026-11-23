@@ -119,9 +119,14 @@ export function usePlayerEngine() {
   const plays = useRef(0);
   const recordedPlay = useRef(0);
   const queryClient = useQueryClient();
-  // A recorded play changes the counts on track rows, so the lists that show them ask again.
+  // A recorded play changes the counts on track rows and the Most played list, so the ones on screen ask again.
   const recordPlay = useMutation(
-    trpc.library.recordPlay.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(trpc.library.trackRows.pathFilter()) }),
+    trpc.library.recordPlay.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries(trpc.library.trackRows.pathFilter());
+        void queryClient.invalidateQueries(trpc.library.mostPlayed.pathFilter());
+      },
+    }),
   );
 
   // The saved queue and preferences are read after mount so the first render matches the server's.

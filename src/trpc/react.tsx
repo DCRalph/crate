@@ -47,7 +47,11 @@ const makeQueryClient = () =>
 export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
   const [client] = useState(() =>
-    createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: "/api/trpc", transformer: superjson })] }),
+    createTRPCClient<AppRouter>({
+      // Queries go as GET, all of a moment's in one address. That address is kept well under what a server
+      // reads (Node takes 16 KB of headers), so a long list's row extras go as several requests rather than none.
+      links: [httpBatchLink({ url: "/api/trpc", transformer: superjson, maxURLLength: 8000 })],
+    }),
   );
   return (
     <QueryClientProvider client={queryClient}>
