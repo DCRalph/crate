@@ -8,9 +8,9 @@ const ScrollerContext = createContext<{ attach: (element: HTMLDivElement | null)
 
 /**
  * The glass's content area, and the page's main landmark. Each page scrolls
- * in its own scroller (`PageScroller`), exactly the size of the glass, so the
- * picture taken of it for a page transition is clipped to the glass and never
- * spills over the console. This keeps what the browser would otherwise do: a
+ * in its own scroller (`PageScroller`), exactly the size of the glass, so a
+ * page rising into place never spills over the console. This keeps what the
+ * browser would otherwise do: a
  * new page starts at the top, and Back returns to where you were (so a long
  * album grid isn't lost by opening an album). A page is its path and its
  * query, so a folder opened in the covers layout or the next page of a table
@@ -73,7 +73,7 @@ export function ContentScroller({ className, children }: { className?: string; c
   );
 }
 
-/** A page's own scroller, filling the glass. Rendered by `Page`; the page transition is a picture of this. */
+/** A page's own scroller, filling the glass. Rendered by `Page`. */
 export function PageScroller({ children }: { children: React.ReactNode }) {
   const scroller = useContext(ScrollerContext);
   return (

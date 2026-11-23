@@ -67,16 +67,12 @@ export function HomeView({ isAdmin }: { isAdmin: boolean }) {
     );
   }
 
-  // An album can be in more than one row, and its cover can only travel to its page from one of them: the first.
-  const shown = new Set<number>();
   // Letters go to the rows that are there, in order, so they always run A, B, C.
   const letters = [...rowLetters];
   const pinnedLetter = pinned.length ? letters.shift() : undefined;
   const row = (title: string, albums: AlbumTile[], all: string) => {
     if (!albums.length) return null;
     const letter = letters.shift();
-    const firstTime = new Set(albums.filter((album) => !shown.has(album.id)).map((album) => album.id));
-    for (const id of firstTime) shown.add(id);
     return (
       <section>
         <SectionHeading title={title} letter={letter}>
@@ -84,7 +80,7 @@ export function HomeView({ isAdmin }: { isAdmin: boolean }) {
             See all
           </Link>
         </SectionHeading>
-        <AlbumGrid albums={albums} letter={letter} row shared={(id) => firstTime.has(id)} />
+        <AlbumGrid albums={albums} letter={letter} row />
       </section>
     );
   };

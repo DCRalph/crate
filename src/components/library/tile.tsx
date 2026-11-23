@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
-import { SharedCover } from "~/components/shell/transitions";
 import { cn } from "~/lib/utils";
 import { Cover } from "./cover";
 
@@ -25,7 +24,6 @@ export const oneRow = "one-row";
 export function Tile({
   href,
   cover,
-  shared,
   name,
   band,
   code,
@@ -38,8 +36,6 @@ export function Tile({
 }: {
   href: string;
   cover: { type: "album" | "playlist"; id: number; version?: string } | { mosaic: ReactNode };
-  /** Names the cover for the page transition, so it travels to the page the tile opens. */
-  shared?: string;
   name: string;
   band: ReactNode;
   /** The tile's selection code ("B3"), on its plate and read out with its name. */
@@ -70,17 +66,15 @@ export function Tile({
         {"mosaic" in cover ? (
           cover.mosaic
         ) : (
-          <SharedCover name={shared}>
-            <Cover
-              type={cover.type}
-              id={cover.id}
-              version={cover.version}
-              size={400}
-              onArt={setArt}
-              className="w-full rounded-b-none"
-              imageClassName="group-hover:scale-[1.04]"
-            />
-          </SharedCover>
+          <Cover
+            type={cover.type}
+            id={cover.id}
+            version={cover.version}
+            size={400}
+            onArt={setArt}
+            className="w-full rounded-b-none"
+            imageClassName="group-hover:scale-[1.04]"
+          />
         )}
         <span className="print block overflow-hidden rounded-b-[3px]">
           <span className="t-label block truncate px-2 text-[12.5px] leading-6">{name}</span>

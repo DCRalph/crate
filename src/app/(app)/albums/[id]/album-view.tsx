@@ -12,7 +12,6 @@ import { usePlayer, usePlayingFrom } from "~/components/player/store";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
-import { SharedCover } from "~/components/shell/transitions";
 import { Button } from "~/components/ui/button";
 import { count, formatLength } from "~/lib/format";
 import type { WebTrack } from "~/server/api/routers/library";
@@ -29,9 +28,8 @@ function formatOf(tracks: WebTrack[]) {
 
 /**
  * One album: its cover, what it is, and its tracks. The cover is there from
- * the first moment, before anything else is known, so it can travel over from
- * the tile that was clicked. It asks for the size the tiles use, which the
- * browser already has.
+ * the first moment, before anything else is known. It asks for the size the
+ * tiles use, which the browser already has.
  */
 export function AlbumView({ id }: { id: number }) {
   const trpc = useTRPC();
@@ -39,11 +37,7 @@ export function AlbumView({ id }: { id: number }) {
   const { enqueue } = usePlayer.getState();
   const from = `album:${id}`;
   const { sounding } = usePlayingFrom(from);
-  const cover = (
-    <SharedCover name={`album-${id}`}>
-      <Cover type="album" id={id} size={400} glow={sounding ? "lit" : true} className="w-full" />
-    </SharedCover>
-  );
+  const cover = <Cover type="album" id={id} size={400} glow={sounding ? "lit" : true} className="w-full" />;
 
   if (album.isError) {
     return (

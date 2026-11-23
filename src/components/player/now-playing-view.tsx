@@ -269,7 +269,8 @@ function Detailed({ track, time, duration, playing, onSeek, onPrevious, bar }: V
   return (
     <>
       {bar}
-      <div className="grid min-h-0 flex-1 gap-x-8 gap-y-5 overflow-y-auto px-4 pt-4 pb-6 sm:px-6 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] lg:px-8 xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(16rem,20rem)]">
+      {/* Below a wide screen the columns stack, except where the screen has little height: there the cover stands beside the rest. */}
+      <div className="grid min-h-0 flex-1 gap-x-8 gap-y-5 overflow-y-auto px-4 pt-4 pb-6 sm:px-6 max-lg:short:grid-cols-[9rem_minmax(0,1fr)] max-lg:short:gap-x-6 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] lg:px-8 xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(16rem,20rem)]">
         <div className="min-w-0 self-start max-lg:max-w-72">
           <Cover key={track.albumId} type="album" id={track.albumId} size={800} glow={playing ? "lit" : true} className="w-full" />
         </div>
@@ -278,7 +279,7 @@ function Detailed({ track, time, duration, playing, onSeek, onPrevious, bar }: V
             {track.trackNumber ? `Track ${track.trackNumber} · ` : ""}
             {track.albumName}
           </p>
-          <h1 key={track.id} className="font-title animate-arrive mt-1.5 text-[40px] leading-[0.92] text-balance break-words lg:text-[56px]">
+          <h1 key={track.id} className="font-title animate-arrive mt-1.5 text-[40px] leading-[0.92] text-balance break-words short:text-[32px] lg:text-[56px]">
             {track.title}
           </h1>
           <div className="mt-2 flex items-center gap-2">
@@ -300,7 +301,7 @@ function Detailed({ track, time, duration, playing, onSeek, onPrevious, bar }: V
             ))}
           </dl>
         </div>
-        <UpNext className="lg:col-span-2 xl:col-span-1" />
+        <UpNext className="max-lg:short:col-span-2 lg:col-span-2 xl:col-span-1" />
       </div>
     </>
   );
@@ -354,10 +355,13 @@ const UpNext = memo(function UpNext({ className }: { className?: string }) {
 const idleMs = 3000;
 
 function Minimal({ track, time, duration, playing, onSeek, onPrevious, bar }: ViewProps) {
-  // The keys and the bar show while the pointer moves or the keyboard is used, and step back once it is still.
+  // With a mouse, the keys and the bar show while it moves or the keyboard is used, and step back once it is still.
+  // A touch screen has no pointer to move, so there they always show. A key that has stepped back can't be pressed
+  // by mistake: the first touch or click only brings it back.
   const [awake, setAwake] = useState(true);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     const wake = () => {
       setAwake(true);
       clearTimeout(timer.current);
@@ -365,14 +369,16 @@ function Minimal({ track, time, duration, playing, onSeek, onPrevious, bar }: Vi
     };
     wake();
     window.addEventListener("pointermove", wake);
+    window.addEventListener("pointerdown", wake);
     window.addEventListener("keydown", wake);
     return () => {
       clearTimeout(timer.current);
       window.removeEventListener("pointermove", wake);
+      window.removeEventListener("pointerdown", wake);
       window.removeEventListener("keydown", wake);
     };
   }, []);
-  const controls = cn("transition-opacity duration-500", awake ? "opacity-100" : "opacity-0 has-focus-visible:opacity-100");
+  const controls = cn("transition-opacity duration-500", awake ? "opacity-100" : "pointer-events-none opacity-0 has-focus-visible:pointer-events-auto has-focus-visible:opacity-100");
 
   return (
     <>
@@ -383,17 +389,27 @@ function Minimal({ track, time, duration, playing, onSeek, onPrevious, bar }: Vi
         <div className="absolute inset-0 [background-image:var(--grain)] [background-size:160px] opacity-30 mix-blend-soft-light" />
       </div>
       <div className={controls}>{bar}</div>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-6 pb-8">
-        <Cover key={`cover-${track.albumId}`} type="album" id={track.albumId} size={800} glow={playing ? "lit" : true} className="w-[min(22rem,42vh,80%)] shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)]" />
-        <h1 key={`title-${track.id}`} className="font-title animate-arrive mt-6 max-w-[40rem] text-center text-[34px] leading-none text-balance lg:text-[44px]">
-          {track.title}
-        </h1>
-        <p className="text-muted-foreground mt-1.5 text-[16px]">{track.artistName}</p>
-        <div className="mt-5 w-[min(28rem,90%)]">
-          <Scrubber trackId={track.id} time={time} duration={duration} onSeek={onSeek} tone="lamp" />
-        </div>
-        <div className={cn("mt-3", controls)}>
-          <Transport playing={playing} disabled={false} large onPrevious={onPrevious} className="[&>[data-wide][aria-pressed]]:hidden" />
+      {/* Stacked, or side by side where the screen has little height (a phone on its side). */}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-6 pb-8 short:flex-row short:gap-8 short:pb-5">
+        <Cover
+          key={`cover-${track.albumId}`}
+          type="album"
+          id={track.albumId}
+          size={800}
+          glow={playing ? "lit" : true}
+          className="w-[min(22rem,42dvh,80%)] shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)] short:w-[min(14rem,calc(100dvh-13rem))]"
+        />
+        <div className="flex w-full min-w-0 flex-col items-center short:w-[min(24rem,55%)] short:items-start">
+          <h1 key={`title-${track.id}`} className="font-title animate-arrive mt-6 max-w-[40rem] text-center text-[34px] leading-none text-balance short:mt-0 short:text-left short:text-[30px] lg:text-[44px]">
+            {track.title}
+          </h1>
+          <p className="text-muted-foreground mt-1.5 text-[16px]">{track.artistName}</p>
+          <div className="mt-5 w-[min(28rem,90%)] short:mt-3 short:w-full">
+            <Scrubber trackId={track.id} time={time} duration={duration} onSeek={onSeek} tone="lamp" />
+          </div>
+          <div className={cn("mt-3 short:mt-1", controls)}>
+            <Transport playing={playing} disabled={false} large onPrevious={onPrevious} className="[&>[data-wide][aria-pressed]]:hidden" />
+          </div>
         </div>
       </div>
     </>

@@ -8,6 +8,7 @@ import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { levelFor } from "~/lib/replay-gain";
 import { usePlayback } from "./playback";
+import { takeStartAt, usePlayhead } from "./playhead";
 import { usePlayer } from "./store";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
@@ -219,12 +220,14 @@ export function usePlayerEngine() {
     const spare = element(to);
     const seconds = fadeNext.current;
     fadeNext.current = 0;
-    if (!spare || !canHandOver.current || spare.error || ahead.current !== source) {
+    // A track played from a point on its row's waveform starts there, so it can't be the spare, which is at the start.
+    const startAt = takeStartAt(track.id);
+    if (!spare || !canHandOver.current || spare.error || ahead.current !== source || startAt > 0) {
       // Not the track that was got ready (the queue changed, or something else was chosen), so it loads here and the spare is dropped.
       if (ahead.current !== null) retire(to);
       ahead.current = null;
       settle(from, 1);
-      return load(audio, 0);
+      return load(audio, Math.min(startAt, Math.max(track.duration - 2, 0)));
     }
 
     // The handover: the spare has this track ready, so it becomes the live element.
@@ -304,6 +307,10 @@ export function usePlayerEngine() {
     else audio.currentTime = to;
     setTime(to);
   };
+  // Where the track is, and the way to move it, for what draws the track outside the console (its row's waveform).
+  useEffect(() => usePlayhead.setState({ trackId: track?.id ?? null, time }), [track?.id, time]);
+  useEffect(() => usePlayhead.setState({ seek }));
+
   /** Moves by so many seconds from where the track is now. */
   const seekBy = (seconds: number) => {
     const audio = element(live.current);

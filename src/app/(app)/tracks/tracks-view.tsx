@@ -17,6 +17,7 @@ import { contextKit, TrackActions } from "~/components/library/track-actions";
 import { TrackInfoDialog } from "~/components/library/track-info";
 import { TrackMenu } from "~/components/library/track-table";
 import { LocalTime } from "~/components/local-time";
+import { startTrackAt } from "~/components/player/playhead";
 import { rowNumber, useNumbered } from "~/components/player/selection";
 import { useCurrentTrack, usePlayer } from "~/components/player/store";
 import { Page } from "~/components/shell/page";
@@ -119,7 +120,7 @@ export function TracksView() {
         header: "Album",
         sortable: true,
         filterable: true,
-        showFrom: 900,
+        showFrom: 960,
         className: "max-w-0 w-1/5 truncate",
         cell: (row) => (
           <Link href={`/albums/${row.albumId}`} className="text-muted-foreground hover:text-foreground hover:underline" onClick={(event) => event.stopPropagation()}>
@@ -128,7 +129,7 @@ export function TracksView() {
         ),
       },
       { id: "genre", header: "Genre", sortable: true, filterable: true, showFrom: 1180, cell: (row) => <span className="text-muted-foreground">{row.genre ?? ""}</span> },
-      { id: "year", header: "Year", type: "number", sortable: true, filterable: true, showFrom: 1060, cell: (row) => <span className="text-muted-foreground tabular-nums">{row.year ?? ""}</span> },
+      { id: "year", header: "Year", type: "number", sortable: true, filterable: true, showFrom: 1100, cell: (row) => <span className="text-muted-foreground tabular-nums">{row.year ?? ""}</span> },
       { id: "suffix", header: "Format", type: "badge", sortable: true, filterable: true, options: formats, showFrom: 760, badge: (value) => ({ label: String(value).toUpperCase() }) },
       { id: "bitRate", header: "kbps", type: "number", align: "right", sortable: true, filterable: true, defaultHidden: true, showFrom: 760 },
       {
@@ -152,17 +153,23 @@ export function TracksView() {
         className: "w-32 py-0",
         cell: (row) => {
           const peaks = extras[row.id]?.peaks;
-          return peaks ? <span className="text-muted-foreground/70 block"><RowWave peaks={peaks} /></span> : null;
+          if (!peaks) return null;
+          const playFrom = (seconds: number) => {
+            startTrackAt(row.id, seconds);
+            usePlayer.getState().play(rows, row.index);
+          };
+          return <RowWave peaks={peaks} trackId={row.id} duration={row.duration} title={row.title} onPlayFrom={playFrom} />;
         },
       },
       {
         id: "plays",
         header: "Plays",
         align: "right",
-        showFrom: 640,
+        showFrom: 1040,
         cell: (row) => <span className="t-num text-muted-foreground text-[15px]">{extras[row.id]?.plays || null}</span>,
       },
-      // Left off the narrowest screens, where the title needs the room more.
+      // Left off the narrowest screens, where the title needs the room more. Every column but the title waits for
+      // the table to be wide enough (`showFrom`), in the order the title can spare them.
       { id: "duration", header: "Time", align: "right", sortable: true, showFrom: 430, cell: (row) => <span className="text-muted-foreground tabular-nums">{formatDuration(row.duration)}</span> },
       {
         id: "actions",
@@ -186,7 +193,8 @@ export function TracksView() {
 
   // The rows with their numbers. Kept in state so the cells above can start the page playing from any of them.
   const data = tracks.data?.rows;
-  const [seen, setSeen] = useState(data);
+  // Starts from nothing seen, so rows already in the cache (coming back to the page) are taken in at once.
+  const [seen, setSeen] = useState<typeof data>(undefined);
   if (data !== seen) {
     setSeen(data);
     setRows((data ?? []).map((track, index) => ({ ...track, index })));

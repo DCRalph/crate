@@ -43,7 +43,8 @@ const adminKey: NavItem = { title: adminNav.title, url: adminNav.items[0]!.url, 
 
 /**
  * One page key on the rail. The current one is an ivory key standing out of
- * the enamel; the rest are lettered on it. On a phone the keys run in a row
+ * the enamel; the rest are lettered on it. A key pressed whose page is still
+ * on its way is shaded, so only one key is ever lit. On a phone the keys run in a row
  * that scrolls sideways, and the one you are on is brought into view.
  */
 function RailKey({ item, current }: { item: NavItem; current: boolean }) {
@@ -57,10 +58,11 @@ function RailKey({ item, current }: { item: NavItem; current: boolean }) {
       href={item.url}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "t-label focus-visible:ring-ring/60 flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[12px] outline-none transition-colors focus-visible:ring-[3px] md:h-[34px] md:text-[12.5px]",
+        // No fade between states: the lit key changes at once, with the page, so two keys never look half lit.
+        "t-label focus-visible:ring-ring/60 flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[12px] outline-none focus-visible:ring-[3px] md:h-[34px] md:text-[12.5px]",
         current
           ? "print key"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground has-data-pending:bg-strip has-data-pending:text-ink",
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground has-data-pending:bg-accent has-data-pending:text-foreground",
       )}
     >
       <item.icon className="size-4 shrink-0" aria-hidden />
@@ -86,7 +88,8 @@ export function Rail({ user }: { user: HeaderUser }) {
   return (
     <aside
       aria-label={site.name}
-      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 px-3 pt-2.5 pb-1 [view-transition-name:rail] md:no-scrollbar md:flex md:min-h-0 md:flex-col md:items-stretch md:gap-0 md:overflow-y-auto md:px-3 md:pt-3 md:pb-3"
+      // A phone on its side has little height, so there the bar is one row: badge, pages, search, you.
+      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 px-3 pt-2.5 pb-1 max-md:short:grid-cols-[auto_minmax(0,1fr)_minmax(0,11rem)_auto] max-md:short:py-1.5 md:no-scrollbar md:flex md:min-h-0 md:flex-col md:items-stretch md:gap-0 md:overflow-y-auto md:px-3 md:pt-3 md:pb-3"
     >
       <Link href="/home" aria-label={`${site.name}, home`} className="focus-visible:ring-ring/60 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px] md:mb-4 md:self-start">
         <Mark lit={playing} />
@@ -95,12 +98,12 @@ export function Rail({ user }: { user: HeaderUser }) {
       <Suspense fallback={<div className="h-[30px]" />}>
         <SearchBox />
       </Suspense>
-      <div className="md:order-last md:mt-2 md:border-t md:pt-2">
+      <div className="max-md:short:col-start-4 max-md:short:row-start-1 md:order-last md:mt-2 md:border-t md:pt-2">
         <UserMenu user={user} current={group === youNav} />
       </div>
       <nav
         aria-label="Pages"
-        className="no-scrollbar col-span-3 -mx-3 flex gap-1 overflow-x-auto px-3 pb-1 md:mx-0 md:mt-3 md:flex-col md:gap-0.5 md:overflow-visible md:px-0 md:pb-0"
+        className="no-scrollbar col-span-3 -mx-3 flex gap-1 overflow-x-auto px-3 pb-1 max-md:short:col-span-1 max-md:short:col-start-2 max-md:short:row-start-1 max-md:short:mx-0 max-md:short:px-0 max-md:short:pb-0 md:mx-0 md:mt-3 md:flex-col md:gap-0.5 md:overflow-visible md:px-0 md:pb-0"
       >
         {libraryNav.map((item) => (
           <RailKey key={item.url} item={item} current={current === item} />
@@ -389,7 +392,7 @@ function SearchBox() {
   return (
     <form
       role="search"
-      className="group relative min-w-0 flex-1 md:flex-none"
+      className="group relative min-w-0 flex-1 max-md:short:col-start-3 max-md:short:row-start-1 md:flex-none"
       onSubmit={(event) => {
         event.preventDefault();
         go(value, 0);

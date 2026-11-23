@@ -54,7 +54,8 @@ export function NowPlaying({
       <SheetContent
         // Marks the one dialog that Space and the other keys still work in.
         data-queue
-        className="w-full gap-0 outline-none md:bottom-(--player-height)! md:h-auto!"
+        // A phone on its side has the whole width and little height: there the sheet is full width and the cover small.
+        className="w-full gap-0 outline-none max-md:short:max-w-none! md:bottom-(--player-height)! md:h-auto!"
         showCloseButton={!track}
         // Focus goes to the sheet itself, not to the first control in it.
         onOpenAutoFocus={(event) => {
@@ -81,9 +82,9 @@ export function NowPlaying({
 
         {track ? (
           <div className="border-b">
-            <div className="relative">
+            <div className="relative short:hidden">
               {/* Edge to edge, and never so tall on a short screen that the queue is pushed off it. */}
-              <Cover key={track.albumId} type="album" id={track.albumId} size={800} className="animate-rise max-h-[46svh] w-full rounded-none" />
+              <Cover key={track.albumId} type="album" id={track.albumId} size={800} className="animate-rise max-h-[46dvh] w-full rounded-none" />
               <div className="print absolute top-2 left-2 rounded-md shadow-[0_1px_3px_rgb(0_0_0/0.3)] md:hidden">{settings}</div>
               <button
                 type="button"
@@ -94,17 +95,32 @@ export function NowPlaying({
                 <X className="size-4" />
               </button>
             </div>
-            {/* The name and artist as a tile's strip, under the cover and as wide. */}
-            <div key={track.id} className="animate-arrive">
-              <div className="flex items-center pr-2">
-                <Link href={`/albums/${track.albumId}`} onClick={leave} className="t-label min-w-0 flex-1 truncate px-4 text-[13px] leading-9 hover:underline">
-                  {track.title}
+            {/* The name and artist as a tile's strip, under the cover and as wide. On a short screen the cover is a
+                thumbnail beside it, with the settings and the way out after it. */}
+            <div className="flex items-stretch">
+              <Cover key={`thumb-${track.albumId}`} type="album" id={track.albumId} size={160} className="hidden size-15 rounded-none short:grid" />
+              <div key={track.id} className="animate-arrive min-w-0 flex-1">
+                <div className="flex items-center pr-2">
+                  <Link href={`/albums/${track.albumId}`} onClick={leave} className="t-label min-w-0 flex-1 truncate px-4 text-[13px] leading-9 hover:underline">
+                    {track.title}
+                  </Link>
+                  <LikeButton key={track.id} track={track} />
+                </div>
+                <Link href={`/artists/${track.artistId}`} onClick={leave} className="bg-brand block truncate px-4 text-xs leading-6 font-medium hover:underline">
+                  {track.artistName}
                 </Link>
-                <LikeButton key={track.id} track={track} />
               </div>
-              <Link href={`/artists/${track.artistId}`} onClick={leave} className="bg-brand block truncate px-4 text-xs leading-6 font-medium hover:underline">
-                {track.artistName}
-              </Link>
+              <div className="hidden items-center gap-1.5 px-2 short:flex">
+                <div className="print rounded-md md:hidden">{settings}</div>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => onOpenChange(false)}
+                  className="focus-visible:ring-ring/60 grid size-8 place-items-center rounded-md outline-none focus-visible:ring-[3px]"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
             </div>
             <div className="flex flex-col gap-3 p-4 md:hidden">{controls}</div>
           </div>

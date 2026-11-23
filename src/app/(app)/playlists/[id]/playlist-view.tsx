@@ -26,7 +26,6 @@ import { usePlayer, usePlayingFrom } from "~/components/player/store";
 import { PlaylistInfoDialog } from "~/components/playlists/playlist-info";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
-import { SharedCover } from "~/components/shell/transitions";
 import { Empty, LoadError } from "~/components/shell/states";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -50,18 +49,7 @@ export function PlaylistView({ id }: { id: number }) {
       .getQueryData(trpc.playlists.tree.queryKey())
       ?.playlists.find((row) => row.id === id)?.coverKey;
   const { sounding } = usePlayingFrom(from);
-  const cover = coverKey ? (
-    <SharedCover name={`playlist-${id}`}>
-      <Cover
-        type="playlist"
-        id={id}
-        version={coverKey}
-        size={400}
-        glow={sounding ? "lit" : true}
-        className="w-full"
-      />
-    </SharedCover>
-  ) : undefined;
+  const cover = coverKey ? <Cover type="playlist" id={id} version={coverKey} size={400} glow={sounding ? "lit" : true} className="w-full" /> : undefined;
   const togglePin = usePin();
   const [infoOpen, setInfoOpen] = useState(false);
 

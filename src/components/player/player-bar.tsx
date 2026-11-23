@@ -20,8 +20,7 @@ import { Transport } from "./transport";
 import { Volume } from "./volume";
 
 /**
- * The console across the bottom of the cabinet: the selection window, what
- * is playing, the transport's chrome keys, the track as a waveform lit in its
+ * The console across the bottom of the cabinet: what is playing, the transport's chrome keys, the track as a waveform lit in its
  * own window of glass to seek on, and the way into the queue and the
  * playback settings. The sound itself is `usePlayerEngine`, whose two audio
  * elements are rendered here; the keys are `useDeckKeys`.
@@ -38,7 +37,7 @@ export function PlayerBar() {
 
   return (
     // Always the night cabinet, so the lamps read the same at any hour.
-    <footer id="player-bar" className="night console relative z-50 flex [view-transition-name:console] h-(--player-height) shrink-0 items-center gap-2.5 px-3 sm:gap-3.5 md:col-span-2">
+    <footer id="player-bar" className="night console relative z-50 flex h-(--player-height) shrink-0 items-center gap-2.5 px-3 sm:gap-3.5 md:col-span-2">
       <audio {...deck(0)} />
       <audio {...deck(1)} />
 
@@ -49,7 +48,6 @@ export function PlayerBar() {
       />
 
       <TypedSelection />
-      <SelectWindow />
 
       <div className="flex min-w-0 flex-1 items-center gap-3 md:w-52 md:flex-none lg:w-68 xl:w-80">
         {track ? (
@@ -143,41 +141,19 @@ export function PlayerBar() {
 }
 
 /**
- * The selection window at the head of the console: what is being typed to
- * pick a row or a tile ("B 3"), in amber on dark glass, rolling once for each
- * key. Unlit dashes while nothing is.
- */
-function SelectWindow() {
-  const typed = useSelection((state) => state.typed);
-  return (
-    <div role="status" className="glass-inset flex h-12 w-[4.25rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md max-lg:hidden">
-      <span className="t-label text-muted-foreground text-[9px] tracking-[0.14em]">Select</span>
-      {typed ? (
-        <span key={typed} className="t-num animate-roll text-lamp text-[22px] tracking-[0.06em] [text-shadow:0_0_10px_rgb(255_196_77/0.55)]">
-          {/* A long run of digits shows its end, which is what was typed last. */}
-          {typed.length > 6 ? `…${typed.slice(-5)}` : typed.replace(/^([A-Z])/, "$1 ")}
-        </span>
-      ) : (
-        <span className="t-num text-[22px] tracking-[0.06em] text-[#2b565b]" aria-label="Nothing selected">
-          – –
-        </span>
-      )}
-    </div>
-  );
-}
-
-/**
- * The same on a phone or a tablet, where the console has no room for the
- * window: it floats just above, and only while something is being typed.
+ * What is being typed to pick a row or a tile ("B 3"), in amber on dark glass
+ * just above the console, rolling once for each key. It is only there while
+ * something is being typed.
  */
 function TypedSelection() {
   const typed = useSelection((state) => state.typed);
   if (!typed) return null;
   return (
-    <div role="status" className="bg-glass animate-rise absolute bottom-full left-3 mb-2 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)] lg:hidden">
+    <div role="status" className="bg-glass animate-rise absolute bottom-full left-3 mb-2 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)]">
       <span className="t-label text-muted-foreground block text-[9.5px] tracking-[0.1em]">Select</span>
-      <span key={typed} className="t-num animate-roll text-lamp block text-[26px] tracking-[0.06em]">
-        {typed}
+      <span key={typed} className="t-num animate-roll text-lamp block text-[26px] tracking-[0.06em] [text-shadow:0_0_10px_rgb(255_196_77/0.55)]">
+        {/* A long run of digits shows its end, which is what was typed last. */}
+        {typed.length > 6 ? `…${typed.slice(-5)}` : typed.replace(/^([A-Z])/, "$1 ")}
       </span>
     </div>
   );

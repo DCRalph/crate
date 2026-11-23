@@ -152,6 +152,12 @@
     --player-height: 3.75rem;
   }
 }
+/* So is a wide one on a screen with little height (a big phone on its side), to leave the glass room. */
+@media (min-width: 48rem) and (max-height: 29.99rem) {
+  :root {
+    --player-height: 4rem;
+  }
+}
 
 .dark,
 .night,
@@ -300,76 +306,19 @@
 }
 
 /*
- * Going from one page to another. The browser takes a picture of the old page
- * and the new one and animates between them; the rail, the glass's frame and
- * the console are not part of either picture, so they hold still. The old
- * page goes quickly and the new one rises in as it leaves, in one movement.
- * The picture is of the page's own scroller, which is exactly the glass's
- * size, so nothing of a long page spills over the console while it plays.
+ * Going from one page to another: the old page goes at once and the new one
+ * rises into place, inside its own scroller, so it never spills past the
+ * glass. Plain CSS rather than a view transition: Safari pictures the old and
+ * the new page differently from Chrome and showed both at once, and this is
+ * the same in every browser. The rail and the console don't move.
  */
-::view-transition-old(.page) {
-  animation: 120ms ease-in both page-out;
-}
-::view-transition-new(.page) {
-  animation: 320ms var(--ease-out-expo) 60ms both page-in;
-}
-/* The page's picture is clipped to its own box as it rises, so it never shows past the glass. */
-::view-transition-group(.page) {
-  overflow: clip;
-}
-/*
- * The glass's bevel is drawn over the page, during a transition too. The rail
- * and the console are pictures of their own that change at once rather than
- * fading, so the key that is lit never shows half on and half off.
- */
-::view-transition-group(glass-bevel) {
-  animation: none;
-  z-index: 1;
-}
-::view-transition-group(rail),
-::view-transition-group(console),
-::view-transition-new(rail),
-::view-transition-new(console),
-::view-transition-new(glass-bevel) {
-  animation: none;
-}
-::view-transition-old(rail),
-::view-transition-old(console),
-::view-transition-old(glass-bevel) {
-  display: none;
-}
-/* A cover travelling from its tile to the top of the page it opens. */
-::view-transition-group(.cover) {
-  animation-duration: 340ms;
-  animation-timing-function: var(--ease-out-expo);
-}
-/* Clicks land on the page underneath while a transition plays. */
-::view-transition {
-  pointer-events: none;
-}
-@keyframes page-out {
-  to {
-    opacity: 0;
-  }
+.page-enter {
+  animation: page-in 320ms var(--ease-out-expo) backwards;
 }
 @keyframes page-in {
   from {
     opacity: 0;
     transform: translateY(6px);
-  }
-}
-/* A browser without view transitions gets the page rising in on its own, as before. */
-@supports not (view-transition-name: none) {
-  .page-enter {
-    animation: var(--animate-rise);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(*),
-  ::view-transition-new(*),
-  ::view-transition-group(*) {
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
   }
 }
 
@@ -487,7 +436,6 @@
   box-shadow:
     inset 0 0 0 1px #2b565b,
     inset 0 3px 12px rgb(0 0 0 / 0.7);
-  view-transition-name: glass-bevel;
 }
 
 /*
