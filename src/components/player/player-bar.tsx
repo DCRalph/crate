@@ -17,8 +17,8 @@ import type { WebTrack } from "~/server/api/routers/library";
 import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
 import { levelFor, usePlayback } from "./playback";
-import { rowNumber, useSelection } from "./selection";
-import { usePlayer, usePlayingPlace } from "./store";
+import { useSelection } from "./selection";
+import { usePlayer } from "./store";
 import { StreamControl } from "./stream-control";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
@@ -76,7 +76,6 @@ export function PlayerBar() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { track, sent } = usePlayback();
   const playing = usePlayer((state) => state.playing);
-  const place = usePlayingPlace();
   const volume = usePlayer((state) => state.volume);
   const normalise = usePlayer((state) => state.normalise);
   const { next, previous, setPlaying, setVolume, toggleMute, markUnplayable } = usePlayer.getState();
@@ -204,7 +203,7 @@ export function PlayerBar() {
   const transport = { playing, disabled: !track, onToggle: () => setPlaying(!playing), onNext: next, onPrevious: back };
 
   return (
-    // Always the night cabinet, so the lamp and the selection number read the same at any hour.
+    // Always the night cabinet, so the lamps read the same at any hour.
     <footer id="player-bar" className="night bg-muted relative z-50 flex h-(--player-height) shrink-0 items-center gap-2.5 border-t px-3 sm:gap-3.5 sm:px-4">
       <audio
         ref={audioRef}
@@ -267,9 +266,9 @@ export function PlayerBar() {
         style={{ transform: `scaleX(${duration ? Math.min(time / duration, 1) : 0})` }}
       />
 
-      <SelectionWindow playing={playing} index={place} />
+      <TypedSelection />
 
-      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-52 md:flex-none lg:w-72">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 md:w-64 md:flex-none lg:w-72">
         {track ? (
           // Keyed by track, so each new one rises into place.
           <div key={track.id} className="animate-rise flex min-w-0 flex-1 items-center gap-2.5">
@@ -330,19 +329,18 @@ export function PlayerBar() {
 }
 
 /**
- * The selection window: the number of the row that is playing, in amber on
- * dark glass. While a number is being typed it shows that instead. The number
- * rolls in once each time it changes.
+ * The number being typed to pick a row, in amber on dark glass just above the
+ * deck. It is only there while a number is being typed, and rolls once for
+ * each digit.
  */
-function SelectionWindow({ playing, index }: { playing: boolean; index: number | null }) {
+function TypedSelection() {
   const typed = useSelection((state) => state.typed);
-  const label = typed ? "Select" : index === null ? "Ready" : playing ? "Playing" : "Paused";
-  const number = typed || (index === null ? "00" : rowNumber(index));
+  if (!typed) return null;
   return (
-    <div className="bg-glass shrink-0 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)]" aria-live="polite">
-      <span className="t-label text-muted-foreground block text-[9.5px] tracking-[0.1em]">{label}</span>
-      <span key={number} className={cn("t-num animate-roll block text-[26px] tracking-[0.06em]", index === null && !typed ? "text-muted-foreground/50" : "text-lamp")}>
-        {number}
+    <div role="status" className="bg-glass animate-rise absolute bottom-full left-3 mb-2 rounded-[5px] px-2.5 pt-1 pb-0.5 text-center shadow-[inset_0_0_0_1px_var(--cab-line)]">
+      <span className="t-label text-muted-foreground block text-[9.5px] tracking-[0.1em]">Select</span>
+      <span key={typed} className="t-num animate-roll text-lamp block text-[26px] tracking-[0.06em]">
+        {typed}
       </span>
     </div>
   );

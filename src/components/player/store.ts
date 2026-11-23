@@ -168,15 +168,3 @@ export const usePlayer = create<PlayerState>()(
 );
 
 export const useCurrentTrack = () => usePlayer((state) => state.queue[state.index]);
-
-/**
- * Where the current track sits in the order it was lined up, which is the
- * number printed on its row. Shuffle changes what plays next, not this.
- * Null with nothing playing.
- */
-export const usePlayingPlace = () =>
-  usePlayer((state) => {
-    const track = state.queue[state.index];
-    if (!track) return null;
-    return state.lineup ? placeOf(state.lineup, track) : state.index;
-  });
