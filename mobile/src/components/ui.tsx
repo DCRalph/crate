@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 
 import { coverSource } from "@/lib/media";
 import { useActiveServer } from "@/lib/servers";
-import { band, bandDown, deck, font, glass, ink, ink2, label, lamp, radius, space, usePalette } from "@/lib/theme";
+import { deck, font, glass, ink, ink2, label, lamp, radius, space, usePalette } from "@/lib/theme";
 
 /** A lamp: a small ring, amber when lit. Lit means live: playing, on, downloading. It is drawn for the cabinet unless told it is `on` print or night glass. */
 export function Lamp({ lit, on = "cabinet", size = 9 }: { lit: boolean; on?: "cabinet" | "print" | "night"; size?: number }) {
@@ -54,8 +54,8 @@ type KeyProps = {
 /** A key: it sits on a darker edge and goes down a pixel when pressed. */
 export function Key({ label: text, icon: Icon, tone = "plain", onPress, disabled, name, small, style, color, fill }: KeyProps) {
   const palette = usePalette();
-  const face = tone === "brand" ? band : tone === "plain" ? palette.strip : "transparent";
-  const edge = tone === "brand" ? bandDown : tone === "plain" ? palette.stripLine : "transparent";
+  const face = tone === "brand" ? palette.band : tone === "plain" ? palette.strip : "transparent";
+  const edge = tone === "brand" ? palette.bandDown : tone === "plain" ? palette.stripLine : "transparent";
   const sign = color ?? (tone === "ghost" ? palette.chrome2 : ink);
   const height = small ? 30 : 38;
   return (
@@ -121,7 +121,7 @@ export function Strip({ title, band: facts, style }: { title: string; band: stri
       <Text numberOfLines={1} style={[label, { color: ink, fontSize: 12, lineHeight: 24, paddingHorizontal: 8 }]}>
         {title}
       </Text>
-      <Text numberOfLines={1} style={{ backgroundColor: band, color: ink, fontFamily: font.medium, fontSize: 12, lineHeight: 20, paddingHorizontal: 8 }}>
+      <Text numberOfLines={1} style={{ backgroundColor: palette.band, color: ink, fontFamily: font.medium, fontSize: 12, lineHeight: 20, paddingHorizontal: 8 }}>
         {facts || " "}
       </Text>
     </View>

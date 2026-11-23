@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
-import { ArrowDownToLine, Check } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowDownToLine, Check, Pencil } from "lucide-react-native";
 import { Alert, Animated } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
+import { GlassButton } from "@/components/glass";
 import { Backdrop, Hero } from "@/components/hero";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
@@ -23,6 +24,7 @@ import { space } from "@/lib/theme";
 export default function PlaylistPage() {
   const id = Number(useLocalSearchParams<{ id: string }>().id);
   const trpc = useTRPC();
+  const router = useRouter();
   const server = useActiveServer();
   const playlist = useQuery(trpc.playlists.byId.queryOptions({ id }));
   const shelf = useDownloads((state) => (server ? state.shelves[server.id] : undefined));
@@ -60,7 +62,7 @@ export default function PlaylistPage() {
   );
 
   return (
-    <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back">
+    <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back" action={playlist.data?.canEdit ? <GlassButton label="Edit playlist" icon={Pencil} onPress={() => router.push(`/playlist/${id}/edit`)} /> : null}>
       <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
         <Backdrop type="playlist" id={id} version={data?.coverKey} />
         {data ? (

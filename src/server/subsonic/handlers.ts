@@ -3,8 +3,9 @@ import { and, asc, between, desc, eq, inArray, isNotNull, sql, type SQL } from "
 
 import { inScope, type Scope } from "~/server/access";
 import { db } from "~/server/db";
-import { album, annotation, artist, library, playQueue, track } from "~/server/db/app-schema";
+import { album, annotation, artist, library, track } from "~/server/db/app-schema";
 import { coverFile } from "~/server/library/cover";
+import { readPlayQueue, savePlayQueue } from "~/server/library/play-queue";
 import {
   albumsWith,
   annotate,
@@ -18,7 +19,6 @@ import {
   listStarred,
   listTracks,
   search,
-  visibleTrackIds,
 } from "~/server/library/queries";
 import { scanProgress } from "~/server/library/scanner";
 import { recordPlay } from "~/server/logs";
@@ -434,38 +434,27 @@ export const handlers: Record<string, Handler> = {
   },
 
   getPlayQueue: async ({ scope }) => {
-    const [queue] = await db.select().from(playQueue).where(eq(playQueue.userId, scope.user.id));
-    if (!queue?.trackIds.length) return {};
-    const songs = new Map((await listTracks(scope, { where: inArray(track.id, queue.trackIds), limit: 10_000 })).map((row) => [row.id, row]));
+    const queue = await readPlayQueue(scope);
+    if (!queue) return {};
     return {
       playQueue: {
         current: queue.currentId ? `tr-${queue.currentId}` : undefined,
         position: queue.positionMs,
         username: scope.user.username,
-        changed: queue.updatedAt.toISOString(),
+        changed: queue.changedAt.toISOString(),
         changedBy: queue.changedBy,
-        entry: queue.trackIds.flatMap((id) => {
-          const song = songs.get(id);
-          return song ? toSong(song) : [];
-        }),
+        entry: queue.tracks.map(toSong),
       },
     };
   },
 
   savePlayQueue: async ({ scope, params, client }) => {
-    const trackIds = await visibleTrackIds(scope, params.all("id").map((value) => idOf(value, "track")));
     const current = params.get("current");
-    const values = {
-      trackIds,
-      currentId: current ? idOf(current, "track") : null,
-      positionMs: params.int("position") ?? 0,
-      changedBy: client,
-      updatedAt: new Date(),
-    };
-    await db
-      .insert(playQueue)
-      .values({ userId: scope.user.id, ...values })
-      .onConflictDoUpdate({ target: playQueue.userId, set: values });
+    await savePlayQueue(
+      scope,
+      { trackIds: params.all("id").map((value) => idOf(value, "track")), currentId: current ? idOf(current, "track") : null, positionMs: params.int("position") ?? 0 },
+      client,
+    );
     return {};
   },
 

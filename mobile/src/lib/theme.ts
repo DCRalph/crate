@@ -1,11 +1,15 @@
+import { useMemo } from "react";
 import { useColorScheme } from "react-native";
+
+import { accents, useSettings } from "./settings";
 
 /**
  * Wallbox, natively: the same jukebox selector panel as the website
  * (`src/app/globals.css`). The cabinet is seafoam enamel by day and petrol
  * green by night and follows the phone. Print (cards, strips, rows) is ivory
- * with ink at any hour. The deck is always the night cabinet. Coral is the
- * band a title strip carries; amber is a lamp, and means something is live.
+ * with ink at any hour. The deck is always the night cabinet. The band a title
+ * strip carries is coral unless the person picked another colour in Settings;
+ * amber is a lamp, and means something is live.
  */
 const day = {
   cab: "#bcdcd5",
@@ -34,17 +38,19 @@ const night: typeof day = {
   isNight: true,
 };
 
-export type Palette = typeof day;
+export type Palette = typeof day & (typeof accents)[keyof typeof accents];
 
-/** The cabinet as the phone has it now. */
-export const usePalette = (): Palette => (useColorScheme() === "light" ? day : night);
+/** The cabinet as the phone has it now (Settings can hold it to day or night; the root layout tells the system), with the band in the colour chosen. */
+export function usePalette(): Palette {
+  const isNight = useColorScheme() !== "light";
+  const accent = useSettings((state) => state.accent);
+  return useMemo(() => ({ ...(isNight ? night : day), ...accents[accent] }), [isNight, accent]);
+}
 /** The deck's cabinet, which is night whatever the hour. */
 export const deck = night;
 
 export const ink = "#1b1a16";
 export const ink2 = "#5b5545";
-export const band = "#ef5b34";
-export const bandDown = "#c94522";
 export const lamp = "#ffc44d";
 export const glass = "#071a1d";
 export const bad = "#b3261e";

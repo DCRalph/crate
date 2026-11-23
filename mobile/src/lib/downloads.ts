@@ -1,9 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
-import * as Network from "expo-network";
+import { downloadAsync, FileSystemSessionType } from "expo-file-system/legacy";
 import { create } from "zustand";
 
 import { clientFor, type Track } from "./api";
 import { arrivesAs, sealedRequest } from "./media";
+import { useNetwork } from "./network";
 import { isSealed } from "./sealed";
 import { useServers, type Server } from "./servers";
 import { useSettings } from "./settings";
@@ -11,6 +12,10 @@ import { useSettings } from "./settings";
 // Playlists downloaded to the phone. Every track arrives sealed for this
 // device (`sealed.ts`) and is stored exactly as it arrived, so what is on the
 // phone's disk is never playable audio. It is opened only while it plays.
+//
+// Several tracks arrive at once (Settings says how many), through the
+// system's background transfers, so they carry on while the app is behind
+// another or the screen is locked.
 
 type Download = {
   track: Track;
@@ -84,12 +89,8 @@ function wanted(serverId: string, tracks: Shelf["tracks"], playlists: Shelf["pla
   return kept;
 }
 
-/** Tracks fetched at once. */
-const atOnce = 2;
 let arriving = 0;
-/** Whether the phone is on mobile data. Anything else (Wi-Fi, a cable, not yet known) counts as Wi-Fi. */
-let onMobileData = false;
-const allowed = () => useSettings.getState().downloadOver === "any" || !onMobileData;
+const allowed = () => useSettings.getState().downloadOver === "any" || !useNetwork.getState().mobileData;
 
 export const useDownloads = create<Downloads>()((set, get) => {
   /** Changes one track's entry, saves, and tells the screens. */
@@ -109,7 +110,7 @@ export const useDownloads = create<Downloads>()((set, get) => {
     const quality = useSettings.getState().downloadQuality;
     for (const server of useServers.getState().servers) {
       for (const entry of Object.values(get().shelves[server.id]?.tracks ?? {})) {
-        if (arriving >= atOnce) return;
+        if (arriving >= useSettings.getState().downloadsAtOnce) return;
         if (entry.state !== "waiting") continue;
         arriving++;
         // The quality may have changed since the track was queued, so what it arrives as is settled now.
@@ -117,7 +118,8 @@ export const useDownloads = create<Downloads>()((set, get) => {
         const { url, headers } = sealedRequest(server, entry.track, quality);
         const file = sealedFile(server.id, entry.track.id);
         if (file.exists) file.delete();
-        void File.downloadFileAsync(url, file, { headers })
+        // The older download call is the one that can hand the transfer to the system to carry on in the background.
+        void downloadAsync(url, file.uri, { headers, sessionType: FileSystemSessionType.BACKGROUND })
           // The server answers a refusal with a few words, which would be saved like anything else.
           .then(() => mark(server.id, entry.track.id, isSealed(file) ? { state: "downloaded", bytes: file.size } : { state: "failed" }))
           .catch(() => mark(server.id, entry.track.id, { state: "failed" }))
@@ -127,11 +129,6 @@ export const useDownloads = create<Downloads>()((set, get) => {
           });
       }
     }
-  };
-
-  const connectionChanged = (state: Network.NetworkState) => {
-    onMobileData = state.type === Network.NetworkStateType.CELLULAR;
-    pump();
   };
 
   return {
@@ -147,16 +144,16 @@ export const useDownloads = create<Downloads>()((set, get) => {
       }
       sweep(shelves);
       set({ shelves, ready: true });
-      // The connection, and the rule in Settings about which ones to use, both decide whether downloads may run.
-      Network.addNetworkStateListener(connectionChanged);
+      // The connection, and the rules in Settings about which to use and how many at once, decide whether more may start.
+      useNetwork.subscribe(pump);
       useSettings.subscribe((now, before) => {
-        if (now.downloadOver !== before.downloadOver) pump();
+        if (now.downloadOver !== before.downloadOver || now.downloadsAtOnce !== before.downloadsAtOnce) pump();
       });
       // The servers are read from the keychain a moment after this; what was waiting starts once they are known.
       useServers.subscribe((now, before) => {
         if (now.servers !== before.servers) pump();
       });
-      void Network.getNetworkStateAsync().then(connectionChanged, pump);
+      pump();
     },
     download: (server, playlist) => {
       const shelf = get().shelves[server.id] ?? { tracks: {}, playlists: {} };

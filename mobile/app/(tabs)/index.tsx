@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Animated, RefreshControl, ScrollView, View } from "react-native";
+import { Animated, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { useBottomSpace } from "@/components/bottom";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { AlbumTile, PlaylistTile } from "@/components/tile";
-import { Note, SectionHeading } from "@/components/ui";
+import { Card, Key, Note, SectionHeading } from "@/components/ui";
 import { useTRPC, type Album } from "@/lib/api";
+import { formatDuration } from "@/lib/format";
+import { usePlayer } from "@/lib/player";
 import { useActiveServer } from "@/lib/servers";
-import { space, usePalette } from "@/lib/theme";
+import { font, ink, ink2, label, space, usePalette } from "@/lib/theme";
 
 const tileWidth = 148;
 
@@ -23,6 +25,32 @@ function Row({ title, children }: { title: string; children: React.ReactNode }) 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.md }}>
         {children}
       </ScrollView>
+    </View>
+  );
+}
+
+/** A queue another of the person's devices saved since this one last played: what was on, how far in, and the keys to carry on or not. */
+function CarryOn() {
+  const offer = usePlayer((state) => state.offer);
+  const track = offer?.tracks[offer.index];
+  if (!offer || !track) return null;
+  return (
+    <View style={{ paddingHorizontal: space.lg }}>
+      <Card style={{ padding: 14, gap: 10 }}>
+        <Text style={[label, { color: ink2, fontSize: 11 }]}>{offer.device ? `Carry on from ${offer.device}` : "Carry on"}</Text>
+        <View>
+          <Text numberOfLines={1} style={{ fontFamily: font.medium, fontSize: 15.5, color: ink }}>
+            {track.title}
+          </Text>
+          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 13, color: ink2 }}>
+            {`${track.artistName} · ${formatDuration(offer.position)} in · ${offer.index + 1} of ${offer.tracks.length}`}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          <Key tone="brand" label="Carry on" onPress={usePlayer.getState().acceptOffer} />
+          <Key label="Not now" onPress={usePlayer.getState().dismissOffer} />
+        </View>
+      </Card>
     </View>
   );
 }
@@ -44,7 +72,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
     setRefreshing(true);
-    await Promise.all([home.refetch(), playlists.refetch()]);
+    await Promise.all([home.refetch(), playlists.refetch(), usePlayer.getState().checkOffer()]);
     setRefreshing(false);
   };
 
@@ -55,6 +83,7 @@ export default function Home() {
         contentContainerStyle={{ paddingTop: top, paddingBottom: bottom, gap: space.xl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={palette.chrome2} progressViewOffset={top} />}
       >
+        <CarryOn />
         {home.isError ? (
           <View style={{ paddingHorizontal: space.lg }}>
             <Note>Couldn&apos;t reach the server. What you have downloaded is under Downloads.</Note>

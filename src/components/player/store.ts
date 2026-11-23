@@ -3,12 +3,13 @@ import { persist } from "zustand/middleware";
 
 import type { WebTrack } from "~/server/api/routers/library";
 import type { TranscodeFormat } from "~/server/media/transcode";
+import type { Normalise } from "~/lib/replay-gain";
 
 /** The bitrates offered as a quality, in kbps, best first. "Original" (no limit) sits above them. */
 export const qualities = [320, 256, 192, 128, 96];
 
 /** How volume is evened out: not at all, each track to the same level, or each album keeping its own quiet and loud tracks. */
-export type Normalise = "off" | "track" | "album";
+export type { Normalise };
 
 /** What happens at the end: stop, go round the queue again, or play the same track again. */
 export type Repeat = "off" | "all" | "one";

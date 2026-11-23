@@ -6,7 +6,8 @@ import { toast } from "sonner";
 
 import { webStreamUrl, type StreamDecision } from "~/server/media/transcode";
 import { useTRPC } from "~/trpc/react";
-import { levelFor, usePlayback } from "./playback";
+import { levelFor } from "~/lib/replay-gain";
+import { usePlayback } from "./playback";
 import { usePlayer } from "./store";
 
 /** A play counts once the listener is this far in: half the track, or four minutes. */
