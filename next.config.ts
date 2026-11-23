@@ -11,7 +11,7 @@ const ownAddresses = Object.values(networkInterfaces())
 
 const nextConfig: NextConfig = {
   // Native or file-reading packages the server loads from node_modules as they are.
-  serverExternalPackages: ["sharp", "music-metadata", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"],
+  serverExternalPackages: ["sharp", "music-metadata", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner", "@winlinux/smb2", "@winlinux/auth"],
   poweredByHeader: false,
   // The dev badge sits in the bottom corner, on top of the player bar.
   devIndicators: false,

@@ -7,8 +7,9 @@ import { db } from "~/server/db";
 import { library } from "~/server/db/app-schema";
 import { decryptSecret } from "./crypto";
 import { FsLibrarySource } from "./fs-source";
-import { buildNfsMountCommand, buildSmbMountCommand, ensureMounted, libraryMountDir, testNetworkMount, unmountPath } from "./mount";
+import { buildNfsMountCommand, ensureMounted, libraryMountDir, testNetworkMount, unmountPath } from "./mount";
 import { S3LibrarySource, type ResolvedS3Config } from "./s3-source";
+import { closeSmbSession, SmbLibrarySource, type ResolvedSmbConfig } from "./smb-source";
 import type { LibrarySource } from "./types";
 
 export type { LibrarySource, ScannedFile } from "./types";
@@ -33,6 +34,19 @@ export function resolveS3Config(stored: StoredS3Config): ResolvedS3Config {
   };
 }
 
+/** Decodes an SMB stored config, decrypting its password if present. */
+export function resolveSmbConfig(stored: StoredSmbConfig): ResolvedSmbConfig {
+  return {
+    host: stored.host,
+    share: stored.share,
+    subpath: stored.subpath ?? "",
+    port: stored.port ?? null,
+    username: stored.username ?? null,
+    password: stored.passwordEnc ? decryptSecret(stored.passwordEnc) : null,
+    domain: stored.domain ?? null,
+  };
+}
+
 /** Opens the storage adapter for a library row. */
 export function openLibrarySource(lib: LibraryDescriptor): LibrarySource {
   if (lib.sourceType === "s3") {
@@ -44,16 +58,7 @@ export function openLibrarySource(lib: LibraryDescriptor): LibrarySource {
   if (lib.sourceType === "smb") {
     const stored = lib.sourceConfig as StoredSmbConfig | null;
     if (!stored) throw new Error("SMB library is missing its share configuration.");
-    const mountDir = libraryMountDir(env.DATA_DIR, lib.id);
-    const password = stored.passwordEnc ? decryptSecret(stored.passwordEnc) : null;
-    return new FsLibrarySource("smb", lib.path, () =>
-      ensureMounted(
-        mountDir,
-        "smb",
-        (credFilePath) => buildSmbMountCommand({ ...stored, password }, mountDir, { credFilePath }),
-        stored.subpath,
-      ),
-    );
+    return new SmbLibrarySource(resolveSmbConfig(stored));
   }
 
   if (lib.sourceType === "nfs") {
@@ -87,9 +92,14 @@ export async function getLibrarySource(libraryId: number): Promise<LibrarySource
   return lib ? openLibrarySource(lib) : null;
 }
 
-/** Unmounts and removes the managed mount directory for an SMB or NFS library (no-op for local/S3). */
-export async function unmountLibrary(libraryId: number): Promise<void> {
-  await unmountPath(libraryMountDir(env.DATA_DIR, libraryId));
+/** Unmounts a managed NFS mount directory or closes a pooled SMB session. */
+export async function releaseLibrarySource(lib: { id: number; sourceType: LibrarySourceType; sourceConfig: StoredSourceConfig | null }): Promise<void> {
+  if (lib.sourceType === "smb" && lib.sourceConfig && "share" in lib.sourceConfig) {
+    await closeSmbSession(resolveSmbConfig(lib.sourceConfig));
+  }
+  if (lib.sourceType === "nfs") {
+    await unmountPath(libraryMountDir(env.DATA_DIR, lib.id));
+  }
 }
 
 /** Tests an unsaved or updated library source without leaving behind a persistent mount. */
@@ -97,7 +107,7 @@ export async function testSourceConnection(
   source:
     | { type: "local"; path: string }
     | { type: "s3"; config: ResolvedS3Config }
-    | { type: "smb"; config: StoredSmbConfig & { password?: string | null } }
+    | { type: "smb"; config: ResolvedSmbConfig }
     | { type: "nfs"; config: StoredNfsConfig },
 ): Promise<{ detail: string }> {
   if (source.type === "local") {
@@ -111,14 +121,9 @@ export async function testSourceConnection(
     return { detail: res.detail ?? "Connected." };
   }
   if (source.type === "smb") {
-    const password = source.config.password !== undefined ? source.config.password : source.config.passwordEnc ? decryptSecret(source.config.passwordEnc) : null;
-    const { entries } = await testNetworkMount(
-      env.DATA_DIR,
-      "smb",
-      (mountPoint, credFilePath) => buildSmbMountCommand({ ...source.config, password }, mountPoint, { credFilePath }),
-      source.config.subpath,
-    );
-    return { detail: `Connected to SMB share. Found ${entries} ${entries === 1 ? "item" : "items"} at the top level.` };
+    const adapter = new SmbLibrarySource(source.config);
+    const res = await adapter.check();
+    return { detail: res.detail ?? "Connected." };
   }
   const { entries } = await testNetworkMount(
     env.DATA_DIR,

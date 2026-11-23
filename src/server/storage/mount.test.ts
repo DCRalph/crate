@@ -115,7 +115,12 @@ describe("formatMountError", () => {
     expect(formatMountError("smb", { stderr: "mount_smbfs: server rejected the connection: Authentication error" }).message).toContain(
       "username or password",
     );
-    expect(formatMountError("nfs", { stderr: "mount.nfs: Operation not permitted" }).message).toContain("permission");
+    expect(formatMountError("nfs", { stderr: "mount.nfs: Operation not permitted" }).message).toContain("CAP_SYS_ADMIN");
+    expect(
+      formatMountError("nfs", {
+        stderr: "mount: /app/data/mounts/test-123: permission denied.\ndmesg(1) may have more information after failed mount system call.",
+      }).message,
+    ).toContain("CAP_SYS_ADMIN");
     const redacted = formatMountError("smb", { stderr: "error mounting //alice:supersecret@nas.local/music password=topsecret" }).message;
     expect(redacted).not.toContain("supersecret");
     expect(redacted).not.toContain("topsecret");

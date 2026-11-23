@@ -229,11 +229,18 @@ export function formatMountError(kind: "smb" | "nfs", error: unknown): Error {
   if (lower.includes("authentication") || lower.includes("logon failure") || lower.includes("status_logon_failure") || lower.includes("error(13)")) {
     return withDetail("The share rejected the username or password.", detail);
   }
-  if (lower.includes("operation not permitted") || lower.includes("only root") || lower.includes("must be superuser") || lower.includes("eperm")) {
+  if (
+    lower.includes("operation not permitted") ||
+    lower.includes("only root") ||
+    lower.includes("must be superuser") ||
+    lower.includes("eperm") ||
+    lower.includes("failed mount system call") ||
+    /mount:\s+[^:\n]+:\s+permission denied/.test(lower)
+  ) {
     return withDetail(
       kind === "nfs"
-        ? "This server does not have permission to mount NFS shares. In Docker, add CAP_SYS_ADMIN (or mount the share on the host and add it as a local folder); on macOS, export with `insecure` or run with mount privileges."
-        : "This server does not have permission to mount SMB shares. On Linux/Docker, mounting CIFS requires root or CAP_SYS_ADMIN (or mount the share on the host and add it as a local folder).",
+        ? "This server does not have permission to run kernel mounts (mount(2) rejected). In Docker/Dokploy, add CAP_SYS_ADMIN (or mount the NFS share on the host and bind-mount it as a local folder); on macOS, export with `insecure` or run with mount privileges."
+        : "This server does not have permission to run kernel mounts (mount(2) rejected). On Linux/Docker, mounting CIFS requires root or CAP_SYS_ADMIN (or mount the share on the host and bind-mount it as a local folder).",
       detail,
     );
   }

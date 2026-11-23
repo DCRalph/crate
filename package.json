@@ -37,6 +37,8 @@
     "@trpc/client": "^11.29.7",
     "@trpc/server": "^11.29.7",
     "@trpc/tanstack-react-query": "^11.29.7",
+    "@winlinux/auth": "^1.1.0",
+    "@winlinux/smb2": "^1.1.0",
     "better-auth": "^1.7.27",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",

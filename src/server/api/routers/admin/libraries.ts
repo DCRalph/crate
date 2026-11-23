@@ -27,10 +27,11 @@ import { db } from "~/server/db";
 import { album, folderRule, library, libraryAccess, playlist, track } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
 import { removeUnusedArtists, scanProgress, startScan } from "~/server/library/scanner";
-import { decryptSecret, encryptSecret } from "~/server/storage/crypto";
-import { openLibrarySource, resolveS3Config, testSourceConnection, unmountLibrary } from "~/server/storage";
-import { buildNfsMountCommand, buildSmbMountCommand, mountsRoot } from "~/server/storage/mount";
+import { encryptSecret } from "~/server/storage/crypto";
+import { openLibrarySource, releaseLibrarySource, resolveS3Config, resolveSmbConfig, testSourceConnection } from "~/server/storage";
+import { buildNfsMountCommand, mountsRoot } from "~/server/storage/mount";
 import { S3LibrarySource } from "~/server/storage/s3-source";
+import { SmbLibrarySource } from "~/server/storage/smb-source";
 import { adminProcedure, router } from "../../trpc";
 
 const id = z.number().int();
@@ -240,7 +241,7 @@ async function checkReachable(prepared: PreparedSource): Promise<{ detail: strin
       return await testSourceConnection({ type: "s3", config: resolveS3Config(prepared.sourceConfig as StoredS3Config) });
     }
     if (prepared.sourceType === "smb") {
-      return await testSourceConnection({ type: "smb", config: prepared.sourceConfig as StoredSmbConfig });
+      return await testSourceConnection({ type: "smb", config: resolveSmbConfig(prepared.sourceConfig as StoredSmbConfig) });
     }
     return await testSourceConnection({ type: "nfs", config: prepared.sourceConfig as StoredNfsConfig });
   } catch (error) {
@@ -268,19 +269,13 @@ async function verifySampleTracksExist(prepared: PreparedSource, relPaths: strin
     const found = await Promise.all(relPaths.map((rel) => s3.fileExists(rel)));
     return found.includes(true);
   }
-  // For SMB / NFS, temporarily mount the new target and check sample files inside it.
-  const cfg = prepared.sourceConfig;
   if (prepared.sourceType === "smb") {
-    const smb = cfg as StoredSmbConfig;
-    const password = smb.passwordEnc ? decryptSecret(smb.passwordEnc) : null;
-    return checkSampleInTempMount(
-      "smb",
-      (mountPoint, credFilePath) => buildSmbMountCommand({ ...smb, password }, mountPoint, { credFilePath }),
-      smb.subpath,
-      relPaths,
-    );
+    const smb = new SmbLibrarySource(resolveSmbConfig(prepared.sourceConfig as StoredSmbConfig));
+    const found = await Promise.all(relPaths.map((rel) => smb.fileExists(rel)));
+    return found.includes(true);
   }
-  const nfs = cfg as StoredNfsConfig;
+  // For NFS, temporarily mount the new target and check sample files inside it.
+  const nfs = prepared.sourceConfig as StoredNfsConfig;
   return checkSampleInTempMount(
     "nfs",
     (mountPoint) => buildNfsMountCommand(nfs, mountPoint),
@@ -291,7 +286,7 @@ async function verifySampleTracksExist(prepared: PreparedSource, relPaths: strin
 
 async function checkSampleInTempMount(
   kind: "smb" | "nfs",
-  build: (mountPoint: string, credFilePath: string) => ReturnType<typeof buildSmbMountCommand>,
+  build: (mountPoint: string, credFilePath: string) => ReturnType<typeof buildNfsMountCommand>,
   subpath: string | undefined,
   relPaths: string[],
 ): Promise<boolean> {
@@ -533,9 +528,9 @@ export const librariesRouter = router({
         await tx.update(album).set({ coverPath: rest(album.coverPath) }).where(eq(album.libraryId, input.id));
       });
 
-      // Unmount the old SMB/NFS share so the next scan or stream remounts with the new settings.
+      // Release the old SMB session or NFS mount so the next scan or stream uses the new settings.
       if ((moved || configChanged) && (found.sourceType === "smb" || found.sourceType === "nfs")) {
-        await unmountLibrary(found.id);
+        await releaseLibrarySource(found);
       }
 
       await recordActivity({
@@ -566,7 +561,7 @@ export const librariesRouter = router({
     if (scanProgress()?.libraryId === input.id) {
       throw new TRPCError({ code: "CONFLICT", message: "Wait for the scan to finish." });
     }
-    await unmountLibrary(found.id);
+    await releaseLibrarySource(found);
     try {
       return await openLibrarySource(found).check();
     } catch (error) {
@@ -596,7 +591,7 @@ export const librariesRouter = router({
     });
     if (!removed) throw new TRPCError({ code: "NOT_FOUND", message: "Library not found." });
     if (removed.sourceType === "smb" || removed.sourceType === "nfs") {
-      await unmountLibrary(removed.id);
+      await releaseLibrarySource(removed);
     }
     await removeUnusedArtists();
     await recordActivity({

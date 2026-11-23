@@ -402,7 +402,20 @@ export function LibrarySourceFields({
               autoCapitalize="none"
               spellCheck={false}
               value={state.smbHost}
-              onChange={(event) => patch({ smbHost: event.target.value })}
+              onChange={(event) => {
+                const raw = event.target.value;
+                const match = /^(?:smb:)?\/\/([^/\s:]+)(?::(\d+))?\/([^/\s]+)(?:\/(.*))?$/i.exec(raw.trim());
+                if (match) {
+                  patch({
+                    smbHost: match[1] ?? raw,
+                    smbPort: match[2] ?? state.smbPort,
+                    smbShare: match[3] ?? state.smbShare,
+                    smbSubpath: match[4]?.replace(/^\/+|\/+$/g, "") ?? state.smbSubpath,
+                  });
+                } else {
+                  patch({ smbHost: raw });
+                }
+              }}
             />
           </Field>
           <Field label="Port" htmlFor="smb-port" hint="Default 445.">
@@ -507,7 +520,18 @@ export function LibrarySourceFields({
             autoCapitalize="none"
             spellCheck={false}
             value={state.nfsHost}
-            onChange={(event) => patch({ nfsHost: event.target.value })}
+            onChange={(event) => {
+              const raw = event.target.value;
+              const trimmed = raw.trim();
+              const urlMatch = /^nfs:\/\/([^/\s:]+)(\/.*)$/i.exec(trimmed);
+              const colonMatch = /^([^/\s:]+):(\/.*)$/.exec(trimmed);
+              const match = urlMatch ?? colonMatch;
+              if (match) {
+                patch({ nfsHost: match[1] ?? raw, nfsExportPath: match[2] ?? state.nfsExportPath });
+              } else {
+                patch({ nfsHost: raw });
+              }
+            }}
           />
         </Field>
         <Field label="Export path" htmlFor="nfs-export" hint="The path exported by the NFS server.">
