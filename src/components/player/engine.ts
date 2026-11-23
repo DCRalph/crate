@@ -51,8 +51,8 @@ function start(audio: HTMLAudioElement) {
  * length and can't be sought, so it is asked for from `at` and the element
  * counts on from there. A file is sent whole and moved to `at` once it has loaded.
  */
-function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number, fresh = false): Clock {
-  audio.src = webStreamUrl(trackId, sent, at, fresh);
+function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number, play: "new" | "on"): Clock {
+  audio.src = webStreamUrl(trackId, sent, at, play);
   if (usePlayer.getState().playing) start(audio);
   return sent.transcode ? { offset: at, seekOnLoad: null } : { offset: 0, seekOnLoad: at > 0 ? at : null };
 }
@@ -191,9 +191,9 @@ export function usePlayerEngine() {
   };
 
   /** Loads the current track's stream on the live element from `at` seconds in. */
-  /** Loads the current track on an element from `at` seconds in. `fresh` is a new play, not the same one carrying on. */
-  const load = (audio: HTMLAudioElement, at: number, fresh = false) => {
-    if (track && sent) clock.current = loadStream(audio, track.id, sent, at, fresh);
+  /** Loads the current track on an element from `at` seconds in: the same play carrying on, unless `play` says it is a new one. */
+  const load = (audio: HTMLAudioElement, at: number, play: "new" | "on" = "on") => {
+    if (track && sent) clock.current = loadStream(audio, track.id, sent, at, play);
   };
 
   const trackId = track?.id;
@@ -229,7 +229,7 @@ export function usePlayerEngine() {
       if (ahead.current !== null || fades.current[to] !== undefined) retire(to);
       ahead.current = null;
       settle(from, 1);
-      return load(audio, Math.min(startAt, Math.max(track.duration - 2, 0)), true);
+      return load(audio, Math.min(startAt, Math.max(track.duration - 2, 0)), "new");
     }
 
     // The handover: the spare has this track ready, so it becomes the live element.
@@ -254,7 +254,8 @@ export function usePlayerEngine() {
       retire(to);
       live.current = from;
       settle(from, 1);
-      clock.current = loadStream(audio, track.id, sent, 0);
+      // The same play the spare was readied for, so it isn't logged again.
+      clock.current = loadStream(audio, track.id, sent, 0, "on");
     });
   });
   // `turn` as well as the address: choosing the track that is already playing (its row, Next onto a second copy) starts it over.

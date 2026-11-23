@@ -152,8 +152,8 @@ export function TrackTable<T extends WebTrack>({
                   const isChosen = chosen.rows.has(index);
                   // The playing row's button pauses and resumes; any other row starts the list from there.
                   const start = () => (isCurrent ? setPlaying(!playing) : playFrom(index));
-                  // A click on the heart, the menu or a link belongs to that, not to the row.
-                  const onRow = (event: React.MouseEvent) => !(event.target instanceof Element && event.target.closest("button, a"));
+                  // A click on the heart, the menu, a link or the waveform belongs to that, not to the row.
+                  const onRow = (event: React.MouseEvent) => !(event.target instanceof Element && event.target.closest("button, a, [role=slider]"));
                   return (
                     <TableRow
                       key={`${track.id}-${index}`}
