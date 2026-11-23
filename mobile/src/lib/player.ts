@@ -148,12 +148,14 @@ async function sourceFor(server: Server, track: Track): Promise<AudioSource> {
 /** Tracks arriving or being opened now, by the file they end up in. */
 const opening = new Map<string, Promise<AudioSource>>();
 
-/** Removes every opened file but the ones named. A file a player still has open stays readable to it until it lets go. */
+/** Removes every opened file but the ones named and any still being opened. A file a player still has open stays readable to it until it lets go. */
 function tidy(keep: File[]) {
   const directory = openDirectory();
   if (!directory.exists) return;
   const names = new Set(keep.map((file) => file.name));
-  for (const item of directory.list()) if (item instanceof File && !names.has(item.name) && !item.name.endsWith(".arriving") && item.name !== "cover.jpg") item.delete();
+  for (const item of directory.list()) {
+    if (item instanceof File && !names.has(item.name) && !opening.has(item.name) && !item.name.endsWith(".arriving") && item.name !== "cover.jpg") item.delete();
+  }
 }
 
 // The queue as it was when the app was last open, and what this phone knows of the queue saved on the server.
@@ -422,10 +424,10 @@ export const usePlayer = create<Player>()((set, get) => {
       void prepare();
     } catch {
       if (marker !== turn) return;
-      // One track that can't be had shouldn't stop the music: on to the next. But not round and round a queue none of which can be had.
+      // One track that can't be had shouldn't stop the music: on to the next. But not round and round a queue none of which can be had, and not for a listener who has paused meanwhile.
       failures++;
       const to = upcoming();
-      if (to === null || failures >= queue.length) return set({ loading: false, playing: false });
+      if (to === null || failures >= queue.length || !get().playing) return set({ loading: false, playing: false });
       set({ index: to });
       void load();
     }
@@ -479,8 +481,13 @@ export const usePlayer = create<Player>()((set, get) => {
     toggle: () => {
       const { queue, playing, position } = get();
       if (!queue.length) return;
-      // Still on its way: only what is wanted changes, and the load goes by it when it lands.
-      if (get().loading) return set({ playing: !playing });
+      // Still on its way: what is wanted changes, and the load goes by it when it lands. If it has landed and the deck just hasn't said it is sounding yet, the deck is told too.
+      if (get().loading) {
+        const deck = loaded ? decks?.[live] : undefined;
+        if (deck && playing) deck.pause();
+        else deck?.play();
+        return set({ playing: !playing, ...(deck ? { loading: false } : {}) });
+      }
       // A queue brought back at launch hasn't been loaded yet.
       if (!loaded) return void load(position);
       const deck = decks?.[live];
@@ -548,7 +555,7 @@ export const usePlayer = create<Player>()((set, get) => {
       // The one playing: what was after it takes its place (or the new last track, if it was the last), from its start.
       const now = Math.min(index, rest.length - 1);
       set({ queue: rest, index: now, unshuffled: without, position: 0, duration: rest[now]?.duration ?? 0 });
-      if (loaded && get().playing) return void load();
+      if (get().playing) return void load();
       // Paused, or never loaded: it waits for Play, like a queue brought back at launch.
       settle();
       turn++;
