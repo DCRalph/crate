@@ -2,12 +2,13 @@ import { TRPCError } from "@trpc/server";
 import { count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { audienceSchema } from "~/lib/audience";
+import { audienceSchema, sameAudience } from "~/lib/audience";
 import { recordActivity } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, folderRuleModes, library, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
-import { logNewAudience, ruleAudiences, settleAudience } from "~/server/playlists/audience";
+import { loadAudiences } from "~/server/library/queries";
+import { logMove, logNewAudience, placeName, ruleAudiences, settleAudience } from "~/server/playlists/audience";
 import { planRule, syncFolderRules } from "~/server/playlists/folder-rules";
 import { assertPlace, FolderError } from "~/server/playlists/folders";
 import { openLibrarySource } from "~/server/storage";
@@ -133,14 +134,25 @@ export const folderRulesRouter = router({
   /**
    * Changes how a rule builds or where it sits, then rebuilds. The folder it
    * follows is fixed. Who can listen is `playlists.setAudience`, for the
-   * rule's default and for anything it makes.
+   * rule's default and for anything it makes. A move that changes who can
+   * listen to what follows the rule is logged, as moving a folder is.
    */
   update: adminProcedure
     .input(z.object({ id, mode: mode.optional(), parentFolderId: id.nullable().optional() }))
     .mutation(async ({ ctx, input: { id: ruleId, ...change } }) => {
       const [found] = await rules().where(eq(folderRule.id, ruleId));
       if (!found) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found." });
-      if (change.parentFolderId !== undefined) await checkPlace(found.ownerId, change.parentFolderId);
+      const to = change.parentFolderId;
+      if (to !== undefined) await checkPlace(found.ownerId, to);
+      // What the rule makes follows its default or, with none, the folder it is put in, so a move can change who listens.
+      const move =
+        to === undefined || to === found.parentFolderId
+          ? null
+          : await loadAudiences().then((audiences) => ({
+              to,
+              was: audiences.inherited({ folderId: found.parentFolderId, ruleId }).audience,
+              now: audiences.inherited({ folderId: to, ruleId }).audience,
+            }));
       await db.update(folderRule).set(change).where(eq(folderRule.id, ruleId));
       await syncFolderRules(found.libraryId, ruleId);
       await recordActivity({
@@ -150,6 +162,11 @@ export const folderRulesRouter = router({
         detail: change,
         headers: ctx.headers,
       });
+      if (move && !sameAudience(move.was, move.now)) {
+        const moved = `what it makes from ${await placeName(found.parentFolderId)} to ${await placeName(move.to)}`;
+        const item = { name: `Folder rule ${found.path ? `${found.libraryName}/${found.path}` : found.libraryName}`, ownerId: found.ownerId };
+        await logMove(ctx.scope, { type: "rule", id: ruleId }, item, { moved, was: move.was, now: move.now }, { headers: ctx.headers });
+      }
     }),
 
   /** What a rule has made, each folder and playlist with its own audience and who can listen now. */

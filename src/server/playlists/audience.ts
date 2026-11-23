@@ -7,8 +7,9 @@ import { recordActivity, type ActivityOrigin } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, library, playlist, playlistFolder, ruleItemAudience } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
-import { canShare, listPlaylists, loadAudiences, ruleItemAudienceOf } from "~/server/library/queries";
-import type { AudiencePlace } from "./resolve-audience";
+import { canShare, listPlaylists, loadAudiences, ruleItemAudienceOf, snapshot, type Reader } from "~/server/library/queries";
+import { lockAudiences } from "./folder-rules";
+import type { AudiencePlace, AudienceResolver } from "./resolve-audience";
 
 // Choosing who can listen to a playlist, a folder, or the top of what a folder
 // rule makes. Working it out is resolve-audience.ts; this reads and saves the
@@ -35,10 +36,11 @@ type Target = {
   ruleItem: { ruleId: number; kind: "folder" | "playlist"; sourcePath: string } | null;
 };
 
-async function findTarget(scope: Scope, target: AudienceTarget): Promise<Target> {
+/** Reads one target in the caller's transaction, with who can listen as loaded there if it has been. */
+async function findTarget(scope: Scope, target: AudienceTarget, within: { tx: Reader; audiences?: AudienceResolver }): Promise<Target> {
   if (target.type === "playlist") {
     // Looked up through the listing people browse, so "not found" means the same thing everywhere.
-    const [row] = await listPlaylists(scope, eq(playlist.id, target.id));
+    const [row] = await listPlaylists(scope, eq(playlist.id, target.id), within);
     if (!row) throw new AudienceError("not_found");
     return {
       name: row.name,
@@ -51,7 +53,7 @@ async function findTarget(scope: Scope, target: AudienceTarget): Promise<Target>
     };
   }
   if (target.type === "folder") {
-    const [row] = await db
+    const [row] = await within.tx
       .select({
         name: playlistFolder.name,
         ownerId: playlistFolder.ownerId,
@@ -80,7 +82,7 @@ async function findTarget(scope: Scope, target: AudienceTarget): Promise<Target>
   }
   // Folder rules are set up in admin, so only admins see or change their default.
   if (!scope.isAdmin) throw new AudienceError("not_found");
-  const [row] = await db
+  const [row] = await within.tx
     .select({
       libraryName: library.name,
       path: folderRule.path,
@@ -112,9 +114,12 @@ async function findTarget(scope: Scope, target: AudienceTarget): Promise<Target>
  * is. Only those who can change it may ask, since it names who else listens.
  */
 export async function audienceSettings(scope: Scope, target: AudienceTarget) {
-  const [item, audiences] = await Promise.all([findTarget(scope, target), loadAudiences()]);
+  const { item, inherited } = await snapshot(async (tx) => {
+    const audiences = await loadAudiences(tx);
+    const item = await findTarget(scope, target, { tx, audiences });
+    return { item, inherited: audiences.inherited(item.place) };
+  });
   if (!item.canChange) throw new AudienceError("not_found");
-  const inherited = audiences.inherited(item.place);
   const from = inherited.from;
   let follows: { type: "folder"; id: number; name: string } | { type: "rule"; id: number } | null = null;
   if (from && "folderId" in from) {
@@ -198,7 +203,8 @@ export async function placeName(folderId: number | null) {
 /**
  * Logs a move that changed who can listen to something following its folder:
  * `moved` says what went where ("from Mixes to Family"), `was` and `now` who
- * could listen before and who can now. Only call it when they differ.
+ * could listen before and who can now, chosen people by name. Only call it
+ * when they differ.
  */
 export async function logMove(
   scope: Scope,
@@ -207,11 +213,13 @@ export async function logMove(
   change: { moved: string; was: Audience; now: Audience },
   from: ActivityOrigin = {},
 ) {
-  const [people, [owner]] = await Promise.all([
+  const [people, wasPeople, [owner]] = await Promise.all([
     change.now.kind === "people" ? accounts(change.now.userIds) : [],
+    change.was.kind === "people" ? accounts(change.was.userIds) : [],
     item.ownerId === scope.user.id ? [] : accounts([item.ownerId]),
   ]);
-  const detail = { moved: change.moved, ...listenDetail(change.now, people), before: listenWords[change.was.kind] };
+  const was = listenDetail(change.was, wasPeople);
+  const detail = { moved: change.moved, ...listenDetail(change.now, people), before: was.people ? `${was.listen} (${was.people})` : was.listen };
   await logAudience(scope, target, { ...item, ownerName: owner?.username }, detail, from);
 }
 
@@ -219,29 +227,35 @@ export async function logMove(
  * Gives an item an audience of its own, or (null) makes it follow its folder
  * again, and records the change in the activity log. Chosen people are kept
  * as `settleAudience` says. Nothing is written or logged when nothing changes.
+ * Waits for any rebuild under way (see `lockAudiences`) and reads the item
+ * after it, so a rebuild can't undo the change or remove the item midway.
  */
 export async function setAudience(scope: Scope, target: AudienceTarget, audience: Audience | null, from: ActivityOrigin = {}) {
-  const item = await findTarget(scope, target);
-  if (!item.canChange) throw new AudienceError("forbidden");
+  const changed = await db.transaction(async (tx) => {
+    await lockAudiences(tx, "change");
+    const item = await findTarget(scope, target, { tx });
+    if (!item.canChange) throw new AudienceError("forbidden");
 
-  const settled = await settleAudience(audience, item.ownerId);
-  const next = settled.audience;
-  if (sameAudience(item.own, next)) return;
+    const settled = await settleAudience(audience, item.ownerId);
+    const next = settled.audience;
+    if (sameAudience(item.own, next)) return null;
 
-  if (target.type === "rule") {
-    await db.update(folderRule).set({ audience: next }).where(eq(folderRule.id, target.id));
-  } else if (item.ruleItem) {
-    const key = item.ruleItem;
-    const where = and(eq(ruleItemAudience.ruleId, key.ruleId), eq(ruleItemAudience.kind, key.kind), eq(ruleItemAudience.sourcePath, key.sourcePath));
-    if (next === null) await db.delete(ruleItemAudience).where(where);
-    else await db.insert(ruleItemAudience).values({ ...key, audience: next }).onConflictDoUpdate({ target: [ruleItemAudience.ruleId, ruleItemAudience.kind, ruleItemAudience.sourcePath], set: { audience: next } });
-  } else if (target.type === "playlist") {
-    await db.update(playlist).set({ audience: next }).where(eq(playlist.id, target.id));
-  } else {
-    await db.update(playlistFolder).set({ audience: next }).where(eq(playlistFolder.id, target.id));
-  }
+    if (target.type === "rule") {
+      await tx.update(folderRule).set({ audience: next }).where(eq(folderRule.id, target.id));
+    } else if (item.ruleItem) {
+      const key = item.ruleItem;
+      const where = and(eq(ruleItemAudience.ruleId, key.ruleId), eq(ruleItemAudience.kind, key.kind), eq(ruleItemAudience.sourcePath, key.sourcePath));
+      if (next === null) await tx.delete(ruleItemAudience).where(where);
+      else await tx.insert(ruleItemAudience).values({ ...key, audience: next }).onConflictDoUpdate({ target: [ruleItemAudience.ruleId, ruleItemAudience.kind, ruleItemAudience.sourcePath], set: { audience: next } });
+    } else if (target.type === "playlist") {
+      await tx.update(playlist).set({ audience: next }).where(eq(playlist.id, target.id));
+    } else {
+      await tx.update(playlistFolder).set({ audience: next }).where(eq(playlistFolder.id, target.id));
+    }
+    return { item, detail: settled.detail };
+  });
 
-  await logAudience(scope, target, item, settled.detail, from);
+  if (changed) await logAudience(scope, target, changed.item, changed.detail, from);
 }
 
 /** Everyone a person might share with: every other account, by id and name only. */
@@ -259,33 +273,35 @@ export async function sharePeople(scope: Scope) {
  * Folders come parents first.
  */
 export async function ruleAudiences(ruleId: number) {
-  const [audiences, folders, playlists] = await Promise.all([
-    loadAudiences(),
-    db
-      .select({
-        id: playlistFolder.id,
-        name: playlistFolder.name,
-        parentId: playlistFolder.parentId,
-        sourcePath: playlistFolder.sourcePath,
-        own: ruleItemAudience.audience,
-      })
-      .from(playlistFolder)
-      .leftJoin(ruleItemAudience, ruleItemAudienceOf("folder", playlistFolder.ruleId, playlistFolder.sourcePath))
-      .where(eq(playlistFolder.ruleId, ruleId))
-      .orderBy(asc(playlistFolder.sourcePath)),
-    db
-      .select({
-        id: playlist.id,
-        name: playlist.name,
-        folderId: playlist.folderId,
-        sourcePath: playlist.sourcePath,
-        own: ruleItemAudience.audience,
-      })
-      .from(playlist)
-      .leftJoin(ruleItemAudience, ruleItemAudienceOf("playlist", playlist.ruleId, playlist.sourcePath))
-      .where(eq(playlist.ruleId, ruleId))
-      .orderBy(asc(playlist.sourcePath)),
-  ]);
+  const [audiences, folders, playlists] = await snapshot((tx) =>
+    Promise.all([
+      loadAudiences(tx),
+      tx
+        .select({
+          id: playlistFolder.id,
+          name: playlistFolder.name,
+          parentId: playlistFolder.parentId,
+          sourcePath: playlistFolder.sourcePath,
+          own: ruleItemAudience.audience,
+        })
+        .from(playlistFolder)
+        .leftJoin(ruleItemAudience, ruleItemAudienceOf("folder", playlistFolder.ruleId, playlistFolder.sourcePath))
+        .where(eq(playlistFolder.ruleId, ruleId))
+        .orderBy(asc(playlistFolder.sourcePath)),
+      tx
+        .select({
+          id: playlist.id,
+          name: playlist.name,
+          folderId: playlist.folderId,
+          sourcePath: playlist.sourcePath,
+          own: ruleItemAudience.audience,
+        })
+        .from(playlist)
+        .leftJoin(ruleItemAudience, ruleItemAudienceOf("playlist", playlist.ruleId, playlist.sourcePath))
+        .where(eq(playlist.ruleId, ruleId))
+        .orderBy(asc(playlist.sourcePath)),
+    ]),
+  );
   return {
     folders: folders.map((row) => ({ ...row, audience: audiences.folder(row.id) })),
     playlists: playlists.map((row) => ({ ...row, audience: audiences.playlist({ folderId: row.folderId, ruleId, audience: row.own }) })),

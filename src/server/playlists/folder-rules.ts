@@ -11,6 +11,19 @@ import { keptAudiences } from "./resolve-audience";
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Rule = typeof folderRule.$inferSelect;
 
+const audiencesLock = sql`hashtext('crate.audiences')`;
+
+/**
+ * Keeps a change to who can listen from landing partway through a rebuild,
+ * which compares who could listen before and after it (see keptAudiences)
+ * and would miss the change, or undo it. Rebuilds share the lock, so they
+ * run side by side; a change takes it alone, so it waits for rebuilds under
+ * way and they wait for it. Taken first in a transaction, held until it ends.
+ */
+export async function lockAudiences(tx: Tx, as: "rebuild" | "change") {
+  await tx.execute(as === "rebuild" ? sql`select pg_advisory_xact_lock_shared(${audiencesLock})` : sql`select pg_advisory_xact_lock(${audiencesLock})`);
+}
+
 /** Replaces a playlist's tracks with `trackIds`, in order. */
 export async function setPlaylistTracks(tx: Tx, playlistId: number, trackIds: number[]) {
   await tx.delete(playlistTrack).where(eq(playlistTrack.playlistId, playlistId));
@@ -70,7 +83,9 @@ export async function syncFolderRules(libraryId: number, ruleId?: number) {
 }
 
 async function applyPlan(tx: Tx, rule: Rule, plan: TreePlan) {
-  // Who can listen before anything changes, for the playlists a move would change (see keptAudiences).
+  // Who can listen before anything changes, for the playlists a move would change (see keptAudiences),
+  // read once no change to it can land before the rebuild is done.
+  await lockAudiences(tx, "rebuild");
   const before = await loadAudiences(tx);
   // Folders come parents first, so each can point at its parent's row.
   const oldFolders = new Map(

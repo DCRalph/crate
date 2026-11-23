@@ -7,7 +7,7 @@ import type { ActivityOrigin } from "~/server/activity";
 import { db } from "~/server/db";
 import { folderRule, playlist, playlistFolder } from "~/server/db/app-schema";
 import { user } from "~/server/db/schema";
-import { listPlaylists, loadAudiences } from "~/server/library/queries";
+import { listPlaylists, loadAudiences, snapshot, type Reader } from "~/server/library/queries";
 import { logMove, logNewAudience, placeName, settleAudience } from "./audience";
 
 // The folders people sort their playlists into. Folders hold folders and
@@ -25,8 +25,8 @@ export class FolderError extends Error {
 
 export type FolderRow = Awaited<ReturnType<typeof allFolders>>[number];
 
-const allFolders = () =>
-  db
+const allFolders = (tx: Reader) =>
+  tx
     .select({
       id: playlistFolder.id,
       name: playlistFolder.name,
@@ -44,10 +44,13 @@ const allFolders = () =>
  * The playlist tree as a scope sees it: every playlist it can see, its own
  * folders, and other people's folders only where they lead to a playlist it
  * can see. Admins see every folder. Each folder says who can listen to it.
+ * Everything is read in one snapshot, so all of it agrees.
  */
 export async function getPlaylistTree(scope: Scope) {
-  const [audiences, folders] = await Promise.all([loadAudiences(), allFolders()]);
-  const playlists = await listPlaylists(scope, undefined, audiences);
+  const { audiences, folders, playlists } = await snapshot(async (tx) => {
+    const [audiences, folders] = await Promise.all([loadAudiences(tx), allFolders(tx)]);
+    return { audiences, folders, playlists: await listPlaylists(scope, undefined, { tx, audiences }) };
+  });
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const leading = new Set<number>();
   for (const item of playlists) {
@@ -154,11 +157,14 @@ export async function updateFolder(scope: Scope, id: number, change: { name?: st
  */
 export async function deleteFolder(scope: Scope, id: number, from: ActivityOrigin = {}) {
   const found = await editable(scope, id);
-  const before = await loadAudiences();
-  const [playlists, folders] = await Promise.all([
-    listPlaylists(scope, eq(playlist.folderId, id), before),
-    db.select({ id: playlistFolder.id }).from(playlistFolder).where(eq(playlistFolder.parentId, id)),
-  ]);
+  const { before, playlists, folders } = await snapshot(async (tx) => {
+    const before = await loadAudiences(tx);
+    const [playlists, folders] = await Promise.all([
+      listPlaylists(scope, eq(playlist.folderId, id), { tx, audiences: before }),
+      tx.select({ id: playlistFolder.id }).from(playlistFolder).where(eq(playlistFolder.parentId, id)),
+    ]);
+    return { before, playlists, folders };
+  });
   await db.transaction(async (tx) => {
     await tx.update(playlistFolder).set({ parentId: found.parentId }).where(eq(playlistFolder.parentId, id));
     await tx.update(playlist).set({ folderId: found.parentId }).where(eq(playlist.folderId, id));
