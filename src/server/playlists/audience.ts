@@ -108,10 +108,12 @@ async function findTarget(scope: Scope, target: AudienceTarget): Promise<Target>
 
 /**
  * What the "Who can listen" section shows for one item: its own setting,
- * what it follows without one (and what that means right now), and whose it is.
+ * what it follows without one (and what that means right now), and whose it
+ * is. Only those who can change it may ask, since it names who else listens.
  */
 export async function audienceSettings(scope: Scope, target: AudienceTarget) {
   const [item, audiences] = await Promise.all([findTarget(scope, target), loadAudiences()]);
+  if (!item.canChange) throw new AudienceError("not_found");
   const inherited = audiences.inherited(item.place);
   const from = inherited.from;
   let follows: { type: "folder"; id: number; name: string } | { type: "rule"; id: number } | null = null;
@@ -127,12 +129,14 @@ export async function audienceSettings(scope: Scope, target: AudienceTarget) {
     isMine: item.ownerId === scope.user.id,
     ownerId: item.ownerId,
     ownerName: item.ownerName,
-    canChange: item.canChange,
   };
 }
 
-/** The same audience written the same way, so a save that changes nothing is noticed. */
-const sameAudience = (a: Audience | null, b: Audience | null) => JSON.stringify(a) === JSON.stringify(b);
+const listenWords = { owner: "only the owner", everyone: "everyone", people: "chosen people" } as const;
+
+/** Whether two settings are the same, so a save that changes nothing is noticed. Chosen people are kept in one order. */
+const sameAudience = (a: Audience | null, b: Audience | null) =>
+  a === null || b === null ? a === b : a.kind === b.kind && (a.kind !== "people" || (b.kind === "people" && a.userIds.join() === b.userIds.join()));
 
 /**
  * Gives an item an audience of its own, or (null) makes it follow its folder
@@ -183,8 +187,9 @@ export async function setAudience(
     detail: {
       [target.type]: target.id,
       ...(item.ownerId === scope.user.id ? {} : { owner: item.ownerName }),
-      audience: next?.kind ?? "follows its folder",
-      ...(next?.kind === "people" ? { people: people.map((person) => person.username) } : {}),
+      // Plain text, so the activity log's Detail column can show it.
+      listen: next === null ? "same as its folder" : listenWords[next.kind],
+      ...(next?.kind === "people" ? { people: people.map((person) => person.username).join(", ") || "nobody yet" } : {}),
     },
     ...from,
   });

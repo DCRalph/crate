@@ -102,10 +102,14 @@ export const infoRouter = router({
       isMine: found.ownerId === ctx.scope.user.id,
       /** The folders it sits in, outermost first: "Mixes / 2025". Null at the top level. */
       folderPath: found.folderId === null ? null : (folderPaths(folders).get(found.folderId) ?? null),
-      whoCanListen: describeAudience(found.audience, {
-        ownerName: found.ownerId === ctx.scope.user.id ? undefined : found.ownerName,
-        people: new Map(people.map((person) => [person.id, person.name])),
-      }),
+      // A listener among chosen people isn't told who else was chosen.
+      whoCanListen:
+        found.audience.kind === "people" && !canShare(ctx.scope, found)
+          ? "Chosen people"
+          : describeAudience(found.audience, {
+              ownerName: found.ownerId === ctx.scope.user.id ? undefined : found.ownerName,
+              people: new Map(people.map((person) => [person.id, person.name])),
+            }),
       /** Made by a folder rule, so it follows a folder on disk. */
       fromDisk: found.fromFolder,
       /** Which folder that is, when the caller reaches the library it is in. `path` is inside the library, "" for all of it. */

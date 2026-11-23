@@ -12,7 +12,6 @@ export const audienceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("people"), userIds: z.array(z.string().min(1).max(100)).max(500) }),
 ]);
 export type Audience = z.infer<typeof audienceSchema>;
-export type AudienceKind = Audience["kind"];
 
 /** Where nothing in the tree sets an audience, only the owner listens. */
 export const ownerOnly: Audience = { kind: "owner" };
@@ -32,7 +31,7 @@ export type AudienceTarget = z.infer<typeof audienceTargetSchema>;
 export function describeAudience(audience: Audience, options: { ownerName?: string; people?: ReadonlyMap<string, string> } = {}) {
   if (audience.kind === "owner") return options.ownerName ? `Only ${options.ownerName}` : "Only me";
   if (audience.kind === "everyone") return "Everyone on this server";
-  const names = audience.userIds.flatMap((id) => options.people?.get(id) ?? []);
+  const names = audience.userIds.flatMap((id) => options.people?.get(id) ?? []).sort((a, b) => a.localeCompare(b));
   if (!audience.userIds.length) return "Chosen people: nobody yet";
   if (names.length === audience.userIds.length && names.length <= 3) return names.join(", ");
   return audience.userIds.length === 1 ? "1 person" : `${audience.userIds.length} people`;
