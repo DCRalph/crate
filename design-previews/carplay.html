@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crate on CarPlay: mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Mockups of Crate on a car's screen, each drawn at 960 by 540. The pictures in design-previews/carplay are photographs of these. The albums and artists are made up. */
+/* Stand-in artwork, drawn in CSS, as in the style guide. */
+.cv{display:block;aspect-ratio:1;flex:none;background-color:#222;background-size:cover}
+.cv1{background-image:radial-gradient(circle at 32% 68%,#f6c453 0 9%,rgba(246,196,83,.35) 9.5% 17%,transparent 17.5%),linear-gradient(#0b1d33 0 62%,#12355b 62% 64%,#0e2a47 64%)}
+.cv2{background-image:radial-gradient(circle at 70% 55%,#e4572e 0 15%,transparent 15.5%),linear-gradient(#ecdfc8 0 55%,#2f6f8f 55% 78%,#255a75 78%)}
+.cv4{background-image:linear-gradient(135deg,#ff9f1c 0 33%,#fff 33% 36%,#2ec4b6 36% 66%,#fff 66% 69%,#e71d36 69%)}
+.cv5{background-image:radial-gradient(circle at 50% 118%,#0a1128 0 58%,transparent 58.5%),linear-gradient(#17255a,#3a5ba0 55%,#e8a87c)}
+.cv6{background-image:radial-gradient(circle at 75% 30%,#f4f1de 0 10%,transparent 10.5%),linear-gradient(90deg,#3d5a40 0 50%,#a3b18a 50%)}
+.cv7{background-image:radial-gradient(circle at 50% 50%,#111 0 20%,#f2e9e4 20.5% 22%,#111 22.5% 42%,#c9ada7 42.5% 44%,#22223b 44.5%)}
+
+/* One car screen: the car's own dock at the left, the app beside it. Night unless .day. */
+.car{--cab:#0e2b2f;--cab-2:#12363b;--cab-3:#1a4449;--cab-line:#2b565b;--glass:#071a1d;--chrome:#e3ebe8;--chrome-2:#93adab;
+  --strip:#f3ead4;--strip-2:#e7dbbd;--strip-line:#cdbf9b;--ink:#1b1a16;--ink-2:#5b5545;--band:#ef5b34;--lamp:#ffc44d;
+  width:960px;height:540px;display:flex;overflow:hidden;position:relative;background:#000;
+  font:500 16px/1.25 Jost,system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.car.day{--cab:#bcdcd5;--cab-2:#a9d0c8;--cab-3:#97c4bb;--cab-line:#7fb0a7;--chrome:#0e2b2f;--chrome-2:#35595d;--strip:#fbf6e7;--strip-2:#f0e6cc;--strip-line:#d6c9a6}
+.car *{box-sizing:border-box;margin:0}
+.car svg.i{flex:none;display:block}
+.num{font-family:"Big Shoulders Display",Jost,sans-serif;font-weight:700;letter-spacing:.03em}
+.sp{flex:1}
+
+.dock{width:76px;flex:none;background:#06090a;color:#fff;display:flex;flex-direction:column;align-items:center;padding:18px 0 16px;font-family:-apple-system,system-ui,sans-serif}
+.dock time{font-size:18px;font-weight:600;letter-spacing:-.2px}
+.dock .net{display:flex;align-items:flex-end;gap:5px;margin-top:6px;font-size:11px;font-weight:700;line-height:1}
+.dock .bars{display:flex;align-items:flex-end;gap:2px}
+.dock .bars i{width:3px;border-radius:1px;background:#fff}
+.dock .bars i:nth-child(1){height:4px}.dock .bars i:nth-child(2){height:6px}.dock .bars i:nth-child(3){height:8px}.dock .bars i:nth-child(4){height:10px;opacity:.35}
+.dock .apps{display:flex;flex-direction:column;gap:13px;margin-top:auto}
+.dock .ic{width:50px;height:50px;border-radius:13px;display:grid;place-items:center;color:#fff}
+.dock .nav{background:linear-gradient(#5aa9ff,#2b6fe0)}
+.dock .tel{background:linear-gradient(#63d977,#2fb24b)}
+.dock .crate{background:#0e2b2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.dock .crate i{width:36px;height:17px;border-radius:3px 3px 0 0;background:linear-gradient(#f3ead4 0 68%,#ef5b34 68%);position:relative}
+.dock .crate i::after{content:"";position:absolute;right:4px;top:3px;width:5px;height:5px;border-radius:50%;background:#ffc44d;box-shadow:0 0 0 1px #1b1a16}
+.dock .home{margin-top:auto;opacity:.9}
+
+.app{flex:1;min-width:0;position:relative;overflow:hidden;background:var(--cab);color:var(--chrome);display:flex;flex-direction:column}
+.app.pad{padding:22px 26px}
+.app.np{--cab:#0e2b2f;--cab-line:#2b565b;--chrome:#e3ebe8;--chrome-2:#93adab;justify-content:space-between}
+
+/* Glass, for what floats: follows the cabinet, or is night at any hour. */
+.glass{background:rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(255,255,255,.09),0 10px 26px -12px rgba(0,0,0,.6);backdrop-filter:blur(18px);color:var(--chrome)}
+.day .glass{background:rgba(255,255,255,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 0 0 1px rgba(14,43,47,.1),0 10px 24px -14px rgba(14,43,47,.5)}
+.glass.night,.day .glass.night{background:rgba(7,26,29,.8);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 1px rgba(255,255,255,.07),0 12px 28px -12px rgba(0,0,0,.65);color:#e3ebe8}
+
+.bar{display:flex;align-items:center;gap:14px;height:56px;flex:none}
+.bar h1{font:800 36px/1 "Big Shoulders Display",sans-serif;text-transform:uppercase;letter-spacing:.015em;white-space:nowrap}
+.from{color:var(--chrome-2);font-size:16px;white-space:nowrap;padding-top:6px}
+.from b{color:var(--chrome);font-weight:600}
+.rnd{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;flex:none}
+.lbl{font:600 13px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.09em;color:var(--chrome-2)}
+.mark{display:flex;align-items:center;gap:8px;background:var(--strip);color:var(--ink);border-radius:4px;padding:0 10px;height:34px}
+.mark b{font:800 22px/1 "Big Shoulders Display",sans-serif;text-transform:uppercase;letter-spacing:.08em;padding-top:1px}
+
+.lampd{display:inline-block;width:11px;height:11px;border-radius:50%;border:1.5px solid currentColor;flex:none;opacity:.5}
+.lampd.on{background:var(--lamp);border-color:var(--lamp);opacity:1}
+.card .lampd.on,.mark .lampd.on{border-color:var(--ink)}
+.plate{display:inline-grid;place-items:center;flex:none;background:var(--glass);color:var(--lamp);font:700 20px/1 "Big Shoulders Display",sans-serif;letter-spacing:.05em;min-width:42px;height:30px;padding:1px 7px 0;border-radius:4px}
+.chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:5px;box-shadow:inset 0 0 0 1.5px var(--cab-line);color:var(--chrome);font:600 12.5px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.chip.warn{background:var(--lamp);color:var(--ink);box-shadow:none;height:40px;padding:0 14px;font-size:13.5px}
+
+/* A title strip: the name on ivory, the facts on the band. */
+.strip{display:block;background:var(--strip);color:var(--ink);border-radius:4px;overflow:hidden;min-width:0}
+.strip b,.strip span{display:block;padding:0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip b{font-weight:600;font-size:16px;text-transform:uppercase;letter-spacing:.05em;line-height:38px}
+.strip span{background:var(--band);font-size:14.5px;font-weight:500;line-height:30px}
+.strip.xl b{font-size:28px;line-height:64px;padding:0 18px;letter-spacing:.04em}
+.strip.xl span{font-size:20px;line-height:44px;padding:0 18px}
+.strip.inbar{flex:1}
+.strip.inbar b{font-size:20px;line-height:36px}
+.strip.inbar span{font-size:15.5px;line-height:28px}
+
+/* Keys, sized for an arm's reach. */
+.key{display:inline-flex;align-items:center;justify-content:center;gap:10px;flex:none;height:60px;min-width:104px;padding:0 22px 5px;border-radius:9px;background:var(--strip);color:var(--ink);font:600 15px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;box-shadow:inset 0 -5px 0 rgba(0,0,0,.2)}
+.key.pri{background:var(--band)}
+.key.wide{min-width:156px;height:66px}
+.key.quiet{background:transparent;color:var(--chrome);box-shadow:inset 0 0 0 1.5px var(--cab-line);padding-bottom:0;min-width:76px}
+.key.quiet.lit{color:var(--lamp);box-shadow:inset 0 0 0 1.5px var(--lamp)}
+.key.small{height:48px;min-width:0;padding:0 16px;font-size:13.5px}
+.keys{display:flex;align-items:center;justify-content:center;gap:14px;flex:none}
+
+/* The waveform. */
+.wv{display:block;flex:none}
+.wv .p{fill:var(--lamp)}
+.wv .u{fill:#93adab;opacity:.42}
+.wv .h{fill:#f3ead4}
+.scrub{display:flex;align-items:center;justify-content:space-between;flex:none;font-size:26px;color:var(--chrome-2)}
+.scrub .num{width:52px}
+.scrub .num.now,.num.now{color:var(--lamp)}
+.scrub .num:first-child{text-align:right}
+
+/* Now playing A */
+.mid{display:flex;align-items:center;gap:24px;flex:none}
+.art{border-radius:5px;box-shadow:0 14px 30px -14px rgba(0,0,0,.7)}
+.meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.facts{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--chrome)}
+.next{display:flex;align-items:baseline;gap:10px;font-size:16px;color:var(--chrome-2);white-space:nowrap}
+.next b{color:var(--chrome);font-weight:600}
+
+/* Now playing B */
+.np.wide .bar{height:64px}
+.hero{position:relative;padding-top:38px;flex:none}
+.hero .at{position:absolute;top:0;min-width:58px;height:32px;font-size:22px}
+.under{display:flex;align-items:center;justify-content:space-between;flex:none;color:var(--chrome-2)}
+.num.big{font-size:46px;line-height:1;width:110px}
+.under .num.big:last-child{text-align:right}
+
+/* Now playing C */
+.np.cover{flex-direction:row;align-items:center}
+.wash{position:absolute;inset:-60px;filter:blur(46px);aspect-ratio:auto}
+.tint{position:absolute;inset:0;background:rgba(14,43,47,.62)}
+.np.cover .back{position:absolute;top:22px;left:26px;z-index:1}
+.np.cover .left{position:relative;width:410px;flex:none;display:grid;place-items:center}
+.np.cover .left .art{width:318px;margin-left:34px}
+.np.cover .right{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;gap:18px;padding-right:30px}
+.panel{border-radius:28px;padding:20px 22px 22px;display:flex;flex-direction:column;gap:18px}
+.panel .scrub{font-size:22px}
+.panel .scrub .num{width:44px}
+.rounds{display:flex;align-items:center;justify-content:space-between}
+.round{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:rgba(227,235,232,.1);color:#e3ebe8}
+.round.pri{width:86px;height:86px;background:var(--band);color:var(--ink)}
+.mode{width:48px;height:48px;display:grid;place-items:center;color:#93adab}
+.mode.on{color:var(--lamp)}
+.np.cover .next{align-items:center}
+
+/* Pages with the tabs and the deck */
+.app.browse{padding-bottom:104px;gap:22px}
+.tabs{display:flex;gap:2px;height:56px;padding:5px;border-radius:28px;flex:none}
+.tabs a{display:flex;align-items:center;gap:9px;padding:0 19px;border-radius:23px;color:var(--chrome-2);font:600 14px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.07em}
+.tabs a.cur{background:var(--strip);color:var(--ink);padding:0 22px 0 18px}
+.deck{position:absolute;left:26px;right:26px;bottom:18px;height:68px;border-radius:34px;display:flex;align-items:center;gap:16px;padding:0 10px 0 9px}
+.deck .label{width:50px;border-radius:50%;position:relative}
+.deck .label::after{content:"";position:absolute;inset:21px;border-radius:50%;background:#071a1d}
+.deck .t{flex:1;min-width:0}
+.deck .t b,.deck .t span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck .t b{font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:.07em}
+.deck .t span{font-size:14.5px;color:#93adab}
+.deck .time{font-size:22px;color:var(--lamp);width:40px}
+.deck .play{width:50px;height:50px;border-radius:50%;background:var(--band);color:var(--ink);display:grid;place-items:center;flex:none}
+.deck .skip{width:50px;height:50px;display:grid;place-items:center;flex:none}
+.cols{display:flex;gap:28px;flex:1;min-height:0}
+section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--strip);color:var(--ink);border-radius:8px}
+.nm{flex:1;min-width:0}
+.nm b,.nm span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Home */
+.carry{width:300px;flex:none}
+.carry .card{display:flex;flex-direction:column;gap:12px;padding:12px}
+.carry .card .cv{border-radius:3px}
+.carry .nm b{font-size:19px;font-weight:600}
+.carry .nm span{font-size:15px}
+.carry .nm .dim{color:var(--ink-2);font-size:14px}
+.carry .card{flex-direction:row;align-items:center}
+.pair{display:flex;gap:10px}
+.pair .key{height:56px;min-width:0;padding-left:16px;padding-right:16px;flex:1}
+.pinned{flex:1}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.alb{position:relative;display:block}
+.alb .cv{border-radius:4px 4px 0 0;width:100%}
+.alb .plate{position:absolute;top:8px;left:8px}
+.alb .strip{border-radius:0 0 4px 4px}
+
+/* Lists, printed on a card */
+.list{padding:0 16px}
+.row{display:flex;align-items:center;gap:16px;height:78px;border-bottom:1px solid var(--strip-line)}
+.row:last-child{border-bottom:0}
+.row .cv{width:54px;border-radius:3px}
+.row .nm b{font-size:20px;font-weight:600}
+.row .nm span{font-size:15px;color:var(--ink-2)}
+.state{display:flex;align-items:center;gap:8px;font:600 12.5px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-2);white-space:nowrap}
+.go{color:#9a906f}
+.pager{display:flex;align-items:center;gap:10px;color:var(--chrome-2)}
+.pager .num{font-size:22px;margin-right:4px}
+.foot{display:flex;justify-content:space-between;align-items:center;height:46px;border-top:1px solid var(--strip-line);font-size:15px;color:var(--ink-2)}
+
+/* A playlist */
+.one .side{width:176px;flex:none}
+.one .side .art{width:176px;box-shadow:none}
+.one .side .key{height:56px}
+.table{flex:1;min-width:0;overflow:hidden;align-self:flex-start}
+.table .head{display:grid;grid-template-columns:62px 1fr auto;align-items:center;height:34px;padding:0 16px;background:var(--band);font:600 12px/1 Jost,sans-serif;text-transform:uppercase;letter-spacing:.09em}
+.line{display:grid;grid-template-columns:14px 32px 1fr auto;gap:12px;align-items:center;height:70px;padding:0 16px;border-bottom:1px solid var(--strip-line)}
+.line:last-child{border-bottom:0}
+.line.on{background:var(--strip-2)}
+.line .n{font-size:20px;color:var(--ink-2)}
+.line .nm b{font-size:18.5px;font-weight:500}
+.line.on .nm b{font-weight:600}
+.line .nm span{font-size:14.5px;color:var(--ink-2)}
+.line .d{font-size:15.5px;color:var(--ink-2)}
+
+/* The queue */
+.queue{justify-content:flex-start;gap:20px}
+.queue .side{width:244px;flex:none;gap:14px}
+.queue .side .art{width:244px}
+.scrub.small{font-size:20px}
+.scrub.small .num{width:38px}
+.up{flex:1;min-width:0;display:flex;flex-direction:column}
+.qrow{display:flex;align-items:center;gap:14px;height:78px;padding:0 6px;border-bottom:1px solid var(--cab-line)}
+.qrow:last-child{border-bottom:0}
+.qrow .nm b{font-size:19px;font-weight:500;color:var(--chrome)}
+.qrow.on .nm b{color:var(--lamp);font-weight:600}
+.qrow .nm span{font-size:15px;color:var(--chrome-2)}
+.qrow .d{font-size:16px;color:var(--chrome-2)}
+
+/* The system's own templates, approximated. */
+.app.sys{background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif;font-weight:400}
+.stabs{display:flex;align-items:center;gap:6px;height:74px;padding:0 20px;flex:none}
+.stabs a{display:flex;flex-direction:column;align-items:center;gap:5px;width:104px;font-size:12px;font-weight:500;color:#8e8e93}
+.stabs a.cur{color:#fff}
+.stabs .now{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);justify-content:center;color:#fff}
+.stabs .sp+.now{margin-left:auto}
+.srows{padding:0 20px}
+.srow{display:flex;align-items:center;gap:14px;height:84px;border-bottom:1px solid rgba(255,255,255,.12);color:#8e8e93}
+.srow .cv{width:56px;border-radius:7px}
+.srow .nm b{font-size:20px;font-weight:600;color:#fff}
+.srow .nm span{font-size:15.5px;color:#8e8e93}
+.snp .tint{background:rgba(0,0,0,.6)}
+.shead{position:relative;display:flex;align-items:center;height:66px;padding:0 22px;flex:none}
+.pill{height:38px;padding:0 16px;border-radius:19px;background:rgba(255,255,255,.16);display:grid;place-items:center;font-size:15px;font-weight:600}
+.sbody{position:relative;flex:1;display:flex;align-items:center;gap:34px;padding:0 40px 30px}
+.sbody .art{width:300px;border-radius:12px}
+.sinfo{flex:1;min-width:0;display:flex;flex-direction:column}
+.sinfo>b{font-size:30px;font-weight:700;letter-spacing:-.3px}
+.sinfo>span{font-size:22px;color:rgba(255,255,255,.72);margin-top:2px}
+.sinfo>.dim{font-size:18px;color:rgba(255,255,255,.5)}
+.sline{height:6px;border-radius:3px;background:rgba(255,255,255,.24);margin-top:28px}
+.sline i{display:block;width:41%;height:100%;border-radius:3px;background:#fff}
+.stimes{display:flex;justify-content:space-between;font-size:14px;color:rgba(255,255,255,.6);margin-top:8px}
+.sctl{display:flex;align-items:center;justify-content:space-between;margin-top:26px;padding:0 6px}
+
+body{margin:0;background:#06090a;color:#e3ebe8;font:15px/1.45 Jost,system-ui,sans-serif;padding:32px;overflow-x:auto}
+.sheet{display:grid;grid-template-columns:repeat(auto-fill,960px);gap:36px 32px}
+figure{margin:0}
+figcaption{margin-top:10px;max-width:960px;color:#93adab}
+figcaption b{display:block;color:#e3ebe8;font:700 22px/1.1 "Big Shoulders Display",sans-serif;text-transform:uppercase;letter-spacing:.02em}
+.car{border-radius:10px}
+</style>
+</head>
+<body>
+<div class="sheet">
+<figure><div class="car" id="01-now-playing-strip">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad np">
+  <header class="bar">
+    <span class="rnd glass night"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    <h1>Now playing</h1>
+    <span class="from">from <b>Late Drives</b></span>
+    <span class="sp"></span>
+    <span class="key quiet small"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg>Queue</span>
+  </header>
+  <div class="mid">
+    <span class="cv cv1 art" style="width:206px"></span>
+    <div class="meta">
+      <div class="strip xl"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+      <div class="facts"><span class="plate">07</span><span>Night Signals</span><span class="chip"><i class="lampd on"></i>Downloaded</span><span class="chip">FLAC</span></div>
+      <div class="next"><span class="lbl">Next</span><b>Paper Kites at Dusk</b><span>Marlow Finch</span></div>
+    </div>
+  </div>
+  <div class="scrub">
+    <span class="num now">1:42</span>
+    <svg class="wv" width="700" height="84" viewBox="0 0 700 84"><rect class="p" x="0" y="39" width="3" height="6" rx="1.5"/><rect class="p" x="4" y="39" width="3" height="6" rx="1.5"/><rect class="p" x="8" y="37.5" width="3" height="9" rx="1.5"/><rect class="p" x="12" y="37.5" width="3" height="9" rx="1.5"/><rect class="p" x="16" y="37.5" width="3" height="9" rx="1.5"/><rect class="p" x="20" y="37.5" width="3" height="9" rx="1.5"/><rect class="p" x="24" y="37" width="3" height="10" rx="1.5"/><rect class="p" x="28" y="37" width="3" height="10" rx="1.5"/><rect class="p" x="32" y="36" width="3" height="12" rx="1.5"/><rect class="p" x="36" y="35" width="3" height="14" rx="1.5"/><rect class="p" x="40" y="36" width="3" height="12" rx="1.5"/><rect class="p" x="44" y="36" width="3" height="12" rx="1.5"/><rect class="p" x="48" y="33" width="3" height="18" rx="1.5"/><rect class="p" x="52" y="33.5" width="3" height="17" rx="1.5"/><rect class="p" x="56" y="34" width="3" height="16" rx="1.5"/><rect class="p" x="60" y="32.5" width="3" height="19" rx="1.5"/><rect class="p" x="64" y="32.5" width="3" height="19" rx="1.5"/><rect class="p" x="68" y="30.5" width="3" height="23" rx="1.5"/><rect class="p" x="72" y="31" width="3" height="22" rx="1.5"/><rect class="p" x="76" y="26.5" width="3" height="31" rx="1.5"/><rect class="p" x="80" y="30" width="3" height="24" rx="1.5"/><rect class="p" x="84" y="25.5" width="3" height="33" rx="1.5"/><rect class="p" x="88" y="29.5" width="3" height="25" rx="1.5"/><rect class="p" x="92" y="29" width="3" height="26" rx="1.5"/><rect class="p" x="96" y="28.5" width="3" height="27" rx="1.5"/><rect class="p" x="100" y="27" width="3" height="30" rx="1.5"/><rect class="p" x="104" y="24.5" width="3" height="35" rx="1.5"/><rect class="p" x="108" y="22" width="3" height="40" rx="1.5"/><rect class="p" x="112" y="26.5" width="3" height="31" rx="1.5"/><rect class="p" x="116" y="19" width="3" height="46" rx="1.5"/><rect class="p" x="120" y="21.5" width="3" height="41" rx="1.5"/><rect class="p" x="124" y="20" width="3" height="44" rx="1.5"/><rect class="p" x="128" y="19" width="3" height="46" rx="1.5"/><rect class="p" x="132" y="15.5" width="3" height="53" rx="1.5"/><rect class="p" x="136" y="18" width="3" height="48" rx="1.5"/><rect class="p" x="140" y="14" width="3" height="56" rx="1.5"/><rect class="p" x="144" y="14" width="3" height="56" rx="1.5"/><rect class="p" x="148" y="22" width="3" height="40" rx="1.5"/><rect class="p" x="152" y="20" width="3" height="44" rx="1.5"/><rect class="p" x="156" y="17.5" width="3" height="49" rx="1.5"/><rect class="p" x="160" y="16" width="3" height="52" rx="1.5"/><rect class="p" x="164" y="20" width="3" height="44" rx="1.5"/><rect class="p" x="168" y="18.5" width="3" height="47" rx="1.5"/><rect class="p" x="172" y="9.5" width="3" height="65" rx="1.5"/><rect class="p" x="176" y="14" width="3" height="56" rx="1.5"/><rect class="p" x="180" y="12.5" width="3" height="59" rx="1.5"/><rect class="p" x="184" y="11" width="3" height="62" rx="1.5"/><rect class="p" x="188" y="4" width="3" height="76" rx="1.5"/><rect class="p" x="192" y="6.5" width="3" height="71" rx="1.5"/><rect class="p" x="196" y="6" width="3" height="72" rx="1.5"/><rect class="p" x="200" y="10.5" width="3" height="63" rx="1.5"/><rect class="p" x="204" y="9.5" width="3" height="65" rx="1.5"/><rect class="p" x="208" y="12" width="3" height="60" rx="1.5"/><rect class="p" x="212" y="12" width="3" height="60" rx="1.5"/><rect class="p" x="216" y="0" width="3" height="84" rx="1.5"/><rect class="p" x="220" y="9" width="3" height="66" rx="1.5"/><rect class="p" x="224" y="11" width="3" height="62" rx="1.5"/><rect class="p" x="228" y="4" width="3" height="76" rx="1.5"/><rect class="p" x="232" y="8.5" width="3" height="67" rx="1.5"/><rect class="p" x="236" y="13" width="3" height="58" rx="1.5"/><rect class="p" x="240" y="2.5" width="3" height="79" rx="1.5"/><rect class="p" x="244" y="0" width="3" height="84" rx="1.5"/><rect class="p" x="248" y="4.5" width="3" height="75" rx="1.5"/><rect class="p" x="252" y="0" width="3" height="84" rx="1.5"/><rect class="p" x="256" y="2.5" width="3" height="79" rx="1.5"/><rect class="p" x="260" y="0" width="3" height="84" rx="1.5"/><rect class="p" x="264" y="11" width="3" height="62" rx="1.5"/><rect class="p" x="268" y="4.5" width="3" height="75" rx="1.5"/><rect class="p" x="272" y="2.5" width="3" height="79" rx="1.5"/><rect class="p" x="276" y="0" width="3" height="84" rx="1.5"/><rect class="p" x="280" y="0" width="3" height="84" rx="1.5"/><rect class="p" x="284" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="288" y="2.5" width="3" height="79" rx="1.5"/><rect class="u" x="292" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="296" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="300" y="6.5" width="3" height="71" rx="1.5"/><rect class="u" x="304" y="4" width="3" height="76" rx="1.5"/><rect class="u" x="308" y="17" width="3" height="50" rx="1.5"/><rect class="u" x="312" y="12" width="3" height="60" rx="1.5"/><rect class="u" x="316" y="16" width="3" height="52" rx="1.5"/><rect class="u" x="320" y="12.5" width="3" height="59" rx="1.5"/><rect class="u" x="324" y="16.5" width="3" height="51" rx="1.5"/><rect class="u" x="328" y="16" width="3" height="52" rx="1.5"/><rect class="u" x="332" y="15.5" width="3" height="53" rx="1.5"/><rect class="u" x="336" y="21" width="3" height="42" rx="1.5"/><rect class="u" x="340" y="20.5" width="3" height="43" rx="1.5"/><rect class="u" x="344" y="25.5" width="3" height="33" rx="1.5"/><rect class="u" x="348" y="25.5" width="3" height="33" rx="1.5"/><rect class="u" x="352" y="25" width="3" height="34" rx="1.5"/><rect class="u" x="356" y="26.5" width="3" height="31" rx="1.5"/><rect class="u" x="360" y="28.5" width="3" height="27" rx="1.5"/><rect class="u" x="364" y="29" width="3" height="26" rx="1.5"/><rect class="u" x="368" y="30.5" width="3" height="23" rx="1.5"/><rect class="u" x="372" y="31" width="3" height="22" rx="1.5"/><rect class="u" x="376" y="25.5" width="3" height="33" rx="1.5"/><rect class="u" x="380" y="26.5" width="3" height="31" rx="1.5"/><rect class="u" x="384" y="28" width="3" height="28" rx="1.5"/><rect class="u" x="388" y="31.5" width="3" height="21" rx="1.5"/><rect class="u" x="392" y="27" width="3" height="30" rx="1.5"/><rect class="u" x="396" y="24.5" width="3" height="35" rx="1.5"/><rect class="u" x="400" y="21" width="3" height="42" rx="1.5"/><rect class="u" x="404" y="16" width="3" height="52" rx="1.5"/><rect class="u" x="408" y="20.5" width="3" height="43" rx="1.5"/><rect class="u" x="412" y="10.5" width="3" height="63" rx="1.5"/><rect class="u" x="416" y="12" width="3" height="60" rx="1.5"/><rect class="u" x="420" y="7.5" width="3" height="69" rx="1.5"/><rect class="u" x="424" y="7.5" width="3" height="69" rx="1.5"/><rect class="u" x="428" y="2" width="3" height="80" rx="1.5"/><rect class="u" x="432" y="10.5" width="3" height="63" rx="1.5"/><rect class="u" x="436" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="440" y="5" width="3" height="74" rx="1.5"/><rect class="u" x="444" y="4" width="3" height="76" rx="1.5"/><rect class="u" x="448" y="10.5" width="3" height="63" rx="1.5"/><rect class="u" x="452" y="7" width="3" height="70" rx="1.5"/><rect class="u" x="456" y="10" width="3" height="64" rx="1.5"/><rect class="u" x="460" y="0.5" width="3" height="83" rx="1.5"/><rect class="u" x="464" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="468" y="2" width="3" height="80" rx="1.5"/><rect class="u" x="472" y="3" width="3" height="78" rx="1.5"/><rect class="u" x="476" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="480" y="4" width="3" height="76" rx="1.5"/><rect class="u" x="484" y="2" width="3" height="80" rx="1.5"/><rect class="u" x="488" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="492" y="6" width="3" height="72" rx="1.5"/><rect class="u" x="496" y="10" width="3" height="64" rx="1.5"/><rect class="u" x="500" y="4.5" width="3" height="75" rx="1.5"/><rect class="u" x="504" y="1.5" width="3" height="81" rx="1.5"/><rect class="u" x="508" y="0.5" width="3" height="83" rx="1.5"/><rect class="u" x="512" y="11" width="3" height="62" rx="1.5"/><rect class="u" x="516" y="5.5" width="3" height="73" rx="1.5"/><rect class="u" x="520" y="6.5" width="3" height="71" rx="1.5"/><rect class="u" x="524" y="6" width="3" height="72" rx="1.5"/><rect class="u" x="528" y="11.5" width="3" height="61" rx="1.5"/><rect class="u" x="532" y="10.5" width="3" height="63" rx="1.5"/><rect class="u" x="536" y="7.5" width="3" height="69" rx="1.5"/><rect class="u" x="540" y="7" width="3" height="70" rx="1.5"/><rect class="u" x="544" y="12" width="3" height="60" rx="1.5"/><rect class="u" x="548" y="14.5" width="3" height="55" rx="1.5"/><rect class="u" x="552" y="12" width="3" height="60" rx="1.5"/><rect class="u" x="556" y="14" width="3" height="56" rx="1.5"/><rect class="u" x="560" y="13" width="3" height="58" rx="1.5"/><rect class="u" x="564" y="1.5" width="3" height="81" rx="1.5"/><rect class="u" x="568" y="0" width="3" height="84" rx="1.5"/><rect class="u" x="572" y="14.5" width="3" height="55" rx="1.5"/><rect class="u" x="576" y="14" width="3" height="56" rx="1.5"/><rect class="u" x="580" y="12" width="3" height="60" rx="1.5"/><rect class="u" x="584" y="12" width="3" height="60" rx="1.5"/><rect class="u" x="588" y="11" width="3" height="62" rx="1.5"/><rect class="u" x="592" y="16.5" width="3" height="51" rx="1.5"/><rect class="u" x="596" y="18" width="3" height="48" rx="1.5"/><rect class="u" x="600" y="15" width="3" height="54" rx="1.5"/><rect class="u" x="604" y="17.5" width="3" height="49" rx="1.5"/><rect class="u" x="608" y="18.5" width="3" height="47" rx="1.5"/><rect class="u" x="612" y="22.5" width="3" height="39" rx="1.5"/><rect class="u" x="616" y="22" width="3" height="40" rx="1.5"/><rect class="u" x="620" y="26.5" width="3" height="31" rx="1.5"/><rect class="u" x="624" y="27" width="3" height="30" rx="1.5"/><rect class="u" x="628" y="29.5" width="3" height="25" rx="1.5"/><rect class="u" x="632" y="28.5" width="3" height="27" rx="1.5"/><rect class="u" x="636" y="28" width="3" height="28" rx="1.5"/><rect class="u" x="640" y="32" width="3" height="20" rx="1.5"/><rect class="u" x="644" y="32" width="3" height="20" rx="1.5"/><rect class="u" x="648" y="29.5" width="3" height="25" rx="1.5"/><rect class="u" x="652" y="30.5" width="3" height="23" rx="1.5"/><rect class="u" x="656" y="31" width="3" height="22" rx="1.5"/><rect class="u" x="660" y="33" width="3" height="18" rx="1.5"/><rect class="u" x="664" y="34" width="3" height="16" rx="1.5"/><rect class="u" x="668" y="32.5" width="3" height="19" rx="1.5"/><rect class="u" x="672" y="35.5" width="3" height="13" rx="1.5"/><rect class="u" x="676" y="35.5" width="3" height="13" rx="1.5"/><rect class="u" x="680" y="36" width="3" height="12" rx="1.5"/><rect class="u" x="684" y="35.5" width="3" height="13" rx="1.5"/><rect class="u" x="688" y="37" width="3" height="10" rx="1.5"/><rect class="u" x="692" y="36.5" width="3" height="11" rx="1.5"/><rect class="u" x="696" y="38" width="3" height="8" rx="1.5"/></svg>
+    <span class="num">4:09</span>
+  </div>
+  
+<div class="keys">
+  <span class="key quiet lit" title="Shuffle"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg></span>
+  <span class="key"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></svg></span>
+  <span class="key pri wide"><svg class="i" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+  <span class="key"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+  <span class="key quiet" title="Repeat"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
+</div>
+</div></div><figcaption><b>Now playing A: the strip</b>What is built now, with the keys along the bottom. Cover, the name on ivory and the artist on the band, the waveform under them.</figcaption></figure>
+<figure><div class="car" id="02-now-playing-wave">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad np wide">
+  <header class="bar">
+    <span class="rnd glass night"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    <span class="cv cv1 art" style="width:64px"></span>
+    <div class="strip inbar"><b>Glass Motorway</b><span>Neon Orchard · Night Signals</span></div>
+    <span class="key quiet small"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg>Queue</span>
+  </header>
+  <div class="hero">
+    <svg class="wv" width="832" height="236" viewBox="0 0 832 236"><rect class="p" x="0" y="109.5" width="5" height="17" rx="1.5"/><rect class="p" x="8" y="109.5" width="5" height="17" rx="1.5"/><rect class="p" x="16" y="103.5" width="5" height="29" rx="1.5"/><rect class="p" x="24" y="103" width="5" height="30" rx="1.5"/><rect class="p" x="32" y="102" width="5" height="32" rx="1.5"/><rect class="p" x="40" y="101" width="5" height="34" rx="1.5"/><rect class="p" x="48" y="99" width="5" height="38" rx="1.5"/><rect class="p" x="56" y="98.5" width="5" height="39" rx="1.5"/><rect class="p" x="64" y="92" width="5" height="52" rx="1.5"/><rect class="p" x="72" y="86.5" width="5" height="63" rx="1.5"/><rect class="p" x="80" y="89.5" width="5" height="57" rx="1.5"/><rect class="p" x="88" y="88.5" width="5" height="59" rx="1.5"/><rect class="p" x="96" y="75.5" width="5" height="85" rx="1.5"/><rect class="p" x="104" y="76.5" width="5" height="83" rx="1.5"/><rect class="p" x="112" y="79.5" width="5" height="77" rx="1.5"/><rect class="p" x="120" y="73" width="5" height="90" rx="1.5"/><rect class="p" x="128" y="72" width="5" height="92" rx="1.5"/><rect class="p" x="136" y="63" width="5" height="110" rx="1.5"/><rect class="p" x="144" y="65.5" width="5" height="105" rx="1.5"/><rect class="p" x="152" y="44.5" width="5" height="147" rx="1.5"/><rect class="p" x="160" y="61" width="5" height="114" rx="1.5"/><rect class="p" x="168" y="39.5" width="5" height="157" rx="1.5"/><rect class="p" x="176" y="57" width="5" height="122" rx="1.5"/><rect class="p" x="184" y="55.5" width="5" height="125" rx="1.5"/><rect class="p" x="192" y="52.5" width="5" height="131" rx="1.5"/><rect class="p" x="200" y="45" width="5" height="146" rx="1.5"/><rect class="p" x="208" y="32.5" width="5" height="171" rx="1.5"/><rect class="p" x="216" y="21" width="5" height="194" rx="1.5"/><rect class="p" x="224" y="44.5" width="5" height="147" rx="1.5"/><rect class="p" x="232" y="7.5" width="5" height="221" rx="1.5"/><rect class="p" x="240" y="19" width="5" height="198" rx="1.5"/><rect class="p" x="248" y="13" width="5" height="210" rx="1.5"/><rect class="p" x="256" y="9.5" width="5" height="217" rx="1.5"/><rect class="p" x="264" y="0" width="5" height="236" rx="1.5"/><rect class="p" x="272" y="11" width="5" height="214" rx="1.5"/><rect class="p" x="280" y="0" width="5" height="236" rx="1.5"/><rect class="p" x="288" y="1" width="5" height="234" rx="1.5"/><rect class="p" x="296" y="35.5" width="5" height="165" rx="1.5"/><rect class="p" x="304" y="29" width="5" height="178" rx="1.5"/><rect class="p" x="312" y="20.5" width="5" height="195" rx="1.5"/><rect class="p" x="320" y="16.5" width="5" height="203" rx="1.5"/><rect class="p" x="328" y="34.5" width="5" height="167" rx="1.5"/><rect class="p" x="336" y="31" width="5" height="174" rx="1.5"/><rect class="u" x="344" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="352" y="23" width="5" height="190" rx="1.5"/><rect class="u" x="360" y="28" width="5" height="180" rx="1.5"/><rect class="u" x="368" y="33.5" width="5" height="169" rx="1.5"/><rect class="u" x="376" y="25" width="5" height="186" rx="1.5"/><rect class="u" x="384" y="41.5" width="5" height="153" rx="1.5"/><rect class="u" x="392" y="50.5" width="5" height="135" rx="1.5"/><rect class="u" x="400" y="67" width="5" height="102" rx="1.5"/><rect class="u" x="408" y="73.5" width="5" height="89" rx="1.5"/><rect class="u" x="416" y="82" width="5" height="72" rx="1.5"/><rect class="u" x="424" y="83" width="5" height="70" rx="1.5"/><rect class="u" x="432" y="70" width="5" height="96" rx="1.5"/><rect class="u" x="440" y="81.5" width="5" height="73" rx="1.5"/><rect class="u" x="448" y="84.5" width="5" height="67" rx="1.5"/><rect class="u" x="456" y="78" width="5" height="80" rx="1.5"/><rect class="u" x="464" y="80.5" width="5" height="75" rx="1.5"/><rect class="u" x="472" y="77" width="5" height="82" rx="1.5"/><rect class="u" x="480" y="51" width="5" height="134" rx="1.5"/><rect class="u" x="488" y="31.5" width="5" height="173" rx="1.5"/><rect class="u" x="496" y="32.5" width="5" height="171" rx="1.5"/><rect class="u" x="504" y="9.5" width="5" height="217" rx="1.5"/><rect class="u" x="512" y="7" width="5" height="222" rx="1.5"/><rect class="u" x="520" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="528" y="31.5" width="5" height="173" rx="1.5"/><rect class="u" x="536" y="13.5" width="5" height="209" rx="1.5"/><rect class="u" x="544" y="8.5" width="5" height="219" rx="1.5"/><rect class="u" x="552" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="560" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="568" y="1" width="5" height="234" rx="1.5"/><rect class="u" x="576" y="12" width="5" height="212" rx="1.5"/><rect class="u" x="584" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="592" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="600" y="15" width="5" height="206" rx="1.5"/><rect class="u" x="608" y="3.5" width="5" height="229" rx="1.5"/><rect class="u" x="616" y="39.5" width="5" height="157" rx="1.5"/><rect class="u" x="624" y="17.5" width="5" height="201" rx="1.5"/><rect class="u" x="632" y="26" width="5" height="184" rx="1.5"/><rect class="u" x="640" y="9" width="5" height="218" rx="1.5"/><rect class="u" x="648" y="17" width="5" height="202" rx="1.5"/><rect class="u" x="656" y="8.5" width="5" height="219" rx="1.5"/><rect class="u" x="664" y="0" width="5" height="236" rx="1.5"/><rect class="u" x="672" y="17.5" width="5" height="201" rx="1.5"/><rect class="u" x="680" y="11" width="5" height="214" rx="1.5"/><rect class="u" x="688" y="34" width="5" height="168" rx="1.5"/><rect class="u" x="696" y="33.5" width="5" height="169" rx="1.5"/><rect class="u" x="704" y="38" width="5" height="160" rx="1.5"/><rect class="u" x="712" y="51" width="5" height="134" rx="1.5"/><rect class="u" x="720" y="64.5" width="5" height="107" rx="1.5"/><rect class="u" x="728" y="72.5" width="5" height="91" rx="1.5"/><rect class="u" x="736" y="83.5" width="5" height="69" rx="1.5"/><rect class="u" x="744" y="87.5" width="5" height="61" rx="1.5"/><rect class="u" x="752" y="75.5" width="5" height="85" rx="1.5"/><rect class="u" x="760" y="80.5" width="5" height="75" rx="1.5"/><rect class="u" x="768" y="86.5" width="5" height="63" rx="1.5"/><rect class="u" x="776" y="96.5" width="5" height="43" rx="1.5"/><rect class="u" x="784" y="92" width="5" height="52" rx="1.5"/><rect class="u" x="792" y="95.5" width="5" height="45" rx="1.5"/><rect class="u" x="800" y="97" width="5" height="42" rx="1.5"/><rect class="u" x="808" y="98" width="5" height="40" rx="1.5"/><rect class="u" x="816" y="105.5" width="5" height="25" rx="1.5"/><rect class="u" x="824" y="105" width="5" height="26" rx="1.5"/><rect class="h" x="341.5" y="0" width="2" height="236" rx="1"/></svg>
+    <span class="plate at" style="left:305px">1:42</span>
+  </div>
+  <div class="under">
+    <span class="num now big">1:42</span>
+    
+<div class="keys">
+  <span class="key quiet lit" title="Shuffle"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg></span>
+  <span class="key"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></svg></span>
+  <span class="key pri wide"><svg class="i" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+  <span class="key"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+  <span class="key quiet" title="Repeat"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
+</div>
+    <span class="num big">4:09</span>
+  </div>
+</div></div><figcaption><b>Now playing B: the wave</b>The waveform is the screen. Biggest target for a glance and for a finger; the cover is small.</figcaption></figure>
+<figure><div class="car" id="03-now-playing-cover">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app np cover">
+  <span class="cv cv1 wash"></span>
+  <span class="tint"></span>
+  <span class="rnd glass night back"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+  <div class="left"><span class="cv cv1 art"></span></div>
+  <div class="right">
+    <div class="strip xl"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+    <div class="panel glass night">
+      <div class="scrub">
+        <span class="num now">1:42</span>
+        <svg class="wv" width="268" height="64" viewBox="0 0 268 64"><rect class="p" x="0" y="30" width="3" height="4" rx="1.5"/><rect class="p" x="4" y="29.5" width="3" height="5" rx="1.5"/><rect class="p" x="8" y="27.5" width="3" height="9" rx="1.5"/><rect class="p" x="12" y="27" width="3" height="10" rx="1.5"/><rect class="p" x="16" y="26.5" width="3" height="11" rx="1.5"/><rect class="p" x="20" y="25.5" width="3" height="13" rx="1.5"/><rect class="p" x="24" y="24" width="3" height="16" rx="1.5"/><rect class="p" x="28" y="23.5" width="3" height="17" rx="1.5"/><rect class="p" x="32" y="21" width="3" height="22" rx="1.5"/><rect class="p" x="36" y="19" width="3" height="26" rx="1.5"/><rect class="p" x="40" y="20" width="3" height="24" rx="1.5"/><rect class="p" x="44" y="19.5" width="3" height="25" rx="1.5"/><rect class="p" x="48" y="14" width="3" height="36" rx="1.5"/><rect class="p" x="52" y="14.5" width="3" height="35" rx="1.5"/><rect class="p" x="56" y="15.5" width="3" height="33" rx="1.5"/><rect class="p" x="60" y="13" width="3" height="38" rx="1.5"/><rect class="p" x="64" y="12" width="3" height="40" rx="1.5"/><rect class="p" x="68" y="8.5" width="3" height="47" rx="1.5"/><rect class="p" x="72" y="9.5" width="3" height="45" rx="1.5"/><rect class="p" x="76" y="0.5" width="3" height="63" rx="1.5"/><rect class="p" x="80" y="8" width="3" height="48" rx="1.5"/><rect class="p" x="84" y="0" width="3" height="64" rx="1.5"/><rect class="p" x="88" y="8" width="3" height="48" rx="1.5"/><rect class="p" x="92" y="8.5" width="3" height="47" rx="1.5"/><rect class="p" x="96" y="8" width="3" height="48" rx="1.5"/><rect class="p" x="100" y="6.5" width="3" height="51" rx="1.5"/><rect class="p" x="104" y="3" width="3" height="58" rx="1.5"/><rect class="p" x="108" y="0" width="3" height="64" rx="1.5"/><rect class="u" x="112" y="9" width="3" height="46" rx="1.5"/><rect class="u" x="116" y="3" width="3" height="58" rx="1.5"/><rect class="u" x="120" y="10" width="3" height="44" rx="1.5"/><rect class="u" x="124" y="13" width="3" height="38" rx="1.5"/><rect class="u" x="128" y="16" width="3" height="32" rx="1.5"/><rect class="u" x="132" y="18" width="3" height="28" rx="1.5"/><rect class="u" x="136" y="20" width="3" height="24" rx="1.5"/><rect class="u" x="140" y="19" width="3" height="26" rx="1.5"/><rect class="u" x="144" y="20" width="3" height="24" rx="1.5"/><rect class="u" x="148" y="24" width="3" height="16" rx="1.5"/><rect class="u" x="152" y="19.5" width="3" height="25" rx="1.5"/><rect class="u" x="156" y="14" width="3" height="36" rx="1.5"/><rect class="u" x="160" y="9" width="3" height="46" rx="1.5"/><rect class="u" x="164" y="9.5" width="3" height="45" rx="1.5"/><rect class="u" x="168" y="9" width="3" height="46" rx="1.5"/><rect class="u" x="172" y="1" width="3" height="62" rx="1.5"/><rect class="u" x="176" y="5.5" width="3" height="53" rx="1.5"/><rect class="u" x="180" y="5" width="3" height="54" rx="1.5"/><rect class="u" x="184" y="5" width="3" height="54" rx="1.5"/><rect class="u" x="188" y="0" width="3" height="64" rx="1.5"/><rect class="u" x="192" y="2.5" width="3" height="59" rx="1.5"/><rect class="u" x="196" y="2.5" width="3" height="59" rx="1.5"/><rect class="u" x="200" y="7" width="3" height="50" rx="1.5"/><rect class="u" x="204" y="7" width="3" height="50" rx="1.5"/><rect class="u" x="208" y="9.5" width="3" height="45" rx="1.5"/><rect class="u" x="212" y="9.5" width="3" height="45" rx="1.5"/><rect class="u" x="216" y="0.5" width="3" height="63" rx="1.5"/><rect class="u" x="220" y="10" width="3" height="44" rx="1.5"/><rect class="u" x="224" y="14" width="3" height="36" rx="1.5"/><rect class="u" x="228" y="13" width="3" height="38" rx="1.5"/><rect class="u" x="232" y="18" width="3" height="28" rx="1.5"/><rect class="u" x="236" y="22.5" width="3" height="19" rx="1.5"/><rect class="u" x="240" y="21.5" width="3" height="21" rx="1.5"/><rect class="u" x="244" y="21.5" width="3" height="21" rx="1.5"/><rect class="u" x="248" y="24.5" width="3" height="15" rx="1.5"/><rect class="u" x="252" y="24.5" width="3" height="15" rx="1.5"/><rect class="u" x="256" y="26.5" width="3" height="11" rx="1.5"/><rect class="u" x="260" y="27" width="3" height="10" rx="1.5"/><rect class="u" x="264" y="29.5" width="3" height="5" rx="1.5"/></svg>
+        <span class="num">4:09</span>
+      </div>
+      <div class="rounds">
+        <span class="mode on"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg></span>
+        <span class="round"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></svg></span>
+        <span class="round pri"><svg class="i" width="34" height="34" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+        <span class="round"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+        <span class="mode"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
+      </div>
+    </div>
+    <div class="next"><span class="lbl">Next</span><b>Paper Kites at Dusk</b><span>Marlow Finch</span><span class="sp"></span><span class="key quiet small"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg>Queue</span></div>
+  </div>
+</div></div><figcaption><b>Now playing C: the cover</b>The phone's Now playing, laid on its side: the cover lights the page, the controls sit on a panel of night glass.</figcaption></figure>
+<figure><div class="car" id="04-home">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad browse">
+  <header class="bar">
+<nav class="tabs glass">
+  <a class="cur"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></a>
+</nav><span class="sp"></span><span class="mark"><b>Crate</b><i class="lampd on"></i></span></header>
+  <div class="cols">
+    <section class="carry">
+      <span class="lbl">Carry on</span>
+      <div class="card">
+        <span class="cv cv5" style="width:96px"></span>
+        <div class="nm"><b>Road North</b><span>Track 12 of 63</span><span class="dim">On the Mac, 20 min ago</span></div>
+      </div>
+      <div class="pair"><span class="key pri"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>Carry on</span><span class="key quiet">Not now</span></div>
+    </section>
+    <section class="pinned">
+      <span class="lbl">Pinned</span>
+      <div class="grid">
+        <a class="alb"><span class="cv cv1"></span><span class="plate">A1</span><span class="strip"><b>Late Drives</b><span>24 tracks</span></span></a><a class="alb"><span class="cv cv2"></span><span class="plate">A2</span><span class="strip"><b>Sunday Slow</b><span>41 tracks</span></span></a><a class="alb"><span class="cv cv7"></span><span class="plate">A3</span><span class="strip"><b>Garage Sets 2026</b><span>18 tracks</span></span></a>
+      </div>
+    </section>
+  </div>
+  
+<div class="deck glass night">
+  <span class="cv cv1 label"></span>
+  <div class="t"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+  <svg class="wv" width="248" height="30" viewBox="0 0 248 30"><rect class="p" x="0" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="4" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="8" y="13" width="3" height="4" rx="1.5"/><rect class="p" x="12" y="12.5" width="3" height="5" rx="1.5"/><rect class="p" x="16" y="12" width="3" height="6" rx="1.5"/><rect class="p" x="20" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="24" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="28" y="10" width="3" height="10" rx="1.5"/><rect class="p" x="32" y="9.5" width="3" height="11" rx="1.5"/><rect class="p" x="36" y="9" width="3" height="12" rx="1.5"/><rect class="p" x="40" y="8" width="3" height="14" rx="1.5"/><rect class="p" x="44" y="6.5" width="3" height="17" rx="1.5"/><rect class="p" x="48" y="7" width="3" height="16" rx="1.5"/><rect class="p" x="52" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="56" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="60" y="6" width="3" height="18" rx="1.5"/><rect class="p" x="64" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="68" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="72" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="76" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="80" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="84" y="4" width="3" height="22" rx="1.5"/><rect class="p" x="88" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="92" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="96" y="2" width="3" height="26" rx="1.5"/><rect class="p" x="100" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="104" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="108" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="112" y="6" width="3" height="18" rx="1.5"/><rect class="u" x="116" y="6.5" width="3" height="17" rx="1.5"/><rect class="u" x="120" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="124" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="128" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="132" y="9" width="3" height="12" rx="1.5"/><rect class="u" x="136" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="140" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="144" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="148" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="152" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="156" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="160" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="164" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="168" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="172" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="176" y="3" width="3" height="24" rx="1.5"/><rect class="u" x="180" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="184" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="188" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="192" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="196" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="200" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="204" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="208" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="212" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="216" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="220" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="224" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="228" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="232" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="236" y="12.5" width="3" height="5" rx="1.5"/><rect class="u" x="240" y="13" width="3" height="4" rx="1.5"/><rect class="u" x="244" y="13.5" width="3" height="3" rx="1.5"/></svg>
+  <span class="num time">1:42</span>
+  <span class="play"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+  <span class="skip"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+</div>
+</div></div><figcaption><b>Home</b>Carry on from another device, then what is pinned. The deck floats over every page, with the waveform in it.</figcaption></figure>
+<figure><div class="car day" id="05-home-day">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad browse">
+  <header class="bar">
+<nav class="tabs glass">
+  <a class="cur"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></a>
+</nav><span class="sp"></span><span class="mark"><b>Crate</b><i class="lampd on"></i></span></header>
+  <div class="cols">
+    <section class="carry">
+      <span class="lbl">Carry on</span>
+      <div class="card">
+        <span class="cv cv5" style="width:96px"></span>
+        <div class="nm"><b>Road North</b><span>Track 12 of 63</span><span class="dim">On the Mac, 20 min ago</span></div>
+      </div>
+      <div class="pair"><span class="key pri"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>Carry on</span><span class="key quiet">Not now</span></div>
+    </section>
+    <section class="pinned">
+      <span class="lbl">Pinned</span>
+      <div class="grid">
+        <a class="alb"><span class="cv cv1"></span><span class="plate">A1</span><span class="strip"><b>Late Drives</b><span>24 tracks</span></span></a><a class="alb"><span class="cv cv2"></span><span class="plate">A2</span><span class="strip"><b>Sunday Slow</b><span>41 tracks</span></span></a><a class="alb"><span class="cv cv7"></span><span class="plate">A3</span><span class="strip"><b>Garage Sets 2026</b><span>18 tracks</span></span></a>
+      </div>
+    </section>
+  </div>
+  
+<div class="deck glass night">
+  <span class="cv cv1 label"></span>
+  <div class="t"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+  <svg class="wv" width="248" height="30" viewBox="0 0 248 30"><rect class="p" x="0" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="4" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="8" y="13" width="3" height="4" rx="1.5"/><rect class="p" x="12" y="12.5" width="3" height="5" rx="1.5"/><rect class="p" x="16" y="12" width="3" height="6" rx="1.5"/><rect class="p" x="20" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="24" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="28" y="10" width="3" height="10" rx="1.5"/><rect class="p" x="32" y="9.5" width="3" height="11" rx="1.5"/><rect class="p" x="36" y="9" width="3" height="12" rx="1.5"/><rect class="p" x="40" y="8" width="3" height="14" rx="1.5"/><rect class="p" x="44" y="6.5" width="3" height="17" rx="1.5"/><rect class="p" x="48" y="7" width="3" height="16" rx="1.5"/><rect class="p" x="52" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="56" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="60" y="6" width="3" height="18" rx="1.5"/><rect class="p" x="64" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="68" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="72" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="76" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="80" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="84" y="4" width="3" height="22" rx="1.5"/><rect class="p" x="88" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="92" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="96" y="2" width="3" height="26" rx="1.5"/><rect class="p" x="100" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="104" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="108" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="112" y="6" width="3" height="18" rx="1.5"/><rect class="u" x="116" y="6.5" width="3" height="17" rx="1.5"/><rect class="u" x="120" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="124" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="128" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="132" y="9" width="3" height="12" rx="1.5"/><rect class="u" x="136" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="140" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="144" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="148" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="152" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="156" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="160" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="164" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="168" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="172" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="176" y="3" width="3" height="24" rx="1.5"/><rect class="u" x="180" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="184" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="188" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="192" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="196" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="200" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="204" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="208" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="212" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="216" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="220" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="224" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="228" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="232" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="236" y="12.5" width="3" height="5" rx="1.5"/><rect class="u" x="240" y="13" width="3" height="4" rx="1.5"/><rect class="u" x="244" y="13.5" width="3" height="3" rx="1.5"/></svg>
+  <span class="num time">1:42</span>
+  <span class="play"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+  <span class="skip"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+</div>
+</div></div><figcaption><b>Home, by day</b>The cabinet goes seafoam with the car's day mode. The deck and Now playing stay night, as on the phone.</figcaption></figure>
+<figure><div class="car" id="06-playlists">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad browse">
+  <header class="bar">
+<nav class="tabs glass">
+  <a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></a><a class="cur"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg><span>Playlists</span></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></a>
+</nav><span class="sp"></span><span class="pager"><span class="num">1 / 6</span><span class="rnd glass"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span><span class="rnd glass"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></span></header>
+  <div class="card list">
+    <a class="row"><span class="plate">B1</span><span class="cv cv1"></span><span class="nm"><b>Late Drives</b><span>24 tracks · 1 h 38 min</span></span><span class="state"><i class="lampd on"></i>Downloaded</span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a><a class="row"><span class="plate">B2</span><span class="cv cv2"></span><span class="nm"><b>Sunday Slow</b><span>41 tracks · 2 h 51 min</span></span><span class="state"><i class="lampd on"></i>Downloaded</span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a><a class="row"><span class="plate">B3</span><span class="cv cv7"></span><span class="nm"><b>Garage Sets 2026</b><span>18 tracks · 6 h 04 min</span></span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a><a class="row"><span class="plate">B4</span><span class="cv cv5"></span><span class="nm"><b>Road North</b><span>63 tracks · 4 h 12 min</span></span><span class="state"><i class="lampd on"></i>Downloaded</span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a>
+  </div>
+  
+<div class="deck glass night">
+  <span class="cv cv1 label"></span>
+  <div class="t"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+  <svg class="wv" width="248" height="30" viewBox="0 0 248 30"><rect class="p" x="0" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="4" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="8" y="13" width="3" height="4" rx="1.5"/><rect class="p" x="12" y="12.5" width="3" height="5" rx="1.5"/><rect class="p" x="16" y="12" width="3" height="6" rx="1.5"/><rect class="p" x="20" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="24" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="28" y="10" width="3" height="10" rx="1.5"/><rect class="p" x="32" y="9.5" width="3" height="11" rx="1.5"/><rect class="p" x="36" y="9" width="3" height="12" rx="1.5"/><rect class="p" x="40" y="8" width="3" height="14" rx="1.5"/><rect class="p" x="44" y="6.5" width="3" height="17" rx="1.5"/><rect class="p" x="48" y="7" width="3" height="16" rx="1.5"/><rect class="p" x="52" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="56" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="60" y="6" width="3" height="18" rx="1.5"/><rect class="p" x="64" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="68" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="72" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="76" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="80" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="84" y="4" width="3" height="22" rx="1.5"/><rect class="p" x="88" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="92" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="96" y="2" width="3" height="26" rx="1.5"/><rect class="p" x="100" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="104" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="108" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="112" y="6" width="3" height="18" rx="1.5"/><rect class="u" x="116" y="6.5" width="3" height="17" rx="1.5"/><rect class="u" x="120" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="124" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="128" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="132" y="9" width="3" height="12" rx="1.5"/><rect class="u" x="136" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="140" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="144" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="148" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="152" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="156" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="160" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="164" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="168" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="172" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="176" y="3" width="3" height="24" rx="1.5"/><rect class="u" x="180" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="184" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="188" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="192" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="196" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="200" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="204" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="208" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="212" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="216" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="220" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="224" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="228" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="232" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="236" y="12.5" width="3" height="5" rx="1.5"/><rect class="u" x="240" y="13" width="3" height="4" rx="1.5"/><rect class="u" x="244" y="13.5" width="3" height="3" rx="1.5"/></svg>
+  <span class="num time">1:42</span>
+  <span class="play"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+  <span class="skip"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+</div>
+</div></div><figcaption><b>Playlists</b>Four rows a page, each as tall as a thumb. A lit lamp is a playlist that is downloaded.</figcaption></figure>
+<figure><div class="car" id="07-playlist">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad browse one">
+  <header class="bar">
+    <span class="rnd glass"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    <h1>Late Drives</h1>
+    <span class="from">24 tracks · 1 h 38 min</span>
+    <span class="sp"></span>
+    <span class="chip"><i class="lampd on"></i>Downloaded</span>
+  </header>
+  <div class="cols">
+    <section class="side">
+      <span class="cv cv1 art"></span>
+      <span class="key pri"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>Play</span>
+      <span class="key"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg>Shuffle</span>
+    </section>
+    <div class="card table">
+      <div class="head"><span>No.</span><span>Title</span><span>Time</span></div>
+      <a class="line"><i class="lampd"></i><span class="n num">06</span><span class="nm"><b>Harbour Lights</b><span>Tidewater</span></span><span class="d">4:12</span></a><a class="line on"><i class="lampd on"></i><span class="n num">07</span><span class="nm"><b>Glass Motorway</b><span>Neon Orchard</span></span><span class="d">4:09</span></a><a class="line"><i class="lampd"></i><span class="n num">08</span><span class="nm"><b>Paper Kites at Dusk</b><span>Marlow Finch</span></span><span class="d">3:38</span></a><a class="line"><i class="lampd"></i><span class="n num">09</span><span class="nm"><b>Low Tide Radio</b><span>Tidewater</span></span><span class="d">5:01</span></a>
+    </div>
+  </div>
+  
+<div class="deck glass night">
+  <span class="cv cv1 label"></span>
+  <div class="t"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+  <svg class="wv" width="248" height="30" viewBox="0 0 248 30"><rect class="p" x="0" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="4" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="8" y="13" width="3" height="4" rx="1.5"/><rect class="p" x="12" y="12.5" width="3" height="5" rx="1.5"/><rect class="p" x="16" y="12" width="3" height="6" rx="1.5"/><rect class="p" x="20" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="24" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="28" y="10" width="3" height="10" rx="1.5"/><rect class="p" x="32" y="9.5" width="3" height="11" rx="1.5"/><rect class="p" x="36" y="9" width="3" height="12" rx="1.5"/><rect class="p" x="40" y="8" width="3" height="14" rx="1.5"/><rect class="p" x="44" y="6.5" width="3" height="17" rx="1.5"/><rect class="p" x="48" y="7" width="3" height="16" rx="1.5"/><rect class="p" x="52" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="56" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="60" y="6" width="3" height="18" rx="1.5"/><rect class="p" x="64" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="68" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="72" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="76" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="80" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="84" y="4" width="3" height="22" rx="1.5"/><rect class="p" x="88" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="92" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="96" y="2" width="3" height="26" rx="1.5"/><rect class="p" x="100" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="104" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="108" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="112" y="6" width="3" height="18" rx="1.5"/><rect class="u" x="116" y="6.5" width="3" height="17" rx="1.5"/><rect class="u" x="120" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="124" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="128" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="132" y="9" width="3" height="12" rx="1.5"/><rect class="u" x="136" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="140" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="144" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="148" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="152" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="156" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="160" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="164" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="168" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="172" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="176" y="3" width="3" height="24" rx="1.5"/><rect class="u" x="180" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="184" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="188" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="192" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="196" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="200" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="204" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="208" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="212" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="216" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="220" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="224" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="228" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="232" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="236" y="12.5" width="3" height="5" rx="1.5"/><rect class="u" x="240" y="13" width="3" height="4" rx="1.5"/><rect class="u" x="244" y="13.5" width="3" height="3" rx="1.5"/></svg>
+  <span class="num time">1:42</span>
+  <span class="play"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg></span>
+  <span class="skip"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+</div>
+</div></div><figcaption><b>A playlist</b>Play and Shuffle are the big keys. The row that is playing has its lamp lit.</figcaption></figure>
+<figure><div class="car" id="08-queue">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad np queue">
+  <header class="bar">
+    <span class="rnd glass night"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    <h1>Queue</h1>
+    <span class="from">24 tracks · from <b>Late Drives</b></span>
+    <span class="sp"></span>
+    <span class="key quiet small lit"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg>Shuffle</span>
+  </header>
+  <div class="cols">
+    <section class="side">
+      <span class="cv cv1 art"></span>
+      <div class="strip"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+      <div class="scrub small">
+        <span class="num now">1:42</span>
+        <svg class="wv" width="156" height="44" viewBox="0 0 156 44"><rect class="p" x="0" y="20.5" width="3" height="3" rx="1.5"/><rect class="p" x="4" y="20" width="3" height="4" rx="1.5"/><rect class="p" x="8" y="18" width="3" height="8" rx="1.5"/><rect class="p" x="12" y="17" width="3" height="10" rx="1.5"/><rect class="p" x="16" y="15.5" width="3" height="13" rx="1.5"/><rect class="p" x="20" y="14.5" width="3" height="15" rx="1.5"/><rect class="p" x="24" y="12.5" width="3" height="19" rx="1.5"/><rect class="p" x="28" y="12" width="3" height="20" rx="1.5"/><rect class="p" x="32" y="8.5" width="3" height="27" rx="1.5"/><rect class="p" x="36" y="6" width="3" height="32" rx="1.5"/><rect class="p" x="40" y="7.5" width="3" height="29" rx="1.5"/><rect class="p" x="44" y="6.5" width="3" height="31" rx="1.5"/><rect class="p" x="48" y="1" width="3" height="42" rx="1.5"/><rect class="p" x="52" y="3" width="3" height="38" rx="1.5"/><rect class="p" x="56" y="5" width="3" height="34" rx="1.5"/><rect class="p" x="60" y="3.5" width="3" height="37" rx="1.5"/><rect class="u" x="64" y="4" width="3" height="36" rx="1.5"/><rect class="u" x="68" y="6" width="3" height="32" rx="1.5"/><rect class="u" x="72" y="11" width="3" height="22" rx="1.5"/><rect class="u" x="76" y="12" width="3" height="20" rx="1.5"/><rect class="u" x="80" y="15.5" width="3" height="13" rx="1.5"/><rect class="u" x="84" y="14" width="3" height="16" rx="1.5"/><rect class="u" x="88" y="12.5" width="3" height="19" rx="1.5"/><rect class="u" x="92" y="8" width="3" height="28" rx="1.5"/><rect class="u" x="96" y="5.5" width="3" height="33" rx="1.5"/><rect class="u" x="100" y="4.5" width="3" height="35" rx="1.5"/><rect class="u" x="104" y="2.5" width="3" height="39" rx="1.5"/><rect class="u" x="108" y="1" width="3" height="42" rx="1.5"/><rect class="u" x="112" y="6.5" width="3" height="31" rx="1.5"/><rect class="u" x="116" y="0" width="3" height="44" rx="1.5"/><rect class="u" x="120" y="3" width="3" height="38" rx="1.5"/><rect class="u" x="124" y="3" width="3" height="38" rx="1.5"/><rect class="u" x="128" y="5.5" width="3" height="33" rx="1.5"/><rect class="u" x="132" y="8" width="3" height="28" rx="1.5"/><rect class="u" x="136" y="13.5" width="3" height="17" rx="1.5"/><rect class="u" x="140" y="14.5" width="3" height="15" rx="1.5"/><rect class="u" x="144" y="16.5" width="3" height="11" rx="1.5"/><rect class="u" x="148" y="19.5" width="3" height="5" rx="1.5"/><rect class="u" x="152" y="20.5" width="3" height="3" rx="1.5"/></svg>
+        <span class="num">4:09</span>
+      </div>
+    </section>
+    <div class="up">
+      <a class="qrow"><i class="lampd"></i><span class="nm"><b>Harbour Lights</b><span>Tidewater</span></span><span class="d">4:12</span></a><a class="qrow on"><i class="lampd on"></i><span class="nm"><b>Glass Motorway</b><span>Neon Orchard</span></span><span class="d">4:09</span></a><a class="qrow"><i class="lampd"></i><span class="nm"><b>Paper Kites at Dusk</b><span>Marlow Finch</span></span><span class="d">3:38</span></a><a class="qrow"><i class="lampd"></i><span class="nm"><b>Low Tide Radio</b><span>Tidewater</span></span><span class="d">5:01</span></a><a class="qrow"><i class="lampd"></i><span class="nm"><b>Second Summer</b><span>The Aerials</span></span><span class="d">3:24</span></a>
+    </div>
+  </div>
+</div></div><figcaption><b>The queue</b>What is playing stays on the left with its waveform; what comes next is a touch away on the right.</figcaption></figure>
+<figure><div class="car" id="09-downloads-offline">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app pad browse">
+  <header class="bar">
+<nav class="tabs glass">
+  <a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg></a><a><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg></a><a class="cur"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span>Downloads</span></a>
+</nav><span class="sp"></span><span class="chip warn"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>No connection</span></header>
+  <div class="card list">
+    <a class="row"><span class="plate">D1</span><span class="cv cv1"></span><span class="nm"><b>Late Drives</b><span>24 tracks · 1 h 38 min</span></span><span class="state"><i class="lampd on"></i>1.4 GB</span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a><a class="row"><span class="plate">D2</span><span class="cv cv2"></span><span class="nm"><b>Sunday Slow</b><span>41 tracks · 2 h 51 min</span></span><span class="state"><i class="lampd on"></i>2.2 GB</span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a><a class="row"><span class="plate">D3</span><span class="cv cv5"></span><span class="nm"><b>Road North</b><span>63 tracks · 4 h 12 min</span></span><span class="state"><i class="lampd on"></i>3.1 GB</span><span class="go"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></a>
+    <div class="foot"><span>128 tracks on this phone</span><span>6.7 GB</span></div>
+  </div>
+  
+<div class="deck glass night">
+  <span class="cv cv1 label"></span>
+  <div class="t"><b>Glass Motorway</b><span>Neon Orchard</span></div>
+  <svg class="wv" width="248" height="30" viewBox="0 0 248 30"><rect class="p" x="0" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="4" y="13.5" width="3" height="3" rx="1.5"/><rect class="p" x="8" y="13" width="3" height="4" rx="1.5"/><rect class="p" x="12" y="12.5" width="3" height="5" rx="1.5"/><rect class="p" x="16" y="12" width="3" height="6" rx="1.5"/><rect class="p" x="20" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="24" y="11.5" width="3" height="7" rx="1.5"/><rect class="p" x="28" y="10" width="3" height="10" rx="1.5"/><rect class="p" x="32" y="9.5" width="3" height="11" rx="1.5"/><rect class="p" x="36" y="9" width="3" height="12" rx="1.5"/><rect class="p" x="40" y="8" width="3" height="14" rx="1.5"/><rect class="p" x="44" y="6.5" width="3" height="17" rx="1.5"/><rect class="p" x="48" y="7" width="3" height="16" rx="1.5"/><rect class="p" x="52" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="56" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="60" y="6" width="3" height="18" rx="1.5"/><rect class="p" x="64" y="5.5" width="3" height="19" rx="1.5"/><rect class="p" x="68" y="4.5" width="3" height="21" rx="1.5"/><rect class="p" x="72" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="76" y="3" width="3" height="24" rx="1.5"/><rect class="p" x="80" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="84" y="4" width="3" height="22" rx="1.5"/><rect class="p" x="88" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="92" y="1.5" width="3" height="27" rx="1.5"/><rect class="p" x="96" y="2" width="3" height="26" rx="1.5"/><rect class="p" x="100" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="104" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="108" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="112" y="6" width="3" height="18" rx="1.5"/><rect class="u" x="116" y="6.5" width="3" height="17" rx="1.5"/><rect class="u" x="120" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="124" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="128" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="132" y="9" width="3" height="12" rx="1.5"/><rect class="u" x="136" y="10.5" width="3" height="9" rx="1.5"/><rect class="u" x="140" y="9.5" width="3" height="11" rx="1.5"/><rect class="u" x="144" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="148" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="152" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="156" y="1.5" width="3" height="27" rx="1.5"/><rect class="u" x="160" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="164" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="168" y="0" width="3" height="30" rx="1.5"/><rect class="u" x="172" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="176" y="3" width="3" height="24" rx="1.5"/><rect class="u" x="180" y="5" width="3" height="20" rx="1.5"/><rect class="u" x="184" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="188" y="0.5" width="3" height="29" rx="1.5"/><rect class="u" x="192" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="196" y="2.5" width="3" height="25" rx="1.5"/><rect class="u" x="200" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="204" y="4" width="3" height="22" rx="1.5"/><rect class="u" x="208" y="4.5" width="3" height="21" rx="1.5"/><rect class="u" x="212" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="216" y="8.5" width="3" height="13" rx="1.5"/><rect class="u" x="220" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="224" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="228" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="232" y="11" width="3" height="8" rx="1.5"/><rect class="u" x="236" y="12.5" width="3" height="5" rx="1.5"/><rect class="u" x="240" y="13" width="3" height="4" rx="1.5"/><rect class="u" x="244" y="13.5" width="3" height="3" rx="1.5"/></svg>
+  <span class="num time">1:42</span>
+  <span class="play"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg></span>
+  <span class="skip"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></span>
+</div>
+</div></div><figcaption><b>Downloads, with no signal</b>The case a car is for. Only what is on the phone is offered, and the bar says why.</figcaption></figure>
+<figure><div class="car" id="10-template-list">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app sys">
+  <nav class="stabs">
+    <a><svg class="i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></a><a class="cur"><svg class="i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></svg><span>Playlists</span></a><a><svg class="i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg><span>Albums</span></a><a><svg class="i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span>Downloads</span></a>
+    <span class="sp"></span>
+    <a class="now"><svg class="i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg></a>
+  </nav>
+  <div class="srows">
+    <a class="srow"><span class="cv cv1"></span><span class="nm"><b>Late Drives</b><span>24 tracks · 1 h 38 min · Downloaded</span></span><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a><a class="srow"><span class="cv cv2"></span><span class="nm"><b>Sunday Slow</b><span>41 tracks · 2 h 51 min · Downloaded</span></span><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a><a class="srow"><span class="cv cv7"></span><span class="nm"><b>Garage Sets 2026</b><span>18 tracks · 6 h 04 min</span></span><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a><a class="srow"><span class="cv cv5"></span><span class="nm"><b>Road North</b><span>63 tracks · 4 h 12 min · Downloaded</span></span><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a><a class="srow"><span class="cv cv4"></span><span class="nm"><b>Kitchen Radio</b><span>112 tracks · 7 h 20 min</span></span><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a>
+  </div>
+</div></div><figcaption><b>Apple's templates: a list</b>An approximation of the system's own list, which is all Apple lets a music app show while browsing. Crate chooses the words and the pictures, nothing else.</figcaption></figure>
+<figure><div class="car" id="11-template-now-playing">
+<aside class="dock">
+  <time>9:41</time>
+  <div class="net"><span class="bars"><i></i><i></i><i></i><i></i></span>5G</div>
+  <div class="apps">
+    <span class="ic nav"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
+    <span class="ic tel"><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg></span>
+    <span class="ic crate"><i></i></span>
+  </div>
+  <span class="home"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+</aside>
+<div class="app sys snp">
+  <span class="cv cv1 wash"></span>
+  <span class="tint"></span>
+  <div class="shead"><span><svg class="i" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span><span class="sp"></span><span class="pill">Playing Next</span></div>
+  <div class="sbody">
+    <span class="cv cv1 art"></span>
+    <div class="sinfo">
+      <b>Glass Motorway</b>
+      <span>Neon Orchard</span>
+      <span class="dim">Night Signals</span>
+      <div class="sline"><i></i></div>
+      <div class="stimes"><span>1:42</span><span>-2:27</span></div>
+      <div class="sctl"><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg><svg class="i" width="34" height="34" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></svg><svg class="i" width="44" height="44" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg><svg class="i" width="34" height="34" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg><svg class="i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+    </div>
+  </div>
+</div></div><figcaption><b>Apple's templates: Now Playing</b>An approximation of the system's Now Playing. A plain line for progress: the waveform cannot be drawn here.</figcaption></figure>
+</div>
+</body>
+</html>

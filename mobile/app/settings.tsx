@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Choice, Key, Note, SectionHeading } from "@/components/ui";
+import { hasCarScreen } from "@/lib/car";
 import { cloudAvailable, cloudBuiltIn } from "@/lib/cloud";
 import { useDownloads } from "@/lib/downloads";
 import { count, formatBytes } from "@/lib/format";
@@ -195,6 +196,15 @@ export default function Settings() {
             </Setting>
           </Card>
         </View>
+
+        {hasCarScreen ? (
+          <View>
+            <SectionHeading title="Car" />
+            <View style={{ flexDirection: "row" }}>
+              <Key label="Car screen" onPress={() => router.push("/car")} />
+            </View>
+          </View>
+        ) : null}
 
         <View>
           <SectionHeading title="iCloud" />
