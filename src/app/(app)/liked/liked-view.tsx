@@ -1,13 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
-
+import { PlayKey } from "~/components/library/play-key";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
-import { usePlayer } from "~/components/player/store";
 import { Page } from "~/components/shell/page";
 import { Empty, LoadError } from "~/components/shell/states";
-import { Button } from "~/components/ui/button";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
@@ -22,10 +19,7 @@ export function LikedView() {
       maxWidth="max-w-5xl"
       detail={liked.data ? count(tracks.length, "track") : null}
       actions={
-        <Button variant="brand" size="sm" disabled={!tracks.length} onClick={() => usePlayer.getState().play(tracks)}>
-          <Play className="fill-current" />
-          Play
-        </Button>
+<PlayKey from="liked" tracks={tracks} size="sm" />
       }
     >
       {liked.isPending ? (
@@ -35,7 +29,7 @@ export function LikedView() {
       ) : tracks.length === 0 ? (
         <Empty>Nothing liked yet. Give a heart to anything you would play twice.</Empty>
       ) : (
-        <TrackTable tracks={tracks} showAlbum showCover />
+        <TrackTable tracks={tracks} showAlbum showCover from="liked" />
       )}
     </Page>
   );

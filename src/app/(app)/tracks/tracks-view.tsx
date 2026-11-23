@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Pause, Play } from "lucide-react";
+import { ListEnd, ListPlus, ListStart, Pause, Play } from "lucide-react";
+import { toast } from "sonner";
 
-import { DataTable, useDataTable, useTableWidth, type DataTableColumn } from "~/components/data-table";
+import { DataTable, useDataTable, useTableWidth, type BulkAction, type DataTableColumn } from "~/components/data-table";
 import { Cover } from "~/components/library/cover";
 import { LikeButton } from "~/components/library/like-button";
+import { usePendingTracks } from "~/components/library/pending-tracks";
+import { contextKit, TrackActions } from "~/components/library/track-actions";
 import { TrackInfoDialog } from "~/components/library/track-info";
 import { TrackMenu } from "~/components/library/track-table";
 import { LocalTime } from "~/components/local-time";
@@ -15,8 +19,10 @@ import { rowNumber, useNumbered } from "~/components/player/selection";
 import { useCurrentTrack, usePlayer } from "~/components/player/store";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "~/components/ui/context-menu";
 import { count, formatDuration } from "~/lib/format";
 import { cn } from "~/lib/utils";
+import type { WebTrack } from "~/server/api/routers/library";
 import { audioTypes } from "~/server/library/audio";
 import { useTRPC, type RouterOutputs } from "~/trpc/react";
 
@@ -67,12 +73,17 @@ function PlayCell({ row, onPlay }: { row: Row; onPlay: (index: number) => void }
  * Every track in the library as one table: search it, sort it by any column,
  * filter it by format, year or when it was added. Rows are numbered on the
  * page; a row's number, a double click, or typing the number and Enter plays
- * the page from there.
+ * the page from there. Rows can be ticked and queued or made into a playlist
+ * together, and a right-click on a row brings up its menu, for every ticked
+ * row when it is one of them.
  */
 export function TracksView() {
   const trpc = useTRPC();
-  const [info, setInfo] = useState<{ track: Track; open: boolean } | null>(null);
+  const [info, setInfo] = useState<{ track: WebTrack; open: boolean } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  /** The tracks a right-click was for. Kept after the menu closes, so it doesn't empty as it fades. */
+  const [menuFor, setMenuFor] = useState<Row[]>([]);
+  const router = useRouter();
   const play = (index: number) => usePlayer.getState().play(rows, index);
 
   const columns = useMemo<DataTableColumn<Row>[]>(
@@ -161,22 +172,72 @@ export function TracksView() {
   }
   useNumbered(rows.length, play);
 
+  const said = (chosen: Row[]) => (chosen.length === 1 ? chosen[0]!.title : count(chosen.length, "track"));
+  const bulkActions: BulkAction<Row>[] = [
+    {
+      label: "Play next",
+      icon: ListStart,
+      onClick: (chosen) => {
+        usePlayer.getState().playNext(chosen);
+        toast(`Playing next: ${said(chosen)}`);
+      },
+    },
+    {
+      label: "Add to queue",
+      icon: ListEnd,
+      onClick: (chosen) => {
+        usePlayer.getState().enqueue(chosen);
+        toast(`Added to queue: ${said(chosen)}`);
+      },
+    },
+    {
+      // The tracks wait while the person names the playlist on its own page. An existing playlist is in the right-click menu.
+      label: "New playlist",
+      icon: ListPlus,
+      onClick: (chosen) => {
+        usePendingTracks.getState().set(
+          chosen.map((track) => track.id),
+          said(chosen),
+        );
+        router.push("/playlists/new");
+      },
+    },
+  ];
+
   return (
     <Page detail={tracks.data ? count(tracks.data.total, "track") : null}>
       {tracks.isError ? (
         <LoadError error={tracks.error} />
       ) : (
-        <DataTable
-          api={table}
-          columns={columns}
-          data={rows}
-          total={tracks.data?.total ?? 0}
-          isLoading={tracks.isPending}
-          isFetching={tracks.isFetching}
-          searchPlaceholder="Title, artist or album"
-          onRowDoubleClick={(row) => play(row.index)}
-          emptyMessage="No tracks match."
-        />
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              onContextMenu={(event) => {
+                const id = event.target instanceof Element ? event.target.closest<HTMLElement>("tr[data-row-id]")?.dataset.rowId : undefined;
+                const row = rows.find((item) => String(item.id) === id);
+                if (!row) return event.preventDefault();
+                const ticked = table.getSelectedRows(rows);
+                setMenuFor(ticked.includes(row) ? ticked : [row]);
+              }}
+            >
+              <DataTable
+                api={table}
+                columns={columns}
+                data={rows}
+                total={tracks.data?.total ?? 0}
+                isLoading={tracks.isPending}
+                isFetching={tracks.isFetching}
+                searchPlaceholder="Title, artist or album"
+                onRowDoubleClick={(row) => play(row.index)}
+                bulkActions={bulkActions}
+                emptyMessage="No tracks match."
+              />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-52">
+            <TrackActions kit={contextKit} tracks={menuFor} onInfo={(track) => setInfo({ track, open: true })} />
+          </ContextMenuContent>
+        </ContextMenu>
       )}
       {info ? <TrackInfoDialog track={info.track} open={info.open} onOpenChange={(open) => setInfo({ ...info, open })} /> : null}
     </Page>

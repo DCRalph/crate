@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,6 +28,14 @@ import { useThemeChoice, type ThemeChoice } from "./theme";
 
 export type HeaderUser = { name: string; username: string; isAdmin: boolean };
 
+/**
+ * Sits inside a tab's link and marks it while the page it leads to is on its
+ * way, so the tab can light the moment it is pressed and not when the page lands.
+ */
+function Pending() {
+  return useLinkStatus().pending ? <span data-pending hidden /> : null;
+}
+
 /** One page tab. The current one is ivory and stands a little taller, joining the ivory line under the row. */
 function Tab({ href, current, children }: { href: string; current: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLAnchorElement>(null);
@@ -42,10 +50,11 @@ function Tab({ href, current, children }: { href: string; current: boolean; chil
       aria-current={current ? "page" : undefined}
       className={cn(
         "t-label focus-visible:ring-ring/60 shrink-0 rounded-t-md px-3.5 pt-2 text-[12.5px] outline-none transition-colors focus-visible:ring-[3px]",
-        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-foreground/80 hover:text-foreground pb-[7px]",
+        current ? "bg-strip text-ink pb-[9px]" : "bg-secondary text-foreground/80 hover:text-foreground has-data-pending:bg-strip has-data-pending:text-ink pb-[7px]",
       )}
     >
       {children}
+      <Pending />
     </Link>
   );
 }
@@ -66,7 +75,7 @@ export function TopBar({ user }: { user: HeaderUser }) {
   return (
     <header className="bg-muted shrink-0">
       <div className="border-strip flex flex-wrap items-end gap-x-3 border-b-[3px] px-3 pt-2.5 sm:px-4">
-        <Link href="/albums" aria-label={`${site.name}, to albums`} className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
+        <Link href="/home" aria-label={`${site.name}, home`} className="focus-visible:ring-ring/60 mb-2 shrink-0 rounded-[3px] outline-none focus-visible:ring-[3px]">
           <Mark lit={playing} />
         </Link>
         <div className="mb-2 flex min-w-0 flex-1 items-center justify-end gap-2 md:order-3 md:flex-none">
@@ -108,10 +117,11 @@ function SubTabs({ items, current, label }: { items: NavItem[]; current: NavItem
           aria-current={current === item ? "page" : undefined}
           className={cn(
             "t-label flex shrink-0 items-center border-y-[3px] border-transparent text-[12px] outline-none transition-colors focus-visible:underline",
-            current === item ? "text-foreground border-b-brand" : "text-muted-foreground hover:text-foreground",
+            current === item ? "text-foreground border-b-brand" : "text-muted-foreground hover:text-foreground has-data-pending:text-foreground has-data-pending:border-b-brand",
           )}
         >
           {item.title}
+          <Pending />
         </Link>
       ))}
     </nav>

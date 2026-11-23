@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Folder, Pin, Play } from "lucide-react";
 import { toast } from "sonner";
 
-import { TileSkeleton } from "~/components/library/album-grid";
+import { oneRow, TileSkeleton } from "~/components/library/album-grid";
 import { Cover } from "~/components/library/cover";
+import { TilePlayKey } from "~/components/library/play-key";
+import { contextKit, QueueActions } from "~/components/library/track-actions";
+import { SharedCover } from "~/components/shell/transitions";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "~/components/ui/context-menu";
 import { rowNumber, useNumbered } from "~/components/player/selection";
 import { playWhenLoaded } from "~/components/player/store";
 import { count } from "~/lib/format";
@@ -42,7 +47,7 @@ function pathTo(level: Level, id: number): TreeNode<FolderRow, PlaylistRow>[] {
  * is in the address, so Back works. Pinned playlists come first at the top
  * level. `flat` shows just those playlists with no folders, for search results.
  */
-export function PlaylistGrid({ tree, flat }: { tree: Level; flat?: PlaylistRow[] }) {
+export function PlaylistGrid({ tree, flat, numbered = true, row = false }: { tree: Level; flat?: PlaylistRow[]; numbered?: boolean; row?: boolean }) {
   const trpc = useTRPC();
   const router = useRouter();
   const pathname = usePathname();
@@ -59,20 +64,27 @@ export function PlaylistGrid({ tree, flat }: { tree: Level; flat?: PlaylistRow[]
   const playlists = flat ?? [...pinned, ...here.items.filter((playlist) => !atTop || !playlist.pinnedAt)];
   const open = (id: number | null) => router.push(id === null ? pathname : `${pathname}?folder=${id}`);
 
+  /** The playlist a right-click landed on. Kept after the menu closes, so the menu doesn't empty as it fades. */
+  const [menuFor, setMenuFor] = useState<PlaylistRow | null>(null);
+  const tracksOf = async (playlist: PlaylistRow) => (await queryClient.fetchQuery(trpc.playlists.byId.queryOptions({ id: playlist.id }))).tracks;
   const play = async (playlist: PlaylistRow) => {
     try {
-      const result = await playWhenLoaded(async () => (await queryClient.fetchQuery(trpc.playlists.byId.queryOptions({ id: playlist.id }))).tracks);
+      const result = await playWhenLoaded(() => tracksOf(playlist), `playlist:${playlist.id}`);
       if (result === "empty") toast(`${playlist.name} is empty.`);
     } catch {
       toast.error(`Couldn't play ${playlist.name}.`);
     }
   };
   // Tiles are numbered in the order shown: folders, then playlists. A folder's number opens it.
-  useNumbered(folders.length + playlists.length, (index) => {
-    const folder = folders[index];
-    if (folder) open(folder.folder.id);
-    else void play(playlists[index - folders.length]!);
-  });
+  useNumbered(
+    folders.length + playlists.length,
+    (index) => {
+      const folder = folders[index];
+      if (folder) open(folder.folder.id);
+      else void play(playlists[index - folders.length]!);
+    },
+    numbered,
+  );
 
   return (
     <>
@@ -97,77 +109,102 @@ export function PlaylistGrid({ tree, flat }: { tree: Level; flat?: PlaylistRow[]
       ) : null}
 
       {folders.length || playlists.length ? (
-        <ul className={grid}>
-          {folders.map((node, index) => {
-            const inside = itemsUnder(node);
-            return (
-              <li key={`f${node.folder.id}`} className={tile} style={{ animationDelay: `${Math.min(index, 11) * 28}ms` }}>
-                <Link
-                  href={`${pathname}?folder=${node.folder.id}`}
-                  className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]"
-                >
-                  {/* A folder looks like what is in it: up to four of its covers. */}
-                  <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
-                    {inside.slice(0, 4).map((playlist) => (
-                      <Cover key={playlist.id} type="playlist" id={playlist.id} version={playlist.coverKey} size={240} className="size-full rounded-none" />
-                    ))}
-                  </span>
-                  <span className={strip}>
-                    <span className={stripName}>{node.folder.name}</span>
-                    <span className={stripBand}>{count(inside.length, "playlist")}</span>
-                  </span>
-                </Link>
-                <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
-                  <span className="flex items-center gap-1">
-                    <Folder className="size-3" />
-                    {rowNumber(index)}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-          {playlists.map((playlist, index) => (
-            <li key={`p${playlist.id}`} className={tile} style={{ animationDelay: `${Math.min(folders.length + index, 11) * 28}ms` }}>
-              <Link href={`/playlists/${playlist.id}`} className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]">
-                <Cover type="playlist" id={playlist.id} version={playlist.coverKey} size={400} className="w-full rounded-b-none" imageClassName="group-hover:scale-[1.04]" />
-                <span className={strip}>
-                  <span className={stripName}>{playlist.name}</span>
-                  <span className={stripBand}>
-                    {count(playlist.trackCount, "track")}
-                    {playlist.isMine ? "" : ` · ${playlist.ownerName}`}
-                  </span>
-                </span>
-              </Link>
-              <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
-                {rowNumber(folders.length + index)}
-              </span>
-              {/* Siblings of the link, not children: a button can't sit inside an anchor. Sized against the square cover. */}
-              <div className="pointer-events-none absolute inset-x-0 top-0 aspect-square">
-                <button
-                  type="button"
-                  aria-label={playlist.pinnedAt ? `Unpin ${playlist.name}` : `Pin ${playlist.name} to the top`}
-                  aria-pressed={!!playlist.pinnedAt}
-                  onClick={() => togglePin(playlist)}
-                  className={cn(
-                    "plate focus-visible:ring-ring/60 pointer-events-auto absolute top-1.5 right-1.5 outline-none transition-opacity focus-visible:ring-[3px]",
-                    // A pinned one always shows its pin; the rest offer it on hover.
-                    playlist.pinnedAt ? "text-lamp" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
-                  )}
-                >
-                  <Pin className={cn("size-3.5", playlist.pinnedAt && "fill-current")} />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Play ${playlist.name}`}
-                  onClick={() => play(playlist)}
-                  className="key bg-brand text-ink focus-visible:ring-ring/60 pointer-events-auto absolute right-2 bottom-2 grid h-9 w-11 translate-y-1.5 place-items-center rounded-md opacity-0 outline-none transition-[opacity,translate] duration-200 ease-(--ease-out-expo) group-hover:translate-y-0 group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100 focus-visible:ring-[3px] pointer-coarse:hidden"
-                >
-                  <Play className="size-4 fill-current" />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <ul
+              className={cn(grid, row && oneRow)}
+              onContextMenu={(event) => {
+                const tile = event.target instanceof Element ? event.target.closest<HTMLElement>("li[data-playlist]") : null;
+                const playlist = playlists.find((item) => item.id === Number(tile?.dataset.playlist));
+                if (playlist) setMenuFor(playlist);
+                else event.preventDefault();
+              }}
+            >
+              {folders.map((node, index) => {
+                const inside = itemsUnder(node);
+                return (
+                  <li key={`f${node.folder.id}`} className={tile} style={{ animationDelay: `${Math.min(index, 11) * 28}ms` }}>
+                    <Link
+                      href={`${pathname}?folder=${node.folder.id}`}
+                      className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]"
+                    >
+                      {/* A folder looks like what is in it: up to four of its covers. */}
+                      <span className="bg-secondary grid aspect-square grid-cols-2 grid-rows-2 overflow-hidden rounded-t-[3px]">
+                        {inside.slice(0, 4).map((playlist) => (
+                          <Cover key={playlist.id} type="playlist" id={playlist.id} version={playlist.coverKey} size={240} className="size-full rounded-none" />
+                        ))}
+                      </span>
+                      <span className={strip}>
+                        <span className={stripName}>{node.folder.name}</span>
+                        <span className={stripBand}>{count(inside.length, "playlist")}</span>
+                      </span>
+                    </Link>
+                    <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
+                      <span className="flex items-center gap-1">
+                        <Folder className="size-3" />
+                        {rowNumber(index)}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+              {playlists.map((playlist, index) => (
+                <li key={`p${playlist.id}`} data-playlist={playlist.id} className={tile} style={{ animationDelay: `${Math.min(folders.length + index, 11) * 28}ms` }}>
+                  <Link href={`/playlists/${playlist.id}`} className="group-focus-within:ring-ring/60 block rounded-[3px] outline-none group-focus-within:ring-[3px]">
+                    <SharedCover name={`playlist-${playlist.id}`}>
+                      <Cover type="playlist" id={playlist.id} version={playlist.coverKey} size={400} className="w-full rounded-b-none" imageClassName="group-hover:scale-[1.04]" />
+                    </SharedCover>
+                    <span className={strip}>
+                      <span className={stripName}>{playlist.name}</span>
+                      <span className={stripBand}>
+                        {count(playlist.trackCount, "track")}
+                        {playlist.isMine ? "" : ` · ${playlist.ownerName}`}
+                      </span>
+                    </span>
+                  </Link>
+                  {numbered ? (
+                    <span className="plate pointer-events-none absolute top-1.5 left-1.5" aria-hidden>
+                      {rowNumber(folders.length + index)}
+                    </span>
+                  ) : null}
+                  {/* Siblings of the link, not children: a button can't sit inside an anchor. Sized against the square cover. */}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 aspect-square">
+                    <button
+                      type="button"
+                      aria-label={playlist.pinnedAt ? `Unpin ${playlist.name}` : `Pin ${playlist.name} to the top`}
+                      aria-pressed={!!playlist.pinnedAt}
+                      onClick={() => togglePin(playlist)}
+                      className={cn(
+                        "plate focus-visible:ring-ring/60 pointer-events-auto absolute top-1.5 right-1.5 outline-none transition-opacity focus-visible:ring-[3px]",
+                        // A pinned one always shows its pin; the rest offer it on hover.
+                        playlist.pinnedAt ? "text-lamp" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
+                      )}
+                    >
+                      <Pin className={cn("size-3.5", playlist.pinnedAt && "fill-current")} />
+                    </button>
+                    <TilePlayKey from={`playlist:${playlist.id}`} name={playlist.name} onPlay={() => void play(playlist)} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-52">
+            {menuFor ? (
+              <>
+                <ContextMenuItem onSelect={() => void play(menuFor)}>
+                  <Play />
+                  Play
+                </ContextMenuItem>
+                <QueueActions kit={contextKit} tracks={() => tracksOf(menuFor)} label={menuFor.name} />
+                <ContextMenuSeparator />
+                <ContextMenuItem onSelect={() => togglePin(menuFor)}>
+                  <Pin />
+                  {menuFor.pinnedAt ? "Unpin" : "Pin to the top"}
+                </ContextMenuItem>
+              </>
+            ) : null}
+          </ContextMenuContent>
+        </ContextMenu>
       ) : (
         <p className="text-muted-foreground py-6 text-sm">{flat ? "Nothing called that." : "This folder is empty."}</p>
       )}

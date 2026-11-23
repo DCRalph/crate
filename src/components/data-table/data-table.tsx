@@ -128,6 +128,8 @@ const DataTableRow = memo(function DataTableRow<TRow>({
 }: RowProps<TRow>) {
   return (
     <TableRow
+      // For whatever wraps the table to tell which row something happened on, a right-click say.
+      data-row-id={id}
       data-state={selected ? "selected" : undefined}
       className={cn("border-border", clickable && "cursor-pointer")}
       onClick={clickable ? () => handlers.current.onRowClick?.(row) : undefined}
@@ -144,7 +146,7 @@ const DataTableRow = memo(function DataTableRow<TRow>({
       }
     >
       {enableSelection && (
-        <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+        <TableCell className="pl-4 max-sm:hidden" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             aria-label="Select row"
             checked={selected}
@@ -309,7 +311,7 @@ export function DataTable<TRow>({
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 {enableSelection && (
-                  <TableHead className="w-10 pl-4">
+                  <TableHead className="w-10 pl-4 max-sm:hidden">
                     <Checkbox
                       aria-label="Select all on this page"
                       checked={
@@ -383,7 +385,7 @@ export function DataTable<TRow>({
                   (_, i) => (
                     <TableRow key={`skeleton-${i}`} className="border-border">
                       {enableSelection && (
-                        <TableCell className="pl-4">
+                        <TableCell className="pl-4 max-sm:hidden">
                           <Skeleton className="size-4 rounded-[5px]" />
                         </TableCell>
                       )}

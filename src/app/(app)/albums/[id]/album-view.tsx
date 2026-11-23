@@ -2,26 +2,39 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ListEnd, Play } from "lucide-react";
+import { ListEnd } from "lucide-react";
 import { toast } from "sonner";
 
 import { Cover } from "~/components/library/cover";
 import { Hero } from "~/components/library/hero";
+import { PlayKey } from "~/components/library/play-key";
 import { TrackTable, TrackTableSkeleton } from "~/components/library/track-table";
 import { usePlayer } from "~/components/player/store";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { LoadError } from "~/components/shell/states";
+import { SharedCover } from "~/components/shell/transitions";
 import { Button } from "~/components/ui/button";
 import { count, formatLength } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 import { HeroSkeleton } from "~/components/shell/skeletons";
 
-/** One album: its cover, what it is, and its tracks. */
+/**
+ * One album: its cover, what it is, and its tracks. The cover is there from
+ * the first moment, before anything else is known, so it can travel over from
+ * the tile that was clicked. It asks for the size the tiles use, which the
+ * browser already has.
+ */
 export function AlbumView({ id }: { id: number }) {
   const trpc = useTRPC();
   const album = useQuery(trpc.library.album.queryOptions({ id }));
-  const { play, enqueue } = usePlayer.getState();
+  const { enqueue } = usePlayer.getState();
+  const from = `album:${id}`;
+  const cover = (
+    <SharedCover name={`album-${id}`}>
+      <Cover type="album" id={id} size={400} className="w-40 sm:w-48" />
+    </SharedCover>
+  );
 
   if (album.isError) {
     return (
@@ -37,7 +50,7 @@ export function AlbumView({ id }: { id: number }) {
       {data ? <PageCrumb label={data.name} /> : null}
       {data ? (
         <Hero
-          cover={<Cover type="album" id={id} size={480} className="w-40 sm:w-48" />}
+          cover={cover}
           title={data.name}
           band={
             <>
@@ -50,10 +63,7 @@ export function AlbumView({ id }: { id: number }) {
             </>
           }
         >
-          <Button variant="brand" disabled={!data.tracks.length} onClick={() => play(data.tracks)}>
-            <Play className="fill-current" />
-            Play
-          </Button>
+          <PlayKey from={from} tracks={data.tracks} />
           <Button
             variant="outline"
             disabled={!data.tracks.length}
@@ -67,9 +77,9 @@ export function AlbumView({ id }: { id: number }) {
           </Button>
         </Hero>
       ) : (
-        <HeroSkeleton />
+        <HeroSkeleton cover={cover} />
       )}
-      {data ? <TrackTable tracks={data.tracks} /> : <TrackTableSkeleton />}
+      {data ? <TrackTable tracks={data.tracks} from={from} /> : <TrackTableSkeleton />}
     </Page>
   );
 }

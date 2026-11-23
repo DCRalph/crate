@@ -27,6 +27,9 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Playlist covers** are generated: a grainy gradient coloured from the playlist's own album art. Its owner can pick another generated one, the art of an album in the playlist, or upload a picture.
 - **Playlists page.** A folder tree or a grid of covers, with any playlist pinned to the top of your own list.
 - **Playback settings.** The web player can be told to convert down to a chosen quality and format, and to even out volume from ReplayGain tags. An admin's limit on a user always wins.
+- **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most.
+- **The deck.** Each track is drawn as its waveform, measured from the audio when it is scanned, and that is what you seek on. Tracks follow each other with no gap, or over a crossfade if you set one. Shuffle, repeat, a queue you can reorder, a sleep timer, and keyboard shortcuts (press `?` for the list).
+- **Selecting.** Click, Shift-click or Ctrl/Cmd-click tracks, then queue them or add them to a playlist together. A right-click on a track, an album or a playlist brings up its menu.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
 
 ## How it is put together
@@ -51,7 +54,7 @@ The look is called Wallbox: the app as the selector panel of a jukebox. `design-
 - **Tokens** are in `src/app/globals.css` under the shadcn names, so components carry no colours of their own. `.print` re-declares them in ivory and ink for everything inside it, and `.night` does the same for the deck.
 - **Day and night** follow the device unless someone picks one from the menu under their initial. The choice is kept in the browser, and a script in `<head>` applies it before the first paint (`src/components/shell/theme.tsx`).
 - **Type** is Jost, with Big Shoulders for numbers and titles (`t-num`, `t-display`, `font-title`; `t-label` is capitals for strips and keys).
-- **Motion** plays once and stops (`animate-rise`, `animate-pop`, `animate-roll`), and all of it yields to reduced motion.
+- **Motion** plays once and stops (`animate-rise`, `animate-pop`, `animate-roll`, `animate-arrive`), and all of it yields to reduced motion. Going from page to page is a view transition: the old page fades as the new one rises, and a cover travels from its tile to the page it opens (`src/components/shell/transitions.tsx`).
 
 Keyboard: `/` jumps to search, `Space` plays and pauses, and typing a row's number then `Enter` plays that row.
 

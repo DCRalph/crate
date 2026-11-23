@@ -1,15 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
-
 import { AlbumGrid, AlbumGridSkeleton } from "~/components/library/album-grid";
+import { PlayKey } from "~/components/library/play-key";
 import { TrackTable } from "~/components/library/track-table";
-import { usePlayer } from "~/components/player/store";
 import { PageCrumb } from "~/components/shell/crumb";
 import { Page } from "~/components/shell/page";
 import { LoadError, SectionHeading } from "~/components/shell/states";
-import { Button } from "~/components/ui/button";
 import { count } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 
@@ -22,15 +19,13 @@ export function ArtistView({ id }: { id: number }) {
   const trpc = useTRPC();
   const artist = useQuery(trpc.library.artist.queryOptions({ id }));
   const tracks = artist.data?.tracks ?? [];
+  const from = `artist:${id}`;
 
   return (
     <Page
       detail={artist.data ? `${count(artist.data.albums.length, "album")}, ${count(tracks.length, "track")}` : null}
       actions={
-        <Button variant="brand" size="sm" disabled={!tracks.length} onClick={() => usePlayer.getState().play(tracks)}>
-          <Play className="fill-current" />
-          Play
-        </Button>
+<PlayKey from={from} tracks={tracks} size="sm" />
       }
       className="flex flex-col gap-8"
     >
@@ -43,12 +38,13 @@ export function ArtistView({ id }: { id: number }) {
         <>
           <section>
             <SectionHeading title="Albums" />
-            <AlbumGrid albums={artist.data.albums} />
+            {/* The tracks below are the numbered list here. */}
+            <AlbumGrid albums={artist.data.albums} numbered={!tracks.length} />
           </section>
           {tracks.length ? (
             <section>
               <SectionHeading title="Tracks" />
-              <TrackTable tracks={tracks} showAlbum showCover />
+              <TrackTable tracks={tracks} showAlbum showCover from={from} />
             </section>
           ) : null}
         </>

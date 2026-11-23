@@ -84,7 +84,8 @@ export function SearchView() {
       {albums.length ? (
         <section>
           <SectionHeading title="Albums" />
-          <AlbumGrid albums={albums} />
+          {/* The tracks below are the numbered list here, when there are any. */}
+          <AlbumGrid albums={albums} numbered={!tracks.length} />
         </section>
       ) : null}
       {playlists.length ? (

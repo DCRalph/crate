@@ -12,7 +12,7 @@ import { requireUser } from "~/server/auth/session";
  * checks; this only decides what to draw.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await requireUser("/albums");
+  const { user } = await requireUser("/home");
 
   return (
     <CrumbProvider>

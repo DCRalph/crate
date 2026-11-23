@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Skeleton } from "~/components/ui/skeleton";
 import { cn } from "~/lib/utils";
 
@@ -22,11 +24,11 @@ export function CardSkeleton({ lines = 4, sections = 1, className }: { lines?: n
   );
 }
 
-/** The top of an album or playlist page while it loads: the cover, the name, the band, the keys. */
-export function HeroSkeleton() {
+/** The top of an album or playlist page while it loads: the cover, the name, the band, the keys. `cover` is the real one, when the page can already show it. */
+export function HeroSkeleton({ cover }: { cover?: ReactNode }) {
   return (
     <div className={cn(card, "mb-4 flex flex-col gap-5 p-5 sm:flex-row sm:items-end")} aria-hidden>
-      <Skeleton className="aspect-square w-40 rounded-[3px] sm:w-48" />
+      {cover ?? <Skeleton className="aspect-square w-40 rounded-[3px] sm:w-48" />}
       <div className="flex-1">
         <Skeleton className="h-9 w-2/3 max-w-80" />
         <Skeleton className="mt-3 h-7 w-full" />

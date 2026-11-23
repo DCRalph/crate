@@ -1,11 +1,12 @@
 import type { LucideIcon } from "lucide-react";
-import { Disc3, FolderTree, Heart, History, Library, ListMusic, ListTree, MicVocal, Music, SlidersHorizontal, Smartphone, UserRound, Users } from "lucide-react";
+import { Disc3, FolderTree, Heart, History, House, Library, ListMusic, ListTree, MicVocal, Music, SlidersHorizontal, Smartphone, UserRound, Users } from "lucide-react";
 
 export type NavItem = { title: string; url: string; icon: LucideIcon };
 export type NavGroup = { title: string; items: NavItem[] };
 
 /** The library: each of these is a tab across the top. */
 export const libraryNav: NavItem[] = [
+  { title: "Home", url: "/home", icon: House },
   { title: "Albums", url: "/albums", icon: Disc3 },
   { title: "Artists", url: "/artists", icon: MicVocal },
   { title: "Tracks", url: "/tracks", icon: Music },
