@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "@/components/screen";
 import { useHeaderSpace, useScrollHeader } from "@/components/screen-header";
 import { Card, Choice, Key, Note, SectionHeading } from "@/components/ui";
-import { cloudAvailable } from "@/lib/cloud";
+import { cloudAvailable, cloudBuiltIn } from "@/lib/cloud";
 import { useDownloads } from "@/lib/downloads";
 import { count, formatBytes } from "@/lib/format";
 import { usePlayer } from "@/lib/player";
@@ -149,7 +149,7 @@ export default function Settings() {
             <Setting
               last
               title="Sync settings with iCloud"
-              note={hasCloud ? "The choices under Playback and Downloads follow you to your other devices. Music, downloads and sign-ins stay on each phone." : "Sign in to iCloud on this phone to use this."}
+              note={hasCloud ? "The choices under Playback and Downloads follow you to your other devices. Music, downloads and sign-ins stay on each phone." : cloudBuiltIn ? "Sign in to iCloud on this phone to use this." : "This copy of the app was built without iCloud."}
               aside={<Switch accessibilityLabel="Sync settings with iCloud" disabled={!hasCloud} value={hasCloud && settings.cloudSync} onValueChange={settings.setCloudSync} trackColor={track} />}
             />
           </Card>

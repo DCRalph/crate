@@ -6,6 +6,9 @@
 #
 #   TEAM_ID=XXXXXXXXXX ./scripts/install-ios.sh [device]
 #
+# `ICLOUD=0` leaves out iCloud for settings, for when the team's profile can't
+# carry the capability: a free account, or Xcode not signed in to the account.
+#
 # `TEAM_ID` is your Apple developer team. `device` is a devicectl name or UDID;
 # without it the first available iPhone is used. Xcode makes the signing
 # profile itself, which registers the app's identifier with the team the first

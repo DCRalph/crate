@@ -5,6 +5,10 @@ import type { ExpoConfig } from "expo/config";
 // The version, from one place: package.json.
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
 
+// iCloud for settings needs a signing profile that carries the capability, which a free
+// Apple account can't have. `ICLOUD=0` builds without it, and the app then says it has none.
+const icloud = process.env.ICLOUD !== "0";
+
 /**
  * Crate for iOS. It talks to servers people run themselves, usually at home
  * and often by a plain address on the local network, so it is allowed to make
@@ -23,7 +27,7 @@ const config: ExpoConfig = {
     bundleIdentifier: "app.crate.mobile",
     supportsTablet: false,
     // The settings a person chooses can follow them through iCloud (`modules/cloud-settings`). Music never does.
-    entitlements: { "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)" },
+    entitlements: icloud ? { "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)" } : {},
     infoPlist: {
       NSAppTransportSecurity: { NSAllowsArbitraryLoads: true },
       NSLocalNetworkUsageDescription: "Crate connects to music servers on your network.",
@@ -43,6 +47,7 @@ const config: ExpoConfig = {
     "./plugins/with-scene-lifecycle",
   ],
   experiments: { typedRoutes: true },
+  extra: { icloud },
 };
 
 export default config;

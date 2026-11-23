@@ -36,7 +36,7 @@ To put it on a phone, with the phone plugged in or on the same network and unloc
 TEAM_ID=XXXXXXXXXX ./scripts/install-ios.sh   # your Apple developer team
 ```
 
-That copy carries its own JavaScript and runs without the bundler.
+That copy carries its own JavaScript and runs without the bundler. iCloud for settings needs a profile with the iCloud capability, which Xcode makes when it is signed in to a paid developer account; put `ICLOUD=0` in front to build without it.
 
 ## Layout
 
