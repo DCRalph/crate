@@ -24,30 +24,25 @@ type Servers = {
   activeId: string | null;
   /** False until the saved servers have been read at launch. */
   ready: boolean;
-  /** Keep streamed tracks sealed too. They start once they have fully arrived. */
-  sealStreams: boolean;
   load: () => Promise<void>;
   add: (server: Server) => void;
   remove: (id: string) => void;
   setActive: (id: string) => void;
-  setSealStreams: (on: boolean) => void;
 };
 
 // Tokens and keys are secrets, so the whole list lives in the keychain.
 const storageKey = "crate.servers.v1";
-const save = (state: Pick<Servers, "servers" | "activeId" | "sealStreams">) =>
-  void SecureStore.setItemAsync(storageKey, JSON.stringify({ servers: state.servers, activeId: state.activeId, sealStreams: state.sealStreams }));
+const save = (state: Pick<Servers, "servers" | "activeId">) => void SecureStore.setItemAsync(storageKey, JSON.stringify({ servers: state.servers, activeId: state.activeId }));
 
 /** The servers this phone knows, and the one in use. Several can be paired; one is active at a time. */
 export const useServers = create<Servers>()((set, get) => ({
   servers: [],
   activeId: null,
   ready: false,
-  sealStreams: true,
   load: async () => {
     const saved = await SecureStore.getItemAsync(storageKey).catch(() => null);
-    const parsed = saved ? (JSON.parse(saved) as Partial<Pick<Servers, "servers" | "activeId" | "sealStreams">>) : {};
-    set({ servers: parsed.servers ?? [], activeId: parsed.activeId ?? null, sealStreams: parsed.sealStreams ?? true, ready: true });
+    const parsed = saved ? (JSON.parse(saved) as Partial<Pick<Servers, "servers" | "activeId">>) : {};
+    set({ servers: parsed.servers ?? [], activeId: parsed.activeId ?? null, ready: true });
   },
   add: (server) => {
     set({ servers: [...get().servers.filter((other) => other.id !== server.id), server], activeId: server.id });
@@ -60,10 +55,6 @@ export const useServers = create<Servers>()((set, get) => ({
   },
   setActive: (activeId) => {
     set({ activeId });
-    save(get());
-  },
-  setSealStreams: (sealStreams) => {
-    set({ sealStreams });
     save(get());
   },
 }));

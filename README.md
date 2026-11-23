@@ -30,7 +30,7 @@ Sign in, add a library under Admin > Libraries (a folder path on the server), an
 - **Home.** The playlists you pinned, the albums you last played, what is newest, and what you play most.
 - **The deck.** Each track is drawn as its waveform, measured from the audio when it is scanned, and that is what you seek on. Tracks follow each other with no gap, or over a crossfade if you set one. Shuffle, repeat, a queue you can reorder, a sleep timer, and keyboard shortcuts (press `?` for the list).
 - **Selecting.** Click, Shift-click or Ctrl/Cmd-click tracks, then queue them or add them to a playlist together. A right-click on a track, an album or a playlist brings up its menu.
-- **An iOS app** of its own, in [`mobile/`](mobile/README.md). It pairs with a server (several, if you have them) over the server's own API, not Subsonic, and shows under Music apps like any other device. Playlists can be kept on the phone, and audio it keeps arrives encrypted for that one phone.
+- **An iOS app** of its own, in [`mobile/`](mobile/README.md). It pairs with a server (several, if you have them) over the server's own API, not Subsonic, and shows under Music apps like any other device. Playlists can be downloaded to the phone, and audio it downloads arrives encrypted for that one phone.
 - **Subsonic API** at `/rest`, version 1.16.1 with the OpenSubsonic `formPost`, `apiKeyAuthentication` and `transcodeOffset` extensions.
 
 ## How it is put together

@@ -12,7 +12,7 @@ import { Card, Cover, Lamp } from "./ui";
 /**
  * A list of tracks, printed as a card under a coral heading. Every row has a
  * number and a lamp, lit on the row that is playing. A touch plays the list
- * from that row. A small arrow marks a track that is kept on the phone.
+ * from that row. A small arrow marks a track that is downloaded to the phone.
  *  - `showCover`: each track's album cover, for lists that mix albums.
  *  - `from`: names the list for the queue ("album:12"), so its Play key knows it is what is playing.
  */
@@ -62,7 +62,7 @@ export function TrackList({ tracks, showCover = false, from }: { tracks: Track[]
                 {track.artistName}
               </Text>
             </View>
-            {shelf?.tracks[track.id]?.state === "kept" ? <ArrowDownToLine size={14} color={ink2} /> : null}
+            {shelf?.tracks[track.id]?.state === "downloaded" ? <ArrowDownToLine size={14} color={ink2} /> : null}
             <Text style={{ fontFamily: font.body, fontSize: 13.5, color: ink2, fontVariant: ["tabular-nums"] }}>{formatDuration(track.duration)}</Text>
           </Pressable>
         );

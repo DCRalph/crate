@@ -25,7 +25,7 @@ export default function AlbumPage() {
 
   return (
     <Screen scrollY={scrollY} title={data?.name} titleAt={90} left="back">
-      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}>
         <Backdrop type="album" id={id} />
         {data ? (
           <>

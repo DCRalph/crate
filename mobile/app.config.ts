@@ -22,6 +22,8 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: "app.crate.mobile",
     supportsTablet: false,
+    // The settings a person chooses can follow them through iCloud (`modules/cloud-settings`). Music never does.
+    entitlements: { "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)" },
     infoPlist: {
       NSAppTransportSecurity: { NSAllowsArbitraryLoads: true },
       NSLocalNetworkUsageDescription: "Crate connects to music servers on your network.",

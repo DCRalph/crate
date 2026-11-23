@@ -52,12 +52,12 @@ export default function Home() {
     <Screen scrollY={scrollY} left="mark" settings>
       <Animated.ScrollView
         {...scrollProps}
-        contentContainerStyle={{ paddingTop: top + space.md, paddingBottom: bottom, gap: space.xl }}
+        contentContainerStyle={{ paddingTop: top, paddingBottom: bottom, gap: space.xl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={palette.chrome2} progressViewOffset={top} />}
       >
         {home.isError ? (
           <View style={{ paddingHorizontal: space.lg }}>
-            <Note>Couldn&apos;t reach the server. What you have kept is under Kept.</Note>
+            <Note>Couldn&apos;t reach the server. What you have downloaded is under Downloads.</Note>
           </View>
         ) : null}
         {pinned.length ? (

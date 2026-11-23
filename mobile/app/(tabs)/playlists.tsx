@@ -24,7 +24,7 @@ export default function Playlists() {
   const palette = usePalette();
   const server = useActiveServer();
   const tree = useQuery(trpc.playlists.tree.queryOptions());
-  const kept = useDownloads((state) => (server ? state.shelves[server.id]?.playlists : undefined));
+  const downloaded = useDownloads((state) => (server ? state.shelves[server.id]?.playlists : undefined));
   const { scrollY, scrollProps } = useScrollHeader();
   const top = useHeaderSpace();
   const bottom = useBottomSpace(true);
@@ -42,8 +42,8 @@ export default function Playlists() {
         {...scrollProps}
         data={playlists}
         keyExtractor={(playlist) => String(playlist.id)}
-        contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom }}
-        ListEmptyComponent={tree.isPending ? null : <Note>{tree.isError ? "Couldn't reach the server. What you have kept is under Kept." : "No playlists yet."}</Note>}
+        contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom }}
+        ListEmptyComponent={tree.isPending ? null : <Note>{tree.isError ? "Couldn't reach the server. What you have downloaded is under Downloads." : "No playlists yet."}</Note>}
         renderItem={({ item, index }) => (
           <Card style={{ borderRadius: 0, borderTopLeftRadius: index ? 0 : 8, borderTopRightRadius: index ? 0 : 8, borderBottomLeftRadius: index === playlists.length - 1 ? 8 : 0, borderBottomRightRadius: index === playlists.length - 1 ? 8 : 0 }}>
             <Pressable
@@ -61,7 +61,7 @@ export default function Playlists() {
                   {[count(item.trackCount, "track"), pathOf(item.folderId).join(" / ")].filter(Boolean).join(" · ")}
                 </Text>
               </View>
-              {kept?.[item.id] ? <ArrowDownToLine size={15} color={ink2} /> : null}
+              {downloaded?.[item.id] ? <ArrowDownToLine size={15} color={ink2} /> : null}
               {item.pinnedAt ? <Pin size={14} color={ink2} fill={ink2} /> : null}
             </Pressable>
           </Card>

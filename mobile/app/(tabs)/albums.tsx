@@ -26,7 +26,7 @@ export default function Albums() {
         keyExtractor={(album) => String(album.id)}
         numColumns={2}
         columnWrapperStyle={{ gap: space.md }}
-        contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}
+        contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.lg }}
         ListEmptyComponent={albums.isPending ? null : <Note>{albums.isError ? "Couldn't reach the server." : "No albums yet."}</Note>}
         renderItem={({ item }) => (
           <View style={{ flex: 1 }}>

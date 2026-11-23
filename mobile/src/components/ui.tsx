@@ -7,7 +7,7 @@ import { coverSource } from "@/lib/media";
 import { useActiveServer } from "@/lib/servers";
 import { band, bandDown, deck, font, glass, ink, ink2, label, lamp, radius, space, usePalette } from "@/lib/theme";
 
-/** A lamp: a small ring, amber when lit. Lit means live: playing, on, kept. It is drawn for the cabinet unless told it is `on` print or night glass. */
+/** A lamp: a small ring, amber when lit. Lit means live: playing, on, downloading. It is drawn for the cabinet unless told it is `on` print or night glass. */
 export function Lamp({ lit, on = "cabinet", size = 9 }: { lit: boolean; on?: "cabinet" | "print" | "night"; size?: number }) {
   const palette = usePalette();
   const onPrint = on === "print";
@@ -74,6 +74,30 @@ export function Key({ label: text, icon: Icon, tone = "plain", onPress, disabled
       {Icon ? <Icon size={small ? 15 : 17} color={sign} fill={fill ? sign : "transparent"} strokeWidth={2.2} /> : null}
       {text ? <Text style={[label, { color: sign, fontSize: small ? 11 : 12.5 }]}>{text}</Text> : null}
     </Pressable>
+  );
+}
+
+/** One choice from a few, as a row of keys on print. The chosen one is inked in. `name` is what a screen reader calls the group. */
+export function Choice<T>({ name, options, value, onChange }: { name: string; options: readonly { value: T; label: string }[]; value: T; onChange: (value: T) => void }) {
+  const palette = usePalette();
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel={name} style={{ flexDirection: "row", borderRadius: radius.md, borderWidth: 1, borderColor: palette.stripLine, overflow: "hidden" }}>
+      {options.map((option, position) => {
+        const chosen = option.value === value;
+        return (
+          <Pressable
+            key={option.label}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: chosen }}
+            accessibilityLabel={option.label}
+            onPress={() => onChange(option.value)}
+            style={{ flex: 1, height: 34, alignItems: "center", justifyContent: "center", backgroundColor: chosen ? ink : "transparent", borderLeftWidth: position ? 1 : 0, borderLeftColor: palette.stripLine }}
+          >
+            <Text style={[label, { fontSize: 11.5, color: chosen ? palette.strip : ink }]}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 

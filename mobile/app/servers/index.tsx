@@ -22,7 +22,7 @@ export default function Servers() {
 
   return (
     <Screen scrollY={scrollY} title="Servers" left="back">
-      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.md, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
         {servers.length ? (
           <Card>
             {servers.map((server, index) => (

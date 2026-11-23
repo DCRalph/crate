@@ -28,11 +28,10 @@ DEVICE="${1:-$(xcrun devicectl list devices 2>/dev/null | awk -F '   +' '$5 ~ /i
 [ -n "$DEVICE" ] || fail "no available iPhone found: unlock it or plug it in, or pass a name or UDID"
 echo "==> Installing to: $DEVICE"
 
-if [ ! -d ios/Crate.xcworkspace ]; then
-  echo "==> Prebuilding"
-  bunx expo prebuild -p ios --no-install >/dev/null
-  (cd ios && pod install >/dev/null)
-fi
+# Every time, so a change to app.config.ts or a new native module is never left out of the build.
+echo "==> Prebuilding"
+bunx expo prebuild -p ios --no-install >/dev/null
+(cd ios && pod install >/dev/null)
 
 echo "==> Archiving"
 xcodebuild archive -workspace ios/Crate.xcworkspace -scheme Crate -configuration Release -destination 'generic/platform=iOS' \

@@ -7,6 +7,7 @@ import { sealedFile, useDownloads } from "./downloads";
 import { arrivesAs, sealedRequest, streamUrl } from "./media";
 import { openSealed } from "./sealed";
 import { authHeaders, useServers, type Server } from "./servers";
+import { useSettings } from "./settings";
 
 type Player = {
   /** What plays, in order, and the server it is from. */
@@ -43,28 +44,36 @@ let counted = false;
 
 /** Where tracks are opened into to be played. Emptied of everything but what is playing as the queue moves on. */
 const openDirectory = () => new Directory(Paths.cache, "playing");
-const openFile = (serverId: string, track: Track) => new File(openDirectory(), `${serverId.replace(/\W/g, "").slice(-12)}-${track.id}.${arrivesAs(track)}`);
+/** The track as it is on the phone, if it has been downloaded. */
+const downloadOf = (serverId: string, track: Track) => {
+  const entry = useDownloads.getState().shelves[serverId]?.tracks[track.id];
+  return entry?.state === "downloaded" ? entry : null;
+};
+/** The file a track is opened into. Named for the kind of audio inside: what it was downloaded as, or what it streams as now. */
+const openFile = (serverId: string, track: Track) =>
+  new File(openDirectory(), `${serverId.replace(/\W/g, "").slice(-12)}-${track.id}.${downloadOf(serverId, track)?.suffix ?? arrivesAs(track, useSettings.getState().streamQuality)}`);
 
 /**
- * What the audio player is given for a track. A kept track is opened from its
- * sealed file. A streamed one is fetched sealed and opened the same way when
- * streams are kept sealed, which is the default; otherwise it plays straight
- * from the server as it arrives. An opened file only exists while it plays.
+ * What the audio player is given for a track. A downloaded track is opened
+ * from its sealed file. A streamed one is fetched sealed and opened the same
+ * way when streams are encrypted, which is the default; otherwise it plays
+ * straight from the server as it arrives. An opened file only exists while
+ * it plays.
  */
 async function sourceFor(server: Server, track: Track): Promise<AudioSource> {
-  const kept = useDownloads.getState().shelves[server.id]?.tracks[track.id];
-  const sealStreams = useServers.getState().sealStreams;
-  if (kept?.state !== "kept" && !sealStreams) return { uri: streamUrl(server, track), headers: authHeaders(server) };
+  const downloaded = downloadOf(server.id, track);
+  const { sealStreams, streamQuality } = useSettings.getState();
+  if (!downloaded && !sealStreams) return { uri: streamUrl(server, track, streamQuality), headers: authHeaders(server) };
 
   const directory = openDirectory();
   if (!directory.exists) directory.create({ intermediates: true });
   const out = openFile(server.id, track);
   if (out.exists) return { uri: out.uri };
-  if (kept?.state === "kept") {
+  if (downloaded) {
     await openSealed(sealedFile(server.id, track.id), out, server.sealKey);
     return { uri: out.uri };
   }
-  const { url, headers } = sealedRequest(server, track);
+  const { url, headers } = sealedRequest(server, track, streamQuality);
   const arrived = new File(directory, `${track.id}.arriving`);
   if (arrived.exists) arrived.delete();
   await File.downloadFileAsync(url, arrived, { headers });

@@ -12,24 +12,25 @@ import { useActiveServer } from "@/lib/servers";
 import { font, ink, ink2, space, usePalette } from "@/lib/theme";
 
 /**
- * What is kept on this phone from the server in use: each playlist, how much
+ * What is downloaded to this phone from the server in use: each playlist, how much
  * of it has arrived, and how much room it takes. Everything here opens and
  * plays with no connection. It is stored sealed; see Settings.
  */
-export default function Kept() {
+export default function DownloadsPage() {
   const router = useRouter();
   const palette = usePalette();
   const server = useActiveServer();
   const shelf = useDownloads((state) => (server ? state.shelves[server.id] : undefined));
   const playlists = Object.values(shelf?.playlists ?? {}).sort((a, b) => a.name.localeCompare(b.name));
-  const bytes = Object.values(shelf?.tracks ?? {}).reduce((sum, kept) => sum + kept.bytes, 0);
+  const bytes = Object.values(shelf?.tracks ?? {}).reduce((sum, entry) => sum + entry.bytes, 0);
+  const held = useDownloads((state) => state.held);
   const { scrollY, scrollProps } = useScrollHeader();
   const top = useHeaderSpace();
   const bottom = useBottomSpace(true);
 
   return (
-    <Screen scrollY={scrollY} title="Kept" settings>
-      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top + space.sm, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.md }}>
+    <Screen scrollY={scrollY} title="Downloads" settings>
+      <Animated.ScrollView {...scrollProps} contentContainerStyle={{ paddingTop: top, paddingHorizontal: space.lg, paddingBottom: bottom, gap: space.md }}>
         {playlists.length ? <Note>{`${count(playlists.length, "playlist")}, ${formatBytes(bytes)}`}</Note> : null}
         {playlists.length ? (
           <Card>
@@ -50,7 +51,7 @@ export default function Kept() {
                       {playlist.name}
                     </Text>
                     <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12.5, color: ink2 }}>
-                      {progress ? (done ? `${count(progress.total, "track")}, ${formatBytes(progress.bytes)}` : `${progress.done} of ${count(progress.total, "track")} so far`) : ""}
+                      {progress ? (done ? `${count(progress.total, "track")}, ${formatBytes(progress.bytes)}` : `${progress.done} of ${count(progress.total, "track")}${held ? ", waiting for Wi-Fi" : " so far"}`) : ""}
                     </Text>
                   </View>
                   {done ? <Check size={16} color={ink2} /> : <Lamp lit on="print" />}
@@ -59,7 +60,7 @@ export default function Kept() {
             })}
           </Card>
         ) : (
-          <Note>Nothing kept yet. Open a playlist and press Keep, and it plays here with no connection.</Note>
+          <Note>Nothing downloaded yet. Open a playlist and press Download, and it plays here with no connection.</Note>
         )}
       </Animated.ScrollView>
     </Screen>
