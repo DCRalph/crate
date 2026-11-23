@@ -92,6 +92,10 @@ test("web: the address carries what the player decided, and the server reads it 
   const sent = decideWebStream(flac, { maxBitRate: 192, format: "opus" }, null);
   expect(webStreamUrl(7, sent, 83.46)).toBe("/api/stream/7?q=192&f=opus&at=83.5");
   expect(parseWebStreamParams(paramsOf("/api/stream/7?q=192&f=opus&at=83.5")).offsetSeconds).toBe(83.5);
+  // A new play from part way in is told apart from the same play carrying on, so it is logged.
+  expect(webStreamUrl(7, sent, 83.46, true)).toBe("/api/stream/7?q=192&f=opus&start=83.5");
+  expect(parseWebStreamParams(paramsOf("/api/stream/7?start=83.5"))).toMatchObject({ offsetSeconds: 83.5, carriesOn: false });
+  expect(parseWebStreamParams(paramsOf("/api/stream/7?at=83.5"))).toMatchObject({ offsetSeconds: 83.5, carriesOn: true });
 
   const sources = [flac, mp3, aiff, { suffix: "wav", bitRate: null }, { suffix: "m4a", bitRate: 96 }];
   const choices: WebStreamPrefs[] = [{}, { maxBitRate: 320 }, { maxBitRate: 128, format: "opus" }, { format: "aac" }];
@@ -120,7 +124,7 @@ test("web: the user's cap wins over whatever the address asks for", () => {
 });
 
 test("web: stream parameters that make no sense are ignored", () => {
-  const nothing = { maxBitRate: null, format: undefined, convert: false, offsetSeconds: 0 };
+  const nothing = { maxBitRate: null, format: undefined, convert: false, offsetSeconds: 0, carriesOn: false };
   expect(parseWebStreamParams(paramsOf("/api/stream/7"))).toEqual(nothing);
   expect(parseWebStreamParams(paramsOf("/api/stream/7?q=loud&f=wav&at=-4"))).toEqual(nothing);
   expect(parseWebStreamParams(paramsOf("/api/stream/7?q=-128&f=constructor&at=Infinity"))).toEqual(nothing);

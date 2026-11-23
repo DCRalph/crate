@@ -47,8 +47,6 @@ function readMode(): Mode {
 }
 
 const subscribeNothing = () => () => {};
-/** Below this a phone's sheet stands in for Now playing. Matches the console's own breakpoint. */
-export const phoneQuery = "(max-width: 47.99rem)";
 
 /**
  * What the queue was played from, in words: "Low Tide Radio", "Late", "Most
@@ -110,18 +108,10 @@ export function NowPlayingView({
     () => null,
   );
 
-  // Nothing left to show: it puts itself away. So does a screen narrowing to a phone's, which has its own sheet.
+  // Nothing left to show: it puts itself away.
   useEffect(() => {
     if (open && !track) close();
   }, [open, track, close]);
-  useEffect(() => {
-    if (!open) return;
-    const phone = window.matchMedia(phoneQuery);
-    const onChange = () => phone.matches && close();
-    onChange();
-    phone.addEventListener("change", onChange);
-    return () => phone.removeEventListener("change", onChange);
-  }, [open, close]);
 
   // While open it has the keyboard: the page under it can't be reached, and the focus goes back where it came from.
   useEffect(() => {
@@ -390,14 +380,16 @@ function Minimal({ track, time, duration, playing, onSeek, onPrevious, bar }: Vi
       </div>
       <div className={controls}>{bar}</div>
       {/* Stacked, or side by side where the screen has little height (a phone on its side). */}
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-6 pb-8 short:flex-row short:gap-8 short:pb-5">
+      {/* Centred while it fits, and never pushed up over the bar when it doesn't: it scrolls instead. */}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center-safe gap-1 overflow-y-auto px-6 pt-2 pb-8 short:flex-row short:gap-8 short:pb-5">
         <Cover
           key={`cover-${track.albumId}`}
           type="album"
           id={track.albumId}
           size={800}
           glow={playing ? "lit" : true}
-          className="w-[min(22rem,42dvh,80%)] shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)] short:w-[min(14rem,calc(100dvh-13rem))]"
+          // As big as the height leaves room for, once the name, the waveform and the keys are under it.
+          className="w-[min(22rem,calc(100dvh-32rem),80%)] min-w-40 shrink-0 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)] short:w-[min(14rem,calc(100dvh-13rem))]"
         />
         <div className="flex w-full min-w-0 flex-col items-center short:w-[min(24rem,55%)] short:items-start">
           <h1 key={`title-${track.id}`} className="font-title animate-arrive mt-6 max-w-[40rem] text-center text-[34px] leading-none text-balance short:mt-0 short:text-left short:text-[30px] lg:text-[44px]">

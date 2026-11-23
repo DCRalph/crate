@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent } from "react";
 
 import { useSelection } from "./selection";
 import { useShortcutsHelp } from "./shortcuts";
-import { phoneQuery, useNowPlayingView } from "./now-playing-view";
+import { useNowPlayingView } from "./now-playing-view";
 import { usePlayer } from "./store";
 
 /** What Space presses when it has the keyboard's focus. */
@@ -52,9 +52,7 @@ export function useDeckKeys(actions: { seekBy: (seconds: number) => void; back: 
       case "q":
         return actions.toggleQueue(), true;
       case "v":
-        // A phone's sheet stands in for Now playing.
-        if (window.matchMedia(phoneQuery).matches) actions.toggleQueue();
-        else if (player.queue.length) useNowPlayingView.getState().toggle();
+        if (player.queue.length) useNowPlayingView.getState().toggle();
         return true;
       case "?":
         return useShortcutsHelp.setState({ open: true }), true;

@@ -23,14 +23,14 @@ import { useTrackRows } from "./track-rows";
 import { contextKit, dropdownKit, TrackActions } from "./track-actions";
 import { TrackInfoDialog } from "./track-info";
 
-// Which columns a list has room for, by its own width (a container query): the title first, then the artist, then
-// the waveform, then how often it was played, and the album last of all.
-const artistColumn = "@max-xl:hidden";
-const waveColumn = "@max-3xl:hidden";
+// Which columns a list has room for, by its own width (a container query), the title always first. The waveform
+// comes next, from a tablet's width up, so it can be tapped. The artist column after it; below that the artist
+// rides under the title instead. Then how often it was played, and the album last of all. A list that is about
+// its plays (Most played) always shows them: the counts are the point of it.
+const waveColumn = "@max-lg:hidden";
+const artistColumn = "@max-3xl:hidden";
 const playsColumn = "@max-4xl:hidden";
 const albumColumn = "@max-5xl:hidden";
-/** The Plays column of a list that is about its plays (Most played) shows whenever there is a little room. */
-const countedColumn = "@max-md:hidden";
 
 /** The rows from `from` to `to`, whichever way round they were clicked. */
 const between = (from: number, to: number) => Array.from({ length: Math.abs(to - from) + 1 }, (_, i) => Math.min(from, to) + i);
@@ -140,7 +140,7 @@ export function TrackTable<T extends WebTrack>({
                   <TableHead className={artistColumn}>Artist</TableHead>
                   {showAlbum ? <TableHead className={albumColumn}>Album</TableHead> : null}
                   <TableHead className={cn("w-32", waveColumn)} aria-label="Waveform" />
-                  <TableHead className={cn("w-12 text-right sm:w-14", plays ? countedColumn : playsColumn)}>Plays</TableHead>
+                  <TableHead className={cn("w-12 text-right sm:w-14", !plays && playsColumn)}>Plays</TableHead>
                   <TableHead className="w-10" />
                   <TableHead className="w-12 text-right sm:w-16">Time</TableHead>
                   <TableHead className="w-10" />
@@ -191,7 +191,7 @@ export function TrackTable<T extends WebTrack>({
                           {showCover ? <Cover type="album" id={track.albumId} size={64} className="size-8" /> : null}
                           <div className="min-w-0">
                             <p className="truncate">{track.title}</p>
-                            <p className="text-muted-foreground truncate text-xs font-normal @xl:hidden">{track.artistName}</p>
+                            <p className="text-muted-foreground truncate text-xs font-normal @3xl:hidden">{track.artistName}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -221,7 +221,7 @@ export function TrackTable<T extends WebTrack>({
                           />
                         ) : null}
                       </TableCell>
-                      <TableCell className={cn("text-muted-foreground t-num text-right text-[15px] font-normal", plays ? countedColumn : playsColumn)}>
+                      <TableCell className={cn("text-muted-foreground t-num text-right text-[15px] font-normal", !plays && playsColumn)}>
                         {(plays ? plays(track) : extras[track.id]?.plays) || null}
                       </TableCell>
                       <TableCell className="py-0">

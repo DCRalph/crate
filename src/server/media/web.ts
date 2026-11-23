@@ -25,7 +25,7 @@ export async function webScope(request: Request): Promise<Scope | null> {
  */
 export async function webTrackResponse(request: Request, idParam: string, mode: "stream" | "download") {
   const startedAt = Date.now();
-  const { offsetSeconds, ...prefs } = parseWebStreamParams(new URL(request.url).searchParams);
+  const { offsetSeconds, carriesOn: seekedOn, ...prefs } = parseWebStreamParams(new URL(request.url).searchParams);
   const caller = await callerOf(request.headers);
   if (!caller) return new Response("Sign in first.", { status: 401 });
   const scope = await scopeFor(caller.principal);
@@ -39,8 +39,9 @@ export async function webTrackResponse(request: Request, idParam: string, mode: 
       : null;
 
   // A seek is a new request for the same play (a range of the file, or the
-  // stream again from `at`), so only the first one is logged.
-  const carriesOn = !!request.headers.get("range")?.match(/^bytes=[1-9]/) || (mode === "stream" && offsetSeconds > 0);
+  // stream again from `at`), so only the first one is logged. A play that
+  // starts part way in (`start`) is a first one.
+  const carriesOn = !!request.headers.get("range")?.match(/^bytes=[1-9]/) || (mode === "stream" && seekedOn);
   if (refused || !carriesOn) {
     logAccess({
       api: caller.viaApp ? "app" : "web",

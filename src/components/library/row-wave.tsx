@@ -17,12 +17,17 @@ function barsOf(peaks: number[]) {
     .join("");
 }
 
+/** How far an arrow key moves through a track, as a share of it. */
+const keyStep = 0.1;
+
 /**
  * A track's small waveform on its row, and a way to jump into it: a click or
  * tap at a point plays the track from there, or moves it there when it is the
- * one playing. On the playing row the part already played is drawn solid.
- * Quiet passages still show as a hairline, so the whole track reads at a
- * glance. `onPlayFrom` starts the track from a point when it isn't on.
+ * one playing. It is a slider too: the arrow keys move a tenth of the track
+ * at a time (starting it, when it isn't playing), Home goes to its start, and
+ * a screen reader hears where it is. On the playing row the part already
+ * played is drawn solid. `onPlayFrom` starts the track from a point when it
+ * isn't on.
  */
 export const RowWave = memo(function RowWave({
   peaks,
@@ -41,6 +46,15 @@ export const RowWave = memo(function RowWave({
   // Only the playing row follows the clock.
   const time = usePlayhead((state) => (state.trackId === trackId ? state.time : null));
   const played = time !== null && duration > 0 ? Math.min(time / duration, 1) : null;
+
+  /** Plays from `seconds` in: moves the track when it is the one playing, otherwise starts it there. */
+  const goTo = (seconds: number) => {
+    const to = Math.min(Math.max(seconds, 0), Math.max(duration - 1, 0));
+    if (time === null) return onPlayFrom(to);
+    usePlayhead.getState().seek?.(to);
+    usePlayer.getState().setPlaying(true);
+  };
+
   const svg = (
     <svg viewBox={`0 0 ${peaks.length * 2} 100`} preserveAspectRatio="none" className="block h-3.5 w-28" aria-hidden>
       <path d={path} fill="currentColor" />
@@ -48,18 +62,33 @@ export const RowWave = memo(function RowWave({
   );
 
   return (
-    <button
-      type="button"
+    <div
+      role="slider"
+      tabIndex={0}
       aria-label={`Play ${title} from a point`}
+      aria-valuemin={0}
+      aria-valuemax={duration}
+      aria-valuenow={Math.round(time ?? 0)}
+      aria-valuetext={time === null ? `Not playing, ${formatDuration(duration)} long` : `${formatDuration(time)} of ${formatDuration(duration)}`}
       title={duration ? `Jump into ${title} (${formatDuration(duration)})` : undefined}
       onClick={(event) => {
         const box = event.currentTarget.getBoundingClientRect();
-        // A key press clicks at no point at all, which is the start.
-        const fraction = box.width && event.clientX ? Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1) : 0;
-        const seconds = fraction * duration;
-        if (time === null) return onPlayFrom(seconds);
-        usePlayhead.getState().seek?.(seconds);
-        usePlayer.getState().setPlaying(true);
+        goTo(box.width ? ((event.clientX - box.left) / box.width) * duration : 0);
+      }}
+      onKeyDown={(event) => {
+        const now = time ?? 0;
+        const step = duration * keyStep;
+        const to =
+          event.key === "ArrowRight" || event.key === "ArrowUp"
+            ? now + step
+            : event.key === "ArrowLeft" || event.key === "ArrowDown"
+              ? now - step
+              : event.key === "Home"
+                ? 0
+                : null;
+        if (to === null) return;
+        event.preventDefault();
+        goTo(to);
       }}
       className={cn(
         "focus-visible:ring-ring/60 relative block cursor-pointer rounded-sm py-2.5 outline-none transition-colors focus-visible:ring-[3px]",
@@ -72,6 +101,6 @@ export const RowWave = memo(function RowWave({
           {svg}
         </span>
       ) : null}
-    </button>
+    </div>
   );
 });

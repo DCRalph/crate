@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -51,8 +51,8 @@ function start(audio: HTMLAudioElement) {
  * length and can't be sought, so it is asked for from `at` and the element
  * counts on from there. A file is sent whole and moved to `at` once it has loaded.
  */
-function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number): Clock {
-  audio.src = webStreamUrl(trackId, sent, at);
+function loadStream(audio: HTMLAudioElement, trackId: number, sent: StreamDecision, at: number, fresh = false): Clock {
+  audio.src = webStreamUrl(trackId, sent, at, fresh);
   if (usePlayer.getState().playing) start(audio);
   return sent.transcode ? { offset: at, seekOnLoad: null } : { offset: 0, seekOnLoad: at > 0 ? at : null };
 }
@@ -191,8 +191,9 @@ export function usePlayerEngine() {
   };
 
   /** Loads the current track's stream on the live element from `at` seconds in. */
-  const load = (audio: HTMLAudioElement, at: number) => {
-    if (track && sent) clock.current = loadStream(audio, track.id, sent, at);
+  /** Loads the current track on an element from `at` seconds in. `fresh` is a new play, not the same one carrying on. */
+  const load = (audio: HTMLAudioElement, at: number, fresh = false) => {
+    if (track && sent) clock.current = loadStream(audio, track.id, sent, at, fresh);
   };
 
   const trackId = track?.id;
@@ -223,11 +224,12 @@ export function usePlayerEngine() {
     // A track played from a point on its row's waveform starts there, so it can't be the spare, which is at the start.
     const startAt = takeStartAt(track.id);
     if (!spare || !canHandOver.current || spare.error || ahead.current !== source || startAt > 0) {
-      // Not the track that was got ready (the queue changed, or something else was chosen), so it loads here and the spare is dropped.
-      if (ahead.current !== null) retire(to);
+      // Not the track that was got ready (the queue changed, or something else was chosen), so it loads here and the
+      // spare is dropped, along with a track still fading out on it.
+      if (ahead.current !== null || fades.current[to] !== undefined) retire(to);
       ahead.current = null;
       settle(from, 1);
-      return load(audio, Math.min(startAt, Math.max(track.duration - 2, 0)));
+      return load(audio, Math.min(startAt, Math.max(track.duration - 2, 0)), true);
     }
 
     // The handover: the spare has this track ready, so it becomes the live element.
@@ -308,8 +310,16 @@ export function usePlayerEngine() {
     setTime(to);
   };
   // Where the track is, and the way to move it, for what draws the track outside the console (its row's waveform).
+  // The way to move it is one that never changes, so publishing it doesn't wake every row.
   useEffect(() => usePlayhead.setState({ trackId: track?.id ?? null, time }), [track?.id, time]);
-  useEffect(() => usePlayhead.setState({ seek }));
+  const latestSeek = useRef(seek);
+  useLayoutEffect(() => {
+    latestSeek.current = seek;
+  });
+  useEffect(() => {
+    usePlayhead.setState({ seek: (seconds) => latestSeek.current(seconds) });
+    return () => usePlayhead.setState({ seek: null });
+  }, []);
 
   /** Moves by so many seconds from where the track is now. */
   const seekBy = (seconds: number) => {

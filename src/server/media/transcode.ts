@@ -117,33 +117,37 @@ export function decideWebStream(source: Pick<Source, "bitRate">, prefs: WebStrea
  * The address the web player loads a track from: `/api/stream/12` for the
  * file, with `q` (kbps) and `f` (format) when it is converted. `at` is how
  * many seconds in to start, for carrying on a play after a seek or a change
- * of quality; a converted stream starts there, a file is sent whole.
+ * of quality; a converted stream starts there, a file is sent whole. A new
+ * play that starts part way in (from a point on a row's waveform) says so with
+ * `start` instead, so it is logged as the play it is.
  */
-export function webStreamUrl(trackId: number, sent: StreamDecision, at = 0) {
+export function webStreamUrl(trackId: number, sent: StreamDecision, at = 0, fresh = false) {
   const params = new URLSearchParams();
   if (sent.transcode) {
     params.set("q", String(sent.bitRate));
     params.set("f", sent.format);
   }
-  if (at > 0) params.set("at", String(Math.round(at * 10) / 10));
+  if (at > 0) params.set(fresh ? "start" : "at", String(Math.round(at * 10) / 10));
   const query = params.toString();
   return `/api/stream/${trackId}${query ? `?${query}` : ""}`;
 }
 
 /**
- * Reads `q`, `f` and `at` back out of a stream address. A format in the
- * address means the player decided on a conversion, so it is one. A value
- * that makes no sense is left out.
+ * Reads `q`, `f` and `at` (or `start`) back out of a stream address. A format
+ * in the address means the player decided on a conversion, so it is one. A
+ * value that makes no sense is left out. `carriesOn` is true for `at`: the
+ * same play asked for again from further in.
  */
-export function parseWebStreamParams(params: URLSearchParams): WebStreamPrefs & { offsetSeconds: number } {
+export function parseWebStreamParams(params: URLSearchParams): WebStreamPrefs & { offsetSeconds: number; carriesOn: boolean } {
   const maxBitRate = Number(params.get("q"));
   const asked = params.get("f");
   const format = asked !== null && isTranscodeFormat(asked) ? asked : undefined;
-  const at = Number(params.get("at"));
+  const at = Number(params.get("at") ?? params.get("start"));
   return {
     maxBitRate: Number.isInteger(maxBitRate) && maxBitRate > 0 ? maxBitRate : null,
     format,
     convert: format !== undefined,
     offsetSeconds: Number.isFinite(at) && at > 0 ? at : 0,
+    carriesOn: params.has("at") && Number.isFinite(at) && at > 0,
   };
 }

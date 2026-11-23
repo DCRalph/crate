@@ -31,8 +31,8 @@
  */
 
 @custom-variant dark (&:is(.dark *));
-/* A screen too short for the rail's playlists to have a scroller of their own (a phone on its side): the whole rail scrolls instead. */
-@custom-variant short (@media (max-height: 39.99rem));
+/* A phone on its side: little height for its width. Layouts lie down there (the rail in one row, Now playing side by side). */
+@custom-variant short (@media (max-height: 39.99rem) and (orientation: landscape));
 
 @theme inline {
   --color-background: var(--background);
