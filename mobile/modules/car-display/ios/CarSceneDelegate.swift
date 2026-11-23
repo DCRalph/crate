@@ -18,6 +18,7 @@ public class CarSceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
   private var interface: CPInterfaceController?
   private let template = CPMapTemplate()
   private var showsPause: Bool?
+  private var watching: NSObjectProtocol?
 
   public func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didConnect interfaceController: CPInterfaceController, to window: CPWindow) {
     interface = interfaceController
@@ -28,15 +29,16 @@ public class CarSceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     window.rootViewController = controller
 
     setKeys(playing: CarDisplay.shared.state.playing)
-    CarDisplay.shared.onChange = { [weak self, weak view] state in
-      view?.state = state
-      self?.setKeys(playing: state.playing)
+    watching = NotificationCenter.default.addObserver(forName: CarDisplay.changed, object: nil, queue: .main) { [weak self, weak view] _ in
+      view?.state = CarDisplay.shared.state
+      self?.setKeys(playing: CarDisplay.shared.state.playing)
     }
     interfaceController.setRootTemplate(template, animated: false, completion: nil)
   }
 
   public func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didDisconnect interfaceController: CPInterfaceController, from window: CPWindow) {
-    CarDisplay.shared.onChange = nil
+    if let watching { NotificationCenter.default.removeObserver(watching) }
+    watching = nil
     interface = nil
   }
 

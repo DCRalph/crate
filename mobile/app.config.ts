@@ -51,7 +51,7 @@ const config: ExpoConfig = {
     "./plugins/with-scene-lifecycle",
   ],
   experiments: { typedRoutes: true },
-  extra: { icloud },
+  extra: { icloud, carplay },
 };
 
 export default config;

@@ -1,5 +1,8 @@
-import { NativeModule, requireOptionalNativeModule } from "expo";
+import { NativeModule, requireNativeView, requireOptionalNativeModule } from "expo";
+import Constants from "expo-constants";
 import { File, Paths } from "expo-file-system";
+
+import type { ViewProps } from "react-native";
 
 import { clientFor } from "./api";
 import { coverSource } from "./media";
@@ -17,6 +20,11 @@ declare class CarDisplay extends NativeModule<{ onPrevious: () => void; onToggle
 }
 
 const native = requireOptionalNativeModule<CarDisplay>("CarDisplay");
+
+/** Whether this build has the drawn car screen (`CARPLAY=1`, see `app.config.ts`). */
+export const hasCarScreen = native !== null && Constants.expoConfig?.extra?.carplay === true;
+/** The car's screen as a view in the app, with its keys drawn and working. Only in a build where `hasCarScreen`. */
+export const CarScreen = requireNativeView<ViewProps>("CarDisplay");
 
 /** Bars a car's screen has room for. The stored waveform is brought down to this, each bar its loudest moment, 0 to 1. */
 const bars = 180;
@@ -47,13 +55,15 @@ export function watchCar() {
     const server = useServers.getState().servers.find((candidate) => candidate.id === state.serverId);
     if (!server) return;
     const cover = coverSource(server, "album", track.albumId, 600);
-    const file = new File(Paths.cache, "car-cover.jpg");
-    if (file.exists) file.delete();
+    // One file an album, fetched once: the next track is usually from the same one.
+    const file = new File(Paths.cache, `car-cover-${track.albumId}.jpg`);
     void Promise.all([
-      File.downloadFileAsync(cover.uri, file, { headers: cover.headers }).then(
-        () => file.uri,
-        () => null,
-      ),
+      file.exists
+        ? file.uri
+        : File.downloadFileAsync(cover.uri, file, { headers: cover.headers }).then(
+            () => file.uri,
+            () => null,
+          ),
       clientFor(server)
         .library.waveform.query({ trackId: track.id })
         .catch(() => null),

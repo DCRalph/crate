@@ -8,7 +8,9 @@ private enum Wallbox {
   static let chromeSoft = UIColor(red: 0x93 / 255, green: 0xad / 255, blue: 0xab / 255, alpha: 1)
   static let strip = UIColor(red: 0xf3 / 255, green: 0xea / 255, blue: 0xd4 / 255, alpha: 1)
   static let ink = UIColor(red: 0x1b / 255, green: 0x1a / 255, blue: 0x16 / 255, alpha: 1)
+  static let stripEdge = UIColor(red: 0xcd / 255, green: 0xbf / 255, blue: 0x9b / 255, alpha: 1)
   static let band = UIColor(red: 0xef / 255, green: 0x5b / 255, blue: 0x34 / 255, alpha: 1)
+  static let bandEdge = UIColor(red: 0xc9 / 255, green: 0x45 / 255, blue: 0x22 / 255, alpha: 1)
   static let lamp = UIColor(red: 0xff / 255, green: 0xc4 / 255, blue: 0x4d / 255, alpha: 1)
 
   /// The app's own faces once it has loaded them, the system's otherwise.
@@ -27,6 +29,10 @@ final class CarNowPlayingView: UIView {
   var state = CarDisplay.State() {
     didSet { setNeedsDisplay() }
   }
+  /// Draw Previous, Play and Next in the column a car keeps for its own keys, and answer a touch on them. For a screen with no car around it.
+  var drawsKeys = false
+  /// Where each drawn key is, by the name it is pressed as.
+  private var keys: [(name: String, frame: CGRect)] = []
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -51,6 +57,7 @@ final class CarNowPlayingView: UIView {
     var area = bounds.inset(by: safeAreaInsets).insetBy(dx: 18, dy: 14)
     area.size.width -= 62
     guard area.width > 120, area.height > 80 else { return }
+    if drawsKeys { drawKeys(in: CGRect(x: area.maxX + 14, y: area.minY, width: 48, height: area.height)) }
 
     guard !state.title.isEmpty else {
       draw("Nothing on the deck", in: area, font: Wallbox.font("Jost-Medium", 22, .medium), color: Wallbox.chromeSoft)
@@ -94,6 +101,37 @@ final class CarNowPlayingView: UIView {
     let numerals = Wallbox.font("BigShouldersDisplay-Bold", 20, .bold)
     draw(clock(state.position), in: CGRect(x: area.minX, y: wave.minY, width: timeWidth - 8, height: wave.height), font: numerals, color: Wallbox.lamp, align: .right)
     draw(clock(state.duration), in: CGRect(x: wave.maxX + 8, y: wave.minY, width: timeWidth - 8, height: wave.height), font: numerals, color: Wallbox.chromeSoft)
+  }
+
+  /// The three keys, stacked: ivory for Previous and Next, the band for Play, each on its darker edge like the keys in the app.
+  private func drawKeys(in column: CGRect) {
+    let drawn: [(name: String, symbol: String, face: UIColor, edge: UIColor)] = [
+      ("onPrevious", "backward.end.fill", Wallbox.strip, Wallbox.stripEdge),
+      ("onToggle", state.playing ? "pause.fill" : "play.fill", Wallbox.band, Wallbox.bandEdge),
+      ("onNext", "forward.end.fill", Wallbox.strip, Wallbox.stripEdge),
+    ]
+    let height: CGFloat = 44
+    let gap: CGFloat = 12
+    var y = column.midY - (height * 3 + gap * 2) / 2
+    keys = []
+    for key in drawn {
+      let face = CGRect(x: column.minX, y: y, width: column.width, height: height)
+      keys.append((key.name, face))
+      key.edge.setFill()
+      UIBezierPath(roundedRect: face.offsetBy(dx: 0, dy: 3), cornerRadius: 6).fill()
+      key.face.setFill()
+      UIBezierPath(roundedRect: face, cornerRadius: 6).fill()
+      if let sign = UIImage(systemName: key.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .bold))?.withTintColor(Wallbox.ink, renderingMode: .alwaysOriginal) {
+        sign.draw(at: CGPoint(x: face.midX - sign.size.width / 2, y: face.midY - sign.size.height / 2))
+      }
+      y += height + gap
+    }
+  }
+
+  override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard drawsKeys, let point = touches.first?.location(in: self) else { return }
+    // A finger is wider than a key drawn for a car's screen.
+    if let key = keys.first(where: { $0.frame.insetBy(dx: -8, dy: -6).contains(point) }) { CarDisplay.shared.pressed?(key.name) }
   }
 
   /// Bars about a centre line: three points wide with a point between, as many as fit. With no waveform yet it is a plain line that fills.

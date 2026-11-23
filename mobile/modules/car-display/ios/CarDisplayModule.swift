@@ -18,10 +18,10 @@ final class CarDisplay {
   }
 
   var state = State() {
-    didSet { onChange?(state) }
+    didSet { NotificationCenter.default.post(name: CarDisplay.changed, object: nil) }
   }
-  /// The scene, while a car is connected.
-  var onChange: ((State) -> Void)?
+  /// Posted on the main queue whenever `state` changes, for whichever screens are showing it.
+  static let changed = Notification.Name("CarDisplayChanged")
   /// A key on the car's screen was pressed: "onPrevious", "onToggle" or "onNext".
   var pressed: ((String) -> Void)?
 }
@@ -66,5 +66,38 @@ public class CarDisplayModule: Module {
     OnStopObserving {
       CarDisplay.shared.pressed = nil
     }
+
+    // The car's screen as a view in the app, to look at and press where there is no car.
+    View(CarPreviewView.self) {}
+  }
+}
+
+/**
+ The car's screen inside the phone app: the same picture `CarSceneDelegate`
+ puts on a car, with the three keys drawn (a car supplies its own) and
+ answering a touch. Xcode 27 gives a simulator no CarPlay to connect, so this
+ is how the screen is seen running there.
+ */
+final class CarPreviewView: ExpoView {
+  private let screen = CarNowPlayingView()
+  private var watching: NSObjectProtocol?
+
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    screen.drawsKeys = true
+    screen.state = CarDisplay.shared.state
+    addSubview(screen)
+    watching = NotificationCenter.default.addObserver(forName: CarDisplay.changed, object: nil, queue: .main) { [weak self] _ in
+      self?.screen.state = CarDisplay.shared.state
+    }
+  }
+
+  deinit {
+    if let watching { NotificationCenter.default.removeObserver(watching) }
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    screen.frame = bounds
   }
 }

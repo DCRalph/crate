@@ -89,6 +89,7 @@ export default function RootLayout() {
         <Stack.Screen name="playlist/add" options={{ presentation: "modal" }} />
         <Stack.Screen name="now-playing" options={{ presentation: "modal" }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="car" />
         <Stack.Screen name="servers/index" />
         <Stack.Screen name="servers/add" options={{ presentation: "modal" }} />
       </Stack>
