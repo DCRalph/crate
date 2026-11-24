@@ -1,74 +1,131 @@
-import { NativeModule, requireNativeView, requireOptionalNativeModule } from "expo";
-import Constants from "expo-constants";
-import { File, Paths } from "expo-file-system";
+import { NativeModule, requireOptionalNativeModule } from "expo";
 
-import type { ViewProps } from "react-native";
-
-import { clientFor } from "./api";
+import { clientFor, type Album, type Track } from "./api";
+import { useDownloads } from "./downloads";
+import { count, formatDuration } from "./format";
 import { coverSource } from "./media";
 import { usePlayer } from "./player";
-import { useServers } from "./servers";
+import { activeServer, type Server } from "./servers";
 
-// The car's screen: what is playing, drawn with its waveform, and its three
-// keys. The native side is `modules/car-display`, which only does anything in
-// a build made with `CARPLAY=1`; this feeds it either way, which costs nothing
-// when no car is there.
+// Crate in CarPlay: the system's lists, filled from here, and the system's
+// Now playing, which follows the lock screen. The native side is
+// `modules/car`; it only shows in a build made with `CARPLAY=1`.
 
-declare class CarDisplay extends NativeModule<{ onPrevious: () => void; onToggle: () => void; onNext: () => void }> {
-  show(title: string, artist: string, cover: string | null, peaks: number[], duration: number): void;
-  progress(position: number, playing: boolean): void;
+type CarItem = { id: string; title: string; detail?: string; image?: { uri: string; headers: Record<string, string> }; browse?: boolean; playing?: boolean };
+type CarSection = { title?: string; items: CarItem[] };
+/** The lists the car asks for: its four tabs, Up Next, and what a row opens. */
+type List = "home" | "playlists" | "albums" | "downloads" | "queue" | `album:${number}` | `playlist:${number}`;
+
+declare class Car extends NativeModule<{ onLoad: (event: { request: number; list: List }) => void; onPick: (event: { list: List; item: string }) => void }> {
+  fill(request: number, sections: CarSection[], empty: string | null): void;
 }
 
-const native = requireOptionalNativeModule<CarDisplay>("CarDisplay");
+const native = requireOptionalNativeModule<Car>("Car");
 
-/** Whether this build has the drawn car screen (`CARPLAY=1`, see `app.config.ts`). */
-export const hasCarScreen = native !== null && Constants.expoConfig?.extra?.carplay === true;
-/** The car's screen as a view in the app, with its keys drawn and working. Only in a build where `hasCarScreen`. */
-export const CarScreen = requireNativeView<ViewProps>("CarDisplay");
+/** Cover size for a row. A car draws them small. */
+const coverSize = 200;
 
-/** Bars a car's screen has room for. The stored waveform is brought down to this, each bar its loudest moment, 0 to 1. */
-const bars = 180;
-function shrink(peaks: number[]) {
-  return Array.from({ length: bars }, (_, bar) => {
-    const from = Math.floor((bar * peaks.length) / bars);
-    const to = Math.max(from + 1, Math.floor(((bar + 1) * peaks.length) / bars));
-    return Math.max(0, ...peaks.slice(from, to)) / 255;
+const albumRow = (server: Server, album: Album): CarItem => ({
+  id: `album:${album.id}`,
+  title: album.name,
+  detail: album.artistName,
+  image: coverSource(server, "album", album.id, coverSize),
+  browse: true,
+});
+
+const playlistRow = (server: Server, playlist: { id: number; name: string; coverKey: string }, detail: string): CarItem => ({
+  id: `playlist:${playlist.id}`,
+  title: playlist.name,
+  detail,
+  image: coverSource(server, "playlist", playlist.id, coverSize, playlist.coverKey),
+  browse: true,
+});
+
+/** The tracks a list of them last showed, so that choosing one plays the list as it was seen. */
+const shown = new Map<List, Track[]>();
+
+/** A list of tracks; choosing one plays from it. `from` is the player's name for where it was played from. */
+function trackRows(list: List, items: Track[], cover?: (track: Track) => CarItem["image"]): CarSection[] {
+  shown.set(list, items);
+  const { queue, index, from } = usePlayer.getState();
+  const current = queue[index];
+  return [
+    {
+      items: items.map((track, at) => ({
+        id: String(at),
+        title: track.title,
+        detail: `${track.artistName} · ${formatDuration(track.duration)}`,
+        image: cover?.(track),
+        playing: list === "queue" ? at === index : from === list && track.id === current?.id,
+      })),
+    },
+  ];
+}
+
+/** The downloaded copy of a playlist, for when the server can't be reached. */
+function downloadedTracks(server: Server, id: number) {
+  const shelf = useDownloads.getState().shelves[server.id];
+  const playlist = shelf?.playlists[id];
+  return playlist?.trackIds.flatMap((trackId) => shelf?.tracks[trackId]?.track ?? []);
+}
+
+/** The rows of one list, or the line to show in its place. */
+async function rowsOf(server: Server, list: List): Promise<CarSection[]> {
+  const api = clientFor(server);
+  if (list === "home") {
+    const home = await api.library.home.query();
+    return [
+      { title: "Recently played", items: home.recent.map((album) => albumRow(server, album)) },
+      { title: "Newly added", items: home.added.map((album) => albumRow(server, album)) },
+      { title: "Most played", items: home.frequent.map((album) => albumRow(server, album)) },
+    ];
+  }
+  if (list === "playlists") {
+    const tree = await api.playlists.tree.query();
+    return [{ items: tree.playlists.map((playlist) => playlistRow(server, playlist, count(playlist.trackCount, "track"))) }];
+  }
+  if (list === "albums") {
+    const page = await api.library.albums.query({ sort: "name", limit: 120 });
+    return [{ items: page.items.map((album) => albumRow(server, album)) }];
+  }
+  if (list === "downloads") {
+    const playlists = Object.values(useDownloads.getState().shelves[server.id]?.playlists ?? {});
+    return [{ items: playlists.map((playlist) => playlistRow(server, playlist, count(playlist.trackIds.length, "track"))) }];
+  }
+  if (list === "queue") {
+    return trackRows(list, usePlayer.getState().queue, (track) => coverSource(server, "album", track.albumId, coverSize));
+  }
+  const [kind, raw] = list.split(":");
+  const id = Number(raw);
+  if (kind === "album") return trackRows(list, (await api.library.album.query({ id })).tracks);
+  const playlist = await api.playlists.byId.query({ id }).catch((failure: unknown) => {
+    // Offline in a car is the usual case for a downloaded playlist.
+    const downloaded = downloadedTracks(server, id);
+    if (downloaded) return { tracks: downloaded };
+    throw failure;
   });
+  return trackRows(list, playlist.tracks);
 }
 
-/** Keeps the car's screen in step with the player, and the player with the car's keys. Call once, at launch. */
+/** Answers the car's lists and plays what is chosen in them. Call once, at launch. */
 export function watchCar() {
   if (!native) return;
-  native.addListener("onPrevious", () => usePlayer.getState().previous());
-  native.addListener("onToggle", () => usePlayer.getState().toggle());
-  native.addListener("onNext", () => usePlayer.getState().next());
 
-  let shown: number | undefined;
-  usePlayer.subscribe((state) => {
-    const track = state.queue[state.index];
-    native.progress(state.position, state.playing);
-    if (track?.id === shown) return;
-    shown = track?.id;
-    if (!track) return native.show("", "", null, [], 0);
-    // The name at once; the cover and the waveform as each arrives.
-    native.show(track.title, track.artistName, null, [], track.duration);
-    const server = useServers.getState().servers.find((candidate) => candidate.id === state.serverId);
-    if (!server) return;
-    const cover = coverSource(server, "album", track.albumId, 600);
-    // One file an album, fetched once: the next track is usually from the same one.
-    const file = new File(Paths.cache, `car-cover-${track.albumId}.jpg`);
-    void Promise.all([
-      file.exists
-        ? file.uri
-        : File.downloadFileAsync(cover.uri, file, { headers: cover.headers }).then(
-            () => file.uri,
-            () => null,
-          ),
-      clientFor(server)
-        .library.waveform.query({ trackId: track.id })
-        .catch(() => null),
-    ]).then(([art, peaks]) => {
-      if (shown === track.id) native.show(track.title, track.artistName, art, peaks ? shrink(peaks) : [], track.duration);
-    });
+  native.addListener("onLoad", ({ request, list }) => {
+    const server = activeServer();
+    if (!server) return native.fill(request, [], "Add a server in Crate on your phone.");
+    rowsOf(server, list).then(
+      (sections) => native.fill(request, sections, list === "downloads" ? "Nothing downloaded. Download a playlist on your phone." : null),
+      () => native.fill(request, [], "Can't reach the server."),
+    );
+  });
+
+  native.addListener("onPick", ({ list, item }) => {
+    const at = Number(item);
+    const player = usePlayer.getState();
+    if (list === "queue") return player.jump(at);
+    const server = activeServer();
+    const items = shown.get(list);
+    if (server && items) player.play(server, items, at, list);
   });
 }

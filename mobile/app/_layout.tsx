@@ -94,7 +94,6 @@ export default function RootLayout() {
         <Stack.Screen name="search" />
         <Stack.Screen name="most-played" />
         <Stack.Screen name="settings" />
-        <Stack.Screen name="car" />
         <Stack.Screen name="servers/index" />
         <Stack.Screen name="servers/add" options={{ presentation: "modal" }} />
       </Stack>

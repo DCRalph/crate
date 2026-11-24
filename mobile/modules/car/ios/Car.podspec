@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
-  s.name           = 'CarDisplay'
+  s.name           = 'Car'
   s.version        = '1.0.0'
-  s.summary        = 'Now playing, drawn on a car screen, with the track as a waveform.'
+  s.summary        = 'Crate in CarPlay: the library as lists, and the system Now Playing screen.'
   s.author         = 'Crate'
   s.homepage       = 'https://github.com/DCRalph/crate'
   s.license        = { :type => 'Proprietary' }

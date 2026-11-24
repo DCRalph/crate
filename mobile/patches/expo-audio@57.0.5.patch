@@ -1,0 +1,39 @@
+diff --git a/ios/MediaController.swift b/ios/MediaController.swift
+index e977f577cd2e16b194b56537ad76b423f40d2496..a7a5bc7ced35f4affb9275ef271128dda65e66c8 100644
+--- a/ios/MediaController.swift
++++ b/ios/MediaController.swift
+@@ -232,6 +232,10 @@ class MediaController {
+   }
+ 
+   private func enableRemoteCommands(options: LockScreenOptions?) {
++    // Called again for every player made active. Without this each call adds another set of handlers,
++    // so after two tracks one press of play/pause toggles twice and does nothing.
++    removeRemoteCommandTargets()
++
+     remoteCommandCenter.playCommand.addTarget { [weak self] _ in
+       guard let player = self?.activePlayer else {
+         return .commandFailed
+@@ -319,12 +323,16 @@ class MediaController {
+     remoteCommandCenter.skipForwardCommand.isEnabled = false
+     remoteCommandCenter.skipBackwardCommand.isEnabled = false
+ 
+-    // Remove event targets
+-    remoteCommandCenter.playCommand.removeTarget(self)
+-    remoteCommandCenter.pauseCommand.removeTarget(self)
+-    remoteCommandCenter.togglePlayPauseCommand.removeTarget(self)
+-    remoteCommandCenter.changePlaybackPositionCommand.removeTarget(self)
+-    remoteCommandCenter.skipForwardCommand.removeTarget(self)
+-    remoteCommandCenter.skipBackwardCommand.removeTarget(self)
++    removeRemoteCommandTargets()
++  }
++
++  // The handlers are blocks, so `removeTarget(self)` never matched them; `nil` removes every target.
++  private func removeRemoteCommandTargets() {
++    remoteCommandCenter.playCommand.removeTarget(nil)
++    remoteCommandCenter.pauseCommand.removeTarget(nil)
++    remoteCommandCenter.togglePlayPauseCommand.removeTarget(nil)
++    remoteCommandCenter.changePlaybackPositionCommand.removeTarget(nil)
++    remoteCommandCenter.skipForwardCommand.removeTarget(nil)
++    remoteCommandCenter.skipBackwardCommand.removeTarget(nil)
+   }
+ }

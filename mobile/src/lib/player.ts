@@ -250,7 +250,8 @@ export const usePlayer = create<Player>()((set, get) => {
   /** Puts a track on the lock screen, with its cover once that has been fetched. */
   const announce = (deck: AudioPlayer, track: Track) => {
     const about = { title: track.title, artist: track.artistName, albumTitle: track.albumName };
-    deck.setActiveForLockScreen(true, about);
+    // Said outright: left out, expo-audio decides from the deck, whose track has no length until it has loaded, and calls it a live stream for the rest of the track. A car then shows "Live" with no time or seeking.
+    deck.setActiveForLockScreen(true, about, { isLiveStream: false });
     const server = serverOf();
     if (!server) return;
     // The lock screen can't send the phone's token, so the cover is fetched to a file first.
